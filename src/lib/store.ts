@@ -23,7 +23,7 @@ export interface Store {
   deleteEvent(id: string): Promise<void>;
   postMessage(text: string): Promise<void>;
   reply(id: string, text: string): Promise<void>;
-  setMessage(id: string, patch: Partial<Pick<Message, 'pinned' | 'done' | 'taker'>>): Promise<void>;
+  setMessage(id: string, patch: Partial<Pick<Message, 'pinned' | 'done' | 'taker' | 'text'>>): Promise<void>;
   addMember(m: MemberInput): Promise<string>;
   updateMember(id: string, patch: Partial<Pick<Member, 'name' | 'role' | 'color' | 'adult' | 'app_bg'>>): Promise<void>;
   removeMember(id: string): Promise<void>;
