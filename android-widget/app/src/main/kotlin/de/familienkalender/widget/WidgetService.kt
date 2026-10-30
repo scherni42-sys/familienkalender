@@ -23,8 +23,14 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
     override fun onDestroy() {}
 
     override fun onDataSetChanged() {
-        val (feed, err) = Feed.load(ctx)
-        rows = if (feed != null) Feed.rows(feed) else emptyList()
+        val (feed, loadErr) = Feed.load(ctx)
+        var err = loadErr
+        rows = try {
+            if (feed != null) Feed.rows(feed) else emptyList()
+        } catch (e: Exception) {
+            err = "Anzeige-Fehler: ${e.message}"
+            emptyList()
+        }
         if (err != null) rows = listOf(Row(Kind.NOTE, err)) + rows
 
         // Zeitstempel im Kopf zeigt, wie aktuell die Anzeige ist

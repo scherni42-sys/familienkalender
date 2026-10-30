@@ -50,10 +50,8 @@ class TodayWidget : AppWidgetProvider() {
             )
             v.setOnClickPendingIntent(R.id.refresh, refresh)
 
-            // Antippen öffnet die Familienkalender-App (oder ohne Code die Einrichtung)
-            val app = Feed.config(ctx)?.app?.takeIf { it.isNotEmpty() }
-            val open = if (app != null) Intent(Intent.ACTION_VIEW, Uri.parse(app)) else Intent(ctx, SetupActivity::class.java)
-            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // Antippen öffnet die Familienkalender-App (oder ohne Code die Einrichtung), immer über OpenActivity
+            val open = Intent(ctx, OpenActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.head, PendingIntent.getActivity(ctx, 1, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             v.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(ctx, 2, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
             return v
