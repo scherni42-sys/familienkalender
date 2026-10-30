@@ -1,0 +1,141 @@
+package de.familienkalender.widget
+
+import android.content.Context
+import android.graphics.Color
+import android.util.Base64
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.OffsetDateTime
+import java.time.format.TextStyle
+import java.util.Locale
+
+// Zugang aus dem Widget-Code der App: Supabase-Adresse, öffentlicher Schlüssel, Display-Token, App-Adresse
+data class Config(val url: String, val key: String, val token: String, val app: String)
+
+enum class Kind { SECTION, EVENT, MESSAGE, NOTE }
+
+data class Row(
+    val kind: Kind,
+    val text: String,
+    val time: String = "",
+    val sub: String = "",
+    val color: Int = Color.GRAY,
+    val faded: Boolean = false,
+    val pinned: Boolean = false
+)
+
+object Feed {
+    private const val PREFS = "familien-widget"
+
+    fun parseCode(raw: String): Config? = try {
+        val code = raw.trim().removePrefix("FK1:").trim()
+        val o = JSONObject(String(Base64.decode(code, Base64.DEFAULT), Charsets.UTF_8))
+        Config(o.getString("u").trimEnd('/'), o.getString("k"), o.getString("t"), o.optString("a"))
+    } catch (e: Exception) {
+        null
+    }
+
+    fun config(ctx: Context): Config? =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("code", null)?.let(::parseCode)
+
+    fun saveCode(ctx: Context, code: String) =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("code", code.trim()).apply()
+
+    private fun cache(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    // Lädt den Display-Feed; bei Fehlern bleibt der letzte Stand aus dem Zwischenspeicher
+    fun load(ctx: Context): Pair<JSONObject?, String?> {
+        val c = config(ctx) ?: return null to "Bitte die Widget-App öffnen und den Code eintragen."
+        return try {
+            val conn = URL("${c.url}/rest/v1/rpc/display_feed").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 15000
+            conn.doOutput = true
+            conn.setRequestProperty("apikey", c.key)
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(JSONObject().put("p_token", c.token).toString().toByteArray()) }
+            val code = conn.responseCode
+            val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
+            if (code !in 200..299) throw Exception("Server meldet $code")
+            if (body.trim() == "null") return null to "Dieses Display wurde entfernt. Bitte neuen Widget-Code eintragen."
+            cache(ctx).edit().putString("feed", body).putLong("at", System.currentTimeMillis()).apply()
+            JSONObject(body) to null
+        } catch (e: Exception) {
+            val old = cache(ctx).getString("feed", null)
+            (old?.let { JSONObject(it) }) to "Offline: ${e.message ?: "keine Verbindung"}"
+        }
+    }
+
+    fun loadedAt(ctx: Context): Long = cache(ctx).getLong("at", 0)
+
+    fun dateLabel(d: LocalDate): String =
+        "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".")} ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
+
+    private fun hm(min: Int) = "%d:%02d".format(min / 60, min % 60)
+
+    private fun parseColor(hex: String?): Int = try {
+        Color.parseColor(hex ?: "#7a8590")
+    } catch (e: Exception) {
+        Color.GRAY
+    }
+
+    // Baut die Zeilen: heutige Familientermine, dann die Pinnwand (wie die Web-Ansicht ?v=mini)
+    fun rows(feed: JSONObject): List<Row> {
+        val today = LocalDate.now().toString()
+        val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
+        val settings = feed.optJSONObject("family")?.optJSONObject("settings") ?: JSONObject()
+        val hidePast = settings.optString("pastMode") == "hide"
+        val ttlHours = settings.optInt("ttlHours", 24)
+        val members = feed.optJSONArray("members") ?: JSONArray()
+        val color = HashMap<String, Int>()
+        val name = HashMap<String, String>()
+        for (i in 0 until members.length()) {
+            val m = members.getJSONObject(i)
+            color[m.getString("id")] = parseColor(m.optString("color"))
+            name[m.getString("id")] = m.optString("name")
+        }
+
+        val out = ArrayList<Row>()
+        val evs = feed.optJSONArray("events") ?: JSONArray()
+        val todays = (0 until evs.length()).map { evs.getJSONObject(it) }
+            .filter { it.optString("date") <= today && today <= it.optString("end_date", it.optString("date")) }
+            .sortedWith(compareBy({ !it.optBoolean("all_day") }, { it.optInt("start_min") }))
+        for (e in todays) {
+            val allDay = e.optBoolean("all_day")
+            val past = !allDay && e.optInt("end_min") <= nowMin
+            if (past && hidePast) continue
+            val persons = e.optJSONArray("persons")
+            val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
+            val driver = e.optString("driver").takeIf { it.isNotEmpty() && it != "null" }
+            out += Row(
+                Kind.EVENT, e.optString("title"),
+                time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
+                sub = driver?.let { "${name[it] ?: ""} fährt" } ?: "",
+                color = first?.let { color[it] } ?: Color.GRAY,
+                faded = past
+            )
+        }
+        if (todays.isEmpty()) out += Row(Kind.NOTE, "Keine Familientermine")
+
+        val msgs = feed.optJSONArray("messages") ?: JSONArray()
+        val now = System.currentTimeMillis()
+        val live = (0 until msgs.length()).map { msgs.getJSONObject(it) }.filter { m ->
+            if (m.optBoolean("done")) return@filter false
+            if (m.optBoolean("pinned")) return@filter true
+            val at = try { OffsetDateTime.parse(m.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { now }
+            now - at < ttlHours * 3_600_000L
+        }.sortedWith(compareBy({ !it.optBoolean("pinned") }, { -(try { OffsetDateTime.parse(it.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { 0L }) }))
+        out += Row(Kind.SECTION, if (live.isEmpty()) "Pinnwand" else "Pinnwand · ${live.size}")
+        if (live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
+        for (m in live) {
+            val from = m.optString("from_member")
+            out += Row(Kind.MESSAGE, m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"))
+        }
+        return out
+    }
+}

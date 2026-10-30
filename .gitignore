@@ -3,3 +3,8 @@ dist
 .env
 .env.local
 *.log
+android-widget/.gradle/
+android-widget/build/
+android-widget/app/build/
+build.log
+*.keystore

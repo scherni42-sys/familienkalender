@@ -7,6 +7,7 @@ import { hm, inDays } from '../lib/dates';
 import { Badge, cvar, Icon, type IconName } from './ui';
 import { fail, toast } from './toast';
 import { micStart, setMicStart } from '../lib/micstart';
+import { SUPA } from '../lib/supabase';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
 const MENU: [Exclude<Sub, null>, string, IconName][] = [
@@ -183,7 +184,7 @@ function Displays() {
           <span className="note">Varianten: <code>?v=bigme</code>, <code>?v=qm</code>, <code>?v=color</code>, <code>?v=eink</code> vor dem # anhängen. <code>?r=5</code> lädt alle 5 Sekunden neu, beides zusammen mit <code>?v=qm&amp;r=5</code>.</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText(url).then(() => toast('Adresse kopiert.'))}>Adresse kopieren</button>
-            <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText(`${base}?v=mini&r=60#/display/${d.token}`).then(() => toast('Widget-Adresse kopiert.'))}>Widget-Adresse kopieren</button>
+            {!store.demo && <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText('FK1:' + btoa(JSON.stringify({ u: SUPA.url, k: SUPA.key, t: d.token, a: base }))).then(() => toast('Widget-Code kopiert. Jetzt in der Familien-Widget-App einfügen.'))}>Widget-Code für Android kopieren</button>}
             <a className="small-btn" href={url} target="_blank" rel="noreferrer">Ansehen</a>
             {!store.demo && <button type="button" className="small-btn danger" onClick={() => { if (confirm('Display entfernen? Die Adresse funktioniert dann nicht mehr.')) store.removeDisplay(d.id).catch(fail); }}>Entfernen</button>}
           </div>
