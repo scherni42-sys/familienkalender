@@ -1,3 +1,4 @@
+declare const __BUILD__: string;
 import { useState, type ReactNode } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import type { Role, Settings as S } from '../lib/types';
@@ -36,6 +37,7 @@ export function Settings() {
       </div>
       {MENU.map(([k, l, ic]) => <button key={k} type="button" className="menu-item" onClick={() => setSub(k)}><span className="mi-ic"><Icon name={ic} /></span><span><b>{l}</b><small>{info[k]}</small></span><span className="chev">›</span></button>)}
       <button type="button" className="small-btn danger" style={{ justifySelf: 'start' }} onClick={() => { if (confirm(store.demo ? 'Alle Demo-Daten löschen?' : 'Auf diesem Handy abmelden? Zum Zurückkommen brauchst du einen neuen Einladungscode vom Admin.')) void store.reset(); }}>{store.demo ? 'Demo zurücksetzen' : 'Abmelden'}</button>
+      <span className="note">Version vom {__BUILD__}</span>
     </>;
   }
 

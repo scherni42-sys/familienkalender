@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 // base: './' damit die App auch in einem Unterordner (z. B. GitHub Pages) läuft
 export default defineConfig({
   base: './',
+  // Bauzeit als Versionsstempel, sichtbar in den Einstellungen
+  define: { __BUILD__: JSON.stringify(new Date().toLocaleString('de-DE', { timeZone: 'Europe/Berlin', dateStyle: 'short', timeStyle: 'short' })) },
   plugins: [
     react(),
     VitePWA({
