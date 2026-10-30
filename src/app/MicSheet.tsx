@@ -21,7 +21,7 @@ const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpee
 
 // Stichwort am Satzanfang: „Privat …“, „Familie …“ oder „Pinnwand …“ speichert ohne Rückfrage
 const PREFIX = /^\s*(privat|familie|pinnwand)\b[\s,.:;!-]*/i;
-const PAUSE = 3500;     // so lange darf man schweigen, bevor die Aufnahme endet
+const PAUSE = 5000;     // so lange darf man schweigen, bevor die Aufnahme endet
 const FIRST = 7000;     // Zeit bis zum ersten Wort
 
 export function MicSheet({ auto, close, toDraft, posted, saved }: { auto?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
@@ -55,8 +55,8 @@ export function MicSheet({ auto, close, toDraft, posted, saved }: { auto?: boole
       const quietFor = Date.now() - st.last;
       if (!st.stop && quietFor < (st.first ? FIRST : PAUSE)) { startRec(true); return; }
       setRec(false);
-      // Mit Stichwort geht es ohne weiteres Antippen weiter
-      if (!st.stop && PREFIX.test(st.base)) void go(st.base);
+      // Nach der Pause geht es ohne weiteres Antippen weiter: mit Stichwort direkt speichern, sonst zur Bestätigung
+      if (!st.stop && st.base) void go(st.base);
     };
     x.onerror = e => {
       if (e.error === 'no-speech' || e.error === 'aborted') return; // onend entscheidet
