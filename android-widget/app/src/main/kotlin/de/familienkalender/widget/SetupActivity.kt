@@ -47,6 +47,7 @@ class SetupActivity : Activity() {
                         val fam = feed.optJSONObject("family")?.optString("name") ?: ""
                         status.text = "Verbunden mit $fam. Du kannst das Widget jetzt auf den Startbildschirm legen."
                         TodayWidget.refreshAll(this)
+                        TodayWidget.schedule(this)
                         if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
                             finish()
