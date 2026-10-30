@@ -5,6 +5,7 @@ plugins {
 }
 
 android {
+    buildFeatures { buildConfig = true }
     namespace = "de.familienkalender.widget"
     compileSdk = 35
 

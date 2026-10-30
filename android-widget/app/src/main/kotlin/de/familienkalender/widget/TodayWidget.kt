@@ -27,7 +27,11 @@ class TodayWidget : AppWidgetProvider() {
 
     override fun onReceive(ctx: Context, intent: Intent) {
         super.onReceive(ctx, intent)
-        if (intent.action == REFRESH) refreshAll(ctx)
+        when (intent.action) {
+            REFRESH -> refreshAll(ctx)
+            // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
+            Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx) }
+        }
     }
 
     companion object {
@@ -57,6 +61,8 @@ class TodayWidget : AppWidgetProvider() {
 
             val svc = Intent(ctx, WidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                // Version in der Adresse, damit der Startbildschirm nach einem Update keine alten Zeilen weiterverwendet
+                putExtra("v", BuildConfig.VERSION_CODE)
                 data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
             }
             v.setRemoteAdapter(R.id.list, svc)

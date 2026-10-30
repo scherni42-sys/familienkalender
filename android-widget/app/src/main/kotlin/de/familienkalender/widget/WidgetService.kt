@@ -35,7 +35,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
 
         // Zeitstempel im Kopf zeigt, wie aktuell die Anzeige ist
         val at = Feed.loadedAt(ctx)
-        val stamp = if (at > 0) SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(at)) else ""
+        val stamp = (if (at > 0) SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(at)) + " · " else "") + "v${BuildConfig.VERSION_CODE}"
         val mgr = AppWidgetManager.getInstance(ctx)
         val head = RemoteViews(ctx.packageName, R.layout.widget)
         head.setTextViewText(R.id.stamp, stamp)
