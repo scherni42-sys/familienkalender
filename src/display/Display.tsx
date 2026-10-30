@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import './display.css';
 import { store } from '../lib/store';
 import type { CalEvent, DisplayFeed, Member } from '../lib/types';
@@ -24,6 +24,16 @@ export function Display({ token }: { token: string }) {
   const [day, setDay] = useState(today());
   const [detail, setDetail] = useState<CalEvent | null>(null);
   const [bdOpen, setBdOpen] = useState(false);
+  // Pinnwand zeigt so viele Nachrichten, wie in die Spalte passen; der Rest wird als „+N weitere“ gezählt
+  const [fitN, setFitN] = useState(99);
+  useLayoutEffect(() => { setFitN(99); }, [feed]);
+  useLayoutEffect(() => {
+    const list = document.querySelector('.wys .w-msgs');
+    const boxes = [list?.closest('.w-sec'), list?.closest('.w-col, .w-board')].filter(Boolean) as HTMLElement[];
+    const count = document.querySelectorAll('.wys .w-msgs .w-msg').length;
+    if (count > 1 && boxes.some(b => b.scrollHeight > b.clientHeight + 2)) setFitN(count - 1);
+  });
+  useEffect(() => { const r = () => setFitN(99); addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
   const v = variant();
 
   useEffect(() => {
@@ -93,7 +103,8 @@ export function Display({ token }: { token: string }) {
     }
     return out;
   };
-  const board = (n: number) => {
+  const board = (_max: number) => {
+    const n = fitN;
     const shown = msgs.slice(0, n);
     const head = <h3>Pinnwand{msgs.length > n && <span className="w-more">+{msgs.length - n} weitere</span>}</h3>;
     const body = shown.length ? shown.map(m => <div key={m.id} className="w-msg">{sb(m.from_member)}<span>{m.text}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span>
