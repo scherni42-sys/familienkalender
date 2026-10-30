@@ -1,6 +1,8 @@
 // Edge Function: versteht einen gesprochenen Satz und macht daraus einen Termin-Vorschlag.
 // Secret setzen: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+// Nur angemeldete Familienmitglieder dürfen die Funktion nutzen (Prüfung im Code, „Verify JWT“ kann aus bleiben).
 import Anthropic from 'npm:@anthropic-ai/sdk';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const client = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
 
@@ -34,6 +36,11 @@ const schema = {
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
+    const auth = req.headers.get('Authorization') ?? '';
+    const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
+    const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
+    const { data: mine } = u.user ? await sb.from('members').select('id').eq('user_id', u.user.id).eq('active', true).limit(1) : { data: null };
+    if (!mine?.length) return new Response(JSON.stringify({ error: 'Nicht angemeldet' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } });
     const { text, today, me, members } = await req.json();
     if (typeof text !== 'string' || !text.trim() || text.length > 500) throw new Error('Kein Text');
     const people = (members as { id: string; name: string; role: string }[]).map(m => `- ${m.name} (ID ${m.id}, ${m.role})`).join('\n');
