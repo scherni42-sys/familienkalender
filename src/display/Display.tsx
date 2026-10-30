@@ -6,10 +6,10 @@ import { addDays, fromIso, hm, inDays, longDate, MON, nowMin, today, WD, WDS } f
 import { bdOn, byTime, dayOfN, depart, liveMsgs, onDay, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
 
-type Variant = 'bigme' | 'qm' | 'color' | 'eink';
+type Variant = 'bigme' | 'qm' | 'color' | 'eink' | 'mini';
 const variant = (): Variant => {
   const v = new URLSearchParams(location.search).get('v');
-  return v === 'bigme' || v === 'color' || v === 'eink' ? v : 'qm';
+  return v === 'bigme' || v === 'color' || v === 'eink' || v === 'mini' ? v : 'qm';
 };
 // ?r=Sekunden in der Adresse setzt den Abruf-Takt (mindestens 5 Sekunden)
 const refreshMs = (v: Variant) => {
@@ -38,6 +38,8 @@ export function Display({ token }: { token: string }) {
 
   if (feed === undefined) return <div className="wys full"><div className="w-empty" style={{ padding: '4cqw' }}>Lädt …</div></div>;
   if (feed === null) return <div className="wys full"><div className="w-empty" style={{ padding: '4cqw' }}>Dieses Display ist nicht (mehr) verbunden. Bitte die Adresse in der App unter Einstellungen → Displays prüfen.</div></div>;
+
+  if (v === 'mini') return <Mini feed={feed} day={day} now={now} />;
 
   const s = feed.family.settings;
   const qm = v === 'qm' || v === 'bigme', big = v === 'bigme', eink = v === 'eink';
@@ -170,6 +172,36 @@ export function Display({ token }: { token: string }) {
         <div className="bdl">{upcoming(feed.birthdays).slice(0, 5).map(b => <div key={b.id} className={`bdr${b.days <= s.bdLead ? ' soon' : ''}`}><div><b>{b.name}</b><small>{b.day}. {MON[b.month - 1]}{b.age ? ` · wird ${b.age}` : ''}</small></div><span className="dd">{inDays(b.days)}</span></div>)}</div>
         <button type="button" onClick={() => setBdOpen(false)}>Schließen</button>
       </div></div>}
+    </div>
+  );
+}
+
+// Kleine Ansicht für Handy-Widgets (z. B. über eine Web-Widget-App): heutige Familientermine und Pinnwand
+function Mini({ feed, day, now }: { feed: DisplayFeed; day: string; now: number }) {
+  const s = feed.family.settings;
+  const members = feed.members as Member[];
+  const color = (id?: string | null) => members.find(m => m.id === id)?.color ?? '#7a8590';
+  const nm = (id?: string | null) => members.find(m => m.id === id)?.name ?? '';
+  const evs = feed.events.filter(e => onDay(e, day)).sort(byTime).filter(e => !(s.pastMode === 'hide' && !e.all_day && e.end_min <= now));
+  const msgs = liveMsgs(feed.messages, s);
+  const d = fromIso(day);
+  return (
+    <div className="mini">
+      <div className="mini-h"><b>Heute</b><span>{WDS[d.getDay()]} {d.getDate()}. {MON[d.getMonth()]}</span></div>
+      {evs.length === 0 && <div className="mini-empty">Keine Familientermine</div>}
+      {evs.map(e => (
+        <div key={e.id} className={`mini-ev${!e.all_day && e.end_min <= now ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')}>
+          <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
+          <span className="t">{e.title}{e.driver ? <small> · {nm(e.driver)} fährt</small> : null}</span>
+        </div>
+      ))}
+      <div className="mini-h board"><b>Pinnwand</b>{msgs.length > 0 && <span>{msgs.length}</span>}</div>
+      {msgs.length === 0 && <div className="mini-empty">Keine Nachrichten</div>}
+      {msgs.map(m => (
+        <div key={m.id} className="mini-msg" style={cvar(color(m.from_member))}>
+          {m.pinned && <Icon name="pin" />}<span>{m.text}</span><small>{nm(m.from_member)}</small>
+        </div>
+      ))}
     </div>
   );
 }
