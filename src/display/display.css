@@ -33,8 +33,9 @@
 .w-week b { font-family: var(--font-display); }
 .w-week span { color: var(--screen-ink); }
 .w-msgs { display: grid; gap: .6cqw; }
-.w-msg { font-size: 1.6cqw; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .8cqw; align-items: center; }
-.w-msg > span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.w-msg { font-size: 1.6cqw; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .8cqw; align-items: start; }
+/* Lange Pinnwand-Texte umbrechen, höchstens drei Zeilen */
+.w-msg > span:nth-child(2) { white-space: normal; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow-wrap: anywhere; }
 .w-msg small { color: var(--screen-muted); font-size: 1.2cqw; white-space: nowrap; }
 .w-msg small.pinned { color: var(--sp-mia); display: inline-flex; }
 .w-msg small.pinned .ico { width: 1.9cqw; height: 1.9cqw; transform: rotate(30deg); }
