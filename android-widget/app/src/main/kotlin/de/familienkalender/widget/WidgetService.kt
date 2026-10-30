@@ -72,7 +72,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                     setTextColor(R.id.time, faded)
                     setInt(R.id.bar, "setBackgroundColor", (r.color and 0x00FFFFFF) or 0x73000000)
                 }
-                setOnClickFillInIntent(R.id.row, Intent())
+                setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
             }
         }
         return v

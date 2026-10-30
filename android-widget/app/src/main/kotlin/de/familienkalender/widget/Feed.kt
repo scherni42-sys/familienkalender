@@ -25,7 +25,8 @@ data class Row(
     val sub: String = "",
     val color: Int = Color.GRAY,
     val faded: Boolean = false,
-    val pinned: Boolean = false
+    val pinned: Boolean = false,
+    val open: String = ""
 )
 
 object Feed {
@@ -120,7 +121,8 @@ object Feed {
                     time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
                     sub = driver?.let { "${name[it] ?: ""} fährt" } ?: "",
                     color = first?.let { color[it] } ?: Color.GRAY,
-                    faded = past
+                    faded = past,
+                    open = "event:" + e.optString("id")
                 )
                 shown++
             }
@@ -143,7 +145,7 @@ object Feed {
         if (live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
         for (m in live) {
             val from = m.optString("from_member")
-            out += Row(Kind.MESSAGE, m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"))
+            out += Row(Kind.MESSAGE, m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = "msg:" + m.optString("id"))
         }
         return out
     }

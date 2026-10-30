@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
@@ -31,6 +31,9 @@ export function Shell() {
   const [filter, setFilter] = useState<Filter>('all');
   const [sheet, setSheet] = useState<SheetState>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [focusMsg, setFocusMsg] = useState<string | null>(null);
+  // Sprung aus dem Android-Widget: ?open=event:<id> oder ?open=msg:<id>
+  const deep = useRef(new URLSearchParams(location.search).get('open'));
   const toastMsg = useToast();
   const now = useMinute();
   const me = snap.members.find(m => m.id === snap.me)!;
@@ -43,10 +46,17 @@ export function Shell() {
 
   // Schnellstart: ?mic=1 (Verknüpfung) oder Geräte-Einstellung öffnet beim Start und beim Zurückkehren sofort die Spracheingabe
   useEffect(() => {
+    const o = deep.current;
+    if (o) {
+      history.replaceState(null, '', location.pathname + location.hash);
+      const [k, id] = o.split(':');
+      if (k === 'event' && snap.events.some(e => e.id === id)) setSheet({ kind: 'detail', id });
+      if (k === 'msg') { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
+    }
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
     if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); setSheet({ kind: 'mic', auto: true }); }
-    else if (micStart()) setSheet({ kind: 'mic', auto: true });
+    else if (micStart() && !o) setSheet({ kind: 'mic', auto: true });
     const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic', auto: true }); };
     document.addEventListener('visibilitychange', onShow);
     return () => document.removeEventListener('visibilitychange', onShow);
@@ -70,7 +80,7 @@ export function Shell() {
       <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
         {tab === 'today' && <TodayTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
-        {tab === 'board' && <Board />}
+        {tab === 'board' && <Board focus={focusMsg} />}
         {tab === 'settings' && <Settings />}
       </div>
       <nav className="tabs" aria-label="Bereiche">

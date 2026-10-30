@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { leftTxt, liveMsgs, nameOf, whenM } from '../lib/model';
 import { Badge, Icon } from './ui';
 import { fail, toast } from './toast';
 
-export function Board() {
+export function Board({ focus }: { focus?: string | null }) {
   const snap = useSnapshot();
   const s = snap.family!.settings;
   const me = snap.members.find(m => m.id === snap.me)!;
@@ -13,6 +13,8 @@ export function Board() {
   const [text, setText] = useState(''), [reply, setReply] = useState('');
   const msgs = liveMsgs(snap.messages, s);
   const member = (id: string) => snap.members.find(m => m.id === id);
+  // Aus dem Widget angetippte Nachricht ins Bild holen
+  useEffect(() => { if (focus) document.getElementById(`msg-${focus}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [focus]);
   const ttl = s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tagen`;
 
   const quick = async (id: string, t: string) => {
@@ -26,7 +28,7 @@ export function Board() {
     <p className="note">Kurze Nachrichten für alle, auch auf dem Display. Sie verschwinden nach {ttl}, sobald jemand sie abhakt, oder bleiben angeheftet stehen.</p>
     {msgs.length === 0 && <div className="empty smile"><Icon name="smile" />Keine Nachrichten</div>}
     {msgs.map(m => (
-      <div key={m.id} className={`msg${m.pinned ? ' pinned' : ''}`}>
+      <div key={m.id} id={`msg-${m.id}`} className={`msg${m.pinned ? ' pinned' : ''}${focus === m.id ? ' isnew' : ''}`}>
         <div className="from"><Badge m={member(m.from_member)} /> {nameOf(snap.members, m.from_member)} · {whenM(m)}{m.via ? ` · ${m.via}` : ''}</div>
         <div>{m.text}</div>
         {m.taker && <div className="note"><b>Übernimmt: {nameOf(snap.members, m.taker)}</b></div>}

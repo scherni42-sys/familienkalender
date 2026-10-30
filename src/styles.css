@@ -76,7 +76,7 @@ button { cursor: pointer; }
 .ev.private { background: transparent; border: 1px dashed var(--line); border-left: 4px solid var(--line); }
 .ev.busy { background: transparent; border: 1px dashed var(--line); border-left: 4px solid var(--line); color: var(--muted); }
 .ev.past { opacity: .55; }
-.ev.isnew { box-shadow: 0 0 0 2px var(--accent); }
+.ev.isnew, .msg.isnew { box-shadow: 0 0 0 2px var(--accent); }
 .ev time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
 .ev time.ad { font-size: 11.5px; line-height: 1.25; color: var(--muted); }
 .ev time span { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
