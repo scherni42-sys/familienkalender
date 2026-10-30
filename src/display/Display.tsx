@@ -11,8 +11,13 @@ const variant = (): Variant => {
   const v = new URLSearchParams(location.search).get('v');
   return v === 'bigme' || v === 'color' || v === 'eink' ? v : 'qm';
 };
+// ?r=Sekunden in der Adresse setzt den Abruf-Takt (mindestens 5 Sekunden)
+const refreshMs = (v: Variant) => {
+  const r = Number(new URLSearchParams(location.search).get('r'));
+  return r > 0 ? Math.max(5, r) * 1000 : v === 'eink' || v === 'bigme' ? 300000 : 60000;
+};
 
-// Das Flur-Display: lädt die Familiendaten über das geheime Token und aktualisiert sich jede Minute
+// Das Flur-Display: lädt die Familiendaten über das geheime Token und aktualisiert sich jede Minute (oder nach ?r=)
 export function Display({ token }: { token: string }) {
   const [feed, setFeed] = useState<DisplayFeed | null | undefined>(undefined);
   const [now, setNow] = useState(nowMin());
@@ -26,7 +31,7 @@ export function Display({ token }: { token: string }) {
     const load = () => store.displayFeed(token).then(f => setFeed(f));
     void load();
     const t1 = setInterval(() => { setNow(nowMin()); setDay(today()); }, 20000);
-    const t2 = setInterval(load, v === 'eink' || v === 'bigme' ? 300000 : 60000);
+    const t2 = setInterval(load, refreshMs(v));
     const off = store.demo ? store.subscribe(() => void load()) : () => {};
     return () => { clearInterval(t1); clearInterval(t2); off(); };
   }, [token, v]);

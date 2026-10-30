@@ -176,7 +176,7 @@ function Displays() {
       return <div key={d.id} className="mem"><span className="b" style={cvar('var(--muted)')}>W</span><div><div className="nm">{d.name}</div><div className="sub">nur Familientermine</div></div><span />
         <div className="acts" style={{ display: 'grid' }}>
           <div className="urlbox">{url}</div>
-          <span className="note">Varianten: <code>?v=bigme</code>, <code>?v=qm</code>, <code>?v=color</code>, <code>?v=eink</code> vor dem # anhängen.</span>
+          <span className="note">Varianten: <code>?v=bigme</code>, <code>?v=qm</code>, <code>?v=color</code>, <code>?v=eink</code> vor dem # anhängen. <code>?r=5</code> lädt alle 5 Sekunden neu, beides zusammen mit <code>?v=qm&amp;r=5</code>.</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText(url).then(() => toast('Adresse kopiert.'))}>Adresse kopieren</button>
             <a className="small-btn" href={url} target="_blank" rel="noreferrer">Ansehen</a>
