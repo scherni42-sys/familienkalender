@@ -4,14 +4,14 @@ import { supabase } from './supabase';
 import { today } from './dates';
 
 // KI-Erkennung über die Edge Function „parse-event“; ohne Verbindung die einfache Erkennung auf dem Handy
-export async function parseSpoken(text: string, me: string, members: Member[]): Promise<Draft & { source: 'ai' | 'local' }> {
+export async function parseSpoken(text: string, me: string, members: Member[]): Promise<Draft & { source: 'ai' | 'local'; why?: string }> {
   const local = parseLocal(text, me, members);
   if (!supabase) return { ...local, source: 'local' };
   try {
     const call = supabase.functions.invoke('parse-event', {
       body: { text, today: today(), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })) }
     });
-    const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), 9000));
+    const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('keine Antwort nach 25 s')), 25000));
     const { data, error } = await Promise.race([call, timeout]);
     if (error || !data?.event) throw error ?? new Error('leer');
     const e = data.event;
@@ -39,7 +39,13 @@ export async function parseSpoken(text: string, me: string, members: Member[]): 
       timeFound: !allDay,
       source: 'ai'
     };
-  } catch {
-    return { ...local, source: 'local' };
+  } catch (err) {
+    // Grund mitgeben, damit die Bestätigung zeigt, warum die KI nicht geholfen hat
+    let why = err instanceof Error ? err.message : String(err);
+    const res = (err as { context?: Response }).context;
+    if (res && typeof res.json === 'function') {
+      try { const b = await res.json(); why = `${res.status}: ${b?.error ?? b?.message ?? why}`; } catch { why = `HTTP ${res.status}`; }
+    }
+    return { ...local, source: 'local', why };
   }
 }

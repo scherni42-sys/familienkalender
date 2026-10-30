@@ -49,7 +49,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
         {d.suggested === d.vis ? <><b>Passt: {d.vis === 'family' ? 'Familie' : 'Privat'}</b>, weil {d.reason}.</>
           : <><b>Hinweis:</b> Du hast {d.vis === 'family' ? 'Familie' : 'Privat'} gewählt. Ich hätte {d.suggested === 'family' ? 'Familie' : 'Privat'} vorgeschlagen, weil {d.reason}.</>}
         {d.timeFound ? '' : ' Keine Uhrzeit genannt, daher ganztägig.'}
-        {d.source && <span className="note" style={{ display: 'block' }}>{d.source === 'ai' ? 'Erkannt von Claude' : 'Einfache Erkennung (ohne KI)'}</span>}
+        {d.source && <span className="note" style={{ display: 'block' }}>{d.source === 'ai' ? 'Erkannt von Claude' : `Einfache Erkennung (ohne KI${d.why ? ': ' + d.why : ''})`}</span>}
       </div></div>}
       <div className="visbig" role="group" aria-label="Sichtbarkeit">
         <button type="button" className="private" aria-pressed={d.vis === 'private'} onClick={() => set({ vis: 'private' })}><Icon name="lock" />Privat<small>nur ich</small></button>

@@ -4,6 +4,7 @@ import { addDays, diffDays, fromIso, iso, MON, today, WD } from './dates';
 export interface Draft {
   id?: string;
   source?: 'ai' | 'local';
+  why?: string;
   title: string;
   date: string;
   end_date: string;
