@@ -44,7 +44,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
     }
 
     override fun getCount() = rows.size
-    override fun getViewTypeCount() = 3
+    override fun getViewTypeCount() = 4
     override fun getItemId(position: Int) = position.toLong()
     override fun hasStableIds() = false
     override fun getLoadingView(): RemoteViews? = null
@@ -54,6 +54,12 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         val v = when (r.kind) {
             Kind.SECTION -> RemoteViews(ctx.packageName, R.layout.section).apply { setTextViewText(R.id.text, r.text) }
             Kind.NOTE -> RemoteViews(ctx.packageName, R.layout.note).apply { setTextViewText(R.id.text, r.text) }
+            Kind.REPLY -> RemoteViews(ctx.packageName, R.layout.reply).apply {
+                setTextViewText(R.id.who, r.time)
+                setTextColor(R.id.who, r.color)
+                setTextViewText(R.id.text, r.text)
+                setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
+            }
             else -> RemoteViews(ctx.packageName, R.layout.row).apply {
                 setTextViewText(R.id.text, r.text)
                 setTextViewText(R.id.sub, r.sub)

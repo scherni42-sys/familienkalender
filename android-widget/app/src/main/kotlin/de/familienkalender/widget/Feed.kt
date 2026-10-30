@@ -16,7 +16,7 @@ import java.util.Locale
 // Zugang aus dem Widget-Code der App: Supabase-Adresse, öffentlicher Schlüssel, Display-Token, App-Adresse
 data class Config(val url: String, val key: String, val token: String, val app: String)
 
-enum class Kind { SECTION, EVENT, MESSAGE, NOTE }
+enum class Kind { SECTION, EVENT, MESSAGE, REPLY, NOTE }
 
 data class Row(
     val kind: Kind,
@@ -145,7 +145,20 @@ object Feed {
         if (live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
         for (m in live) {
             val from = m.optString("from_member")
-            out += Row(Kind.MESSAGE, m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = "msg:" + m.optString("id"))
+            val open = "msg:" + m.optString("id")
+            out += Row(Kind.MESSAGE, m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = open)
+            // Reaktionen darunter: wer übernimmt, dann die letzten Antworten
+            val taker = m.optString("taker").takeIf { it.isNotEmpty() && it != "null" }
+            if (taker != null) out += Row(Kind.REPLY, "übernimmt das", time = "✓ ${name[taker] ?: ""}", color = color[taker] ?: Color.GRAY, open = open)
+            val replies = m.optJSONArray("replies") ?: JSONArray()
+            val first = maxOf(0, replies.length() - 3)
+            if (first > 0) out += Row(Kind.REPLY, "$first ältere Antwort${if (first > 1) "en" else ""}", time = "…", color = Color.GRAY, open = open)
+            for (i in first until replies.length()) {
+                val r = replies.getJSONObject(i)
+                val who = r.optString("from_member")
+                if (taker != null && who == taker && r.optString("text") == "Mach ich") continue
+                out += Row(Kind.REPLY, r.optString("text"), time = "↳ ${name[who] ?: ""}:", color = color[who] ?: Color.GRAY, open = open)
+            }
         }
         return out
     }
