@@ -22,6 +22,7 @@ export default defineConfig({
         display: 'standalone',
         background_color: '#f3f6f4',
         theme_color: '#1d8657',
+        shortcuts: [{ name: 'Neuer Termin', short_name: 'Termin', url: './?mic=1', icons: [{ src: 'icon-192.png', sizes: '192x192' }] }],
         icons: [
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },

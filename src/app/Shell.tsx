@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSnapshot } from '../lib/store';
+import { micStart } from '../lib/micstart';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
 import { bdOn, colorOf, depart, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
@@ -39,6 +40,17 @@ export function Shell() {
   const titles: Record<Tab, string> = { today: 'Heute', week: 'Kalender', board: 'Pinnwand', settings: 'Einstellungen' };
   const open = (id: string) => setSheet({ kind: 'detail', id });
   const saved = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 4000); };
+
+  // Schnellstart: ?mic=1 (Verknüpfung) oder Geräte-Einstellung öffnet beim Start und beim Zurückkehren sofort die Spracheingabe
+  useEffect(() => {
+    if (me.role === 'guest') return;
+    const q = new URLSearchParams(location.search);
+    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); setSheet({ kind: 'mic' }); }
+    else if (micStart()) setSheet({ kind: 'mic' });
+    const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic' }); };
+    document.addEventListener('visibilitychange', onShow);
+    return () => document.removeEventListener('visibilitychange', onShow);
+  }, [me.role]);
 
   return (
     <div className="screen" style={me.app_bg ? { background: me.app_bg } : undefined}>

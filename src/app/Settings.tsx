@@ -6,6 +6,7 @@ import { BGS, ROLE, SWATCHES, upcoming, bdLabel } from '../lib/model';
 import { hm, inDays } from '../lib/dates';
 import { Badge, cvar, Icon, type IconName } from './ui';
 import { fail, toast } from './toast';
+import { micStart, setMicStart } from '../lib/micstart';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
 const MENU: [Exclude<Sub, null>, string, IconName][] = [
@@ -36,6 +37,7 @@ export function Settings() {
         {store.demo && <div className="acts"><span className="badge-demo">Demo-Modus</span><label className="note">Handy von <select value={snap.me!} onChange={e => store.switchUser?.(e.target.value)}>{snap.members.filter(m => m.role !== 'child').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label></div>}
       </div>
       {MENU.map(([k, l, ic]) => <button key={k} type="button" className="menu-item" onClick={() => setSub(k)}><span className="mi-ic"><Icon name={ic} /></span><span><b>{l}</b><small>{info[k]}</small></span><span className="chev">›</span></button>)}
+      {me.role !== 'guest' && <MicStartRow />}
       <button type="button" className="small-btn danger" style={{ justifySelf: 'start' }} onClick={() => { if (confirm(store.demo ? 'Alle Demo-Daten löschen?' : 'Auf diesem Handy abmelden? Zum Zurückkommen brauchst du einen neuen Einladungscode vom Admin.')) void store.reset(); }}>{store.demo ? 'Demo zurücksetzen' : 'Abmelden'}</button>
       <span className="note">Version vom {__BUILD__}</span>
     </>;
@@ -190,5 +192,15 @@ function Displays() {
     <label className="setrow"><span><Icon name="board" /> Pinnwand am Display</span>
       <select value={s.boardMode} onChange={e => store.updateSettings({ boardMode: e.target.value as 'dynamic' | 'fixed' }).catch(fail)}><option value="dynamic">dynamisch</option><option value="fixed">fest: rechtes Drittel</option></select></label>
     <p className="note">Dynamisch: Die Pinnwand bekommt den Platz neben den Terminen. Fest: Das rechte Drittel gehört immer der Pinnwand.</p>
+  </>;
+}
+
+// Nur für dieses Handy: App öffnet direkt die Spracheingabe (praktisch mit der Samsung-Seitentaste)
+function MicStartRow() {
+  const [on, setOn] = useState(micStart());
+  return <>
+    <label className="setrow"><span><Icon name="mic" /> Beim Öffnen sofort Spracheingabe</span>
+      <input type="checkbox" className="sw" checked={on} onChange={e => { setMicStart(e.target.checked); setOn(e.target.checked); toast(e.target.checked ? 'Die App startet jetzt direkt mit dem Mikrofon.' : 'Die App startet wieder normal.'); }} /></label>
+    <span className="note">Gilt nur für dieses Handy. Zusammen mit der Seitentaste ist das die schnellste Eingabe.</span>
   </>;
 }
