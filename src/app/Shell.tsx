@@ -16,7 +16,7 @@ import { PushBanner } from './PushBanner';
 
 type Tab = 'today' | 'week' | 'board' | 'settings';
 type Filter = 'all' | 'family' | 'mine';
-export type SheetState = { kind: 'mic' } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string } | { kind: 'bdays' } | null;
+export type SheetState = { kind: 'mic'; auto?: boolean } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string } | { kind: 'bdays' } | null;
 
 // Uhr, die jede Minute neu zeichnet (für „vorbei“, „los in X Min.“)
 export function useMinute() {
@@ -45,9 +45,9 @@ export function Shell() {
   useEffect(() => {
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
-    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); setSheet({ kind: 'mic' }); }
-    else if (micStart()) setSheet({ kind: 'mic' });
-    const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic' }); };
+    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); setSheet({ kind: 'mic', auto: true }); }
+    else if (micStart()) setSheet({ kind: 'mic', auto: true });
+    const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic', auto: true }); };
     document.addEventListener('visibilitychange', onShow);
     return () => document.removeEventListener('visibilitychange', onShow);
   }, [me.role]);
@@ -82,7 +82,7 @@ export function Shell() {
         <TabBtn on={tab === 'board'} icon="board" label="Pinnwand" go={() => setTab('board')} />
         <TabBtn on={tab === 'settings'} icon="gear" label="Einstellungen" go={() => setTab('settings')} />
       </nav>
-      {sheet?.kind === 'mic' && <MicSheet close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} />}
+      {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
       {sheet?.kind === 'bdays' && <BdaySheet close={() => setSheet(null)} />}

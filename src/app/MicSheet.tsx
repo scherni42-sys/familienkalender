@@ -17,23 +17,26 @@ type Rec = { lang: string; interimResults: boolean; continuous: boolean; start()
 const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition
   ?? (window as unknown as { webkitSpeechRecognition?: new () => Rec }).webkitSpeechRecognition;
 
-export function MicSheet({ close, toDraft, posted }: { close: () => void; toDraft: (d: Draft) => void; posted: () => void }) {
+export function MicSheet({ auto, close, toDraft, posted }: { auto?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void }) {
   const snap = useSnapshot();
   const [mode, setMode] = useState<Mode>('family');
   const [text, setText] = useState('');
   const [rec, setRec] = useState(false), [busy, setBusy] = useState(false);
   const r = useRef<Rec | null>(null);
   useEffect(() => () => r.current?.stop(), []);
+  // Schnellstart: Aufnahme gleich beginnen; lehnt der Browser ohne Antippen ab, bleibt der Knopf
+  useEffect(() => { if (auto && SR) { const t = setTimeout(() => listen(true), 300); return () => clearTimeout(t); } }, []);
 
-  const listen = () => {
+  const listen = (quiet = false) => {
     if (!SR) { toast('Dieser Browser kann keine Sprache erkennen. Tippe den Satz einfach ein.'); return; }
     if (rec) { r.current?.stop(); return; }
     const x = new SR();
     x.lang = 'de-DE'; x.interimResults = true; x.continuous = false;
     x.onresult = e => setText(Array.from(e.results).map(res => res[0].transcript).join(' '));
     x.onend = () => setRec(false);
-    x.onerror = e => { setRec(false); if (e.error === 'not-allowed') toast('Bitte erlaube den Zugriff auf das Mikrofon.'); };
-    r.current = x; x.start(); setRec(true);
+    x.onerror = e => { setRec(false); if (e.error === 'not-allowed' && !quiet) toast('Bitte erlaube den Zugriff auf das Mikrofon.'); };
+    r.current = x;
+    try { x.start(); setRec(true); } catch { setRec(false); }
   };
 
   const go = async () => {
@@ -54,7 +57,7 @@ export function MicSheet({ close, toDraft, posted }: { close: () => void; toDraf
         <button type="button" className="family" aria-pressed={mode === 'family'} onClick={() => setMode('family')}><Icon name="home" />Familie<small>alle + Display</small></button>
         <button type="button" className="board" aria-pressed={mode === 'board'} onClick={() => setMode('board')}><Icon name="board" />Pinnwand<small>Nachricht</small></button>
       </div>
-      <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={listen} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button></div>
+      <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button></div>
       <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu …' : 'Tippe aufs Mikrofon und sprich, oder schreib den Satz.'}</p>
       <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'z. B. Milch fehlt' : 'z. B. Mia hat Donnerstag um 17 Uhr Fußball, Papa fährt'} maxLength={500} />
       <div className="chips">{SAMPLES[mode].map(x => <button key={x} type="button" className="chip" onClick={() => setText(x)}>{x}</button>)}</div>
