@@ -3,6 +3,8 @@ import { store, useSnapshot } from '../lib/store';
 import { parseSpoken } from '../lib/ai';
 import type { Draft } from '../lib/parse';
 import { Icon, Sheet } from './ui';
+import { toNewEvent } from './EventSheet';
+import { whenText } from '../lib/model';
 import { fail, toast } from './toast';
 
 type Mode = 'private' | 'family' | 'board';
@@ -17,35 +19,86 @@ type Rec = { lang: string; interimResults: boolean; continuous: boolean; start()
 const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition
   ?? (window as unknown as { webkitSpeechRecognition?: new () => Rec }).webkitSpeechRecognition;
 
-export function MicSheet({ auto, close, toDraft, posted }: { auto?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void }) {
+// Stichwort am Satzanfang: „Privat …“, „Familie …“ oder „Pinnwand …“ speichert ohne Rückfrage
+const PREFIX = /^\s*(privat|familie|pinnwand)\b[\s,.:;!-]*/i;
+const PAUSE = 3500;     // so lange darf man schweigen, bevor die Aufnahme endet
+const FIRST = 7000;     // Zeit bis zum ersten Wort
+
+export function MicSheet({ auto, close, toDraft, posted, saved }: { auto?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
   const snap = useSnapshot();
   const [mode, setMode] = useState<Mode>('family');
   const [text, setText] = useState('');
   const [rec, setRec] = useState(false), [busy, setBusy] = useState(false);
   const r = useRef<Rec | null>(null);
-  useEffect(() => () => r.current?.stop(), []);
+  // Aufnahme-Zustand: Android beendet die Erkennung nach kurzer Stille, wir starten sie bis zur echten Pause neu
+  const sess = useRef({ base: '', cur: '', last: 0, first: true, stop: false });
+  const latest = useRef({ text, mode });
+  latest.current = { text, mode };
+  useEffect(() => () => { sess.current.stop = true; r.current?.stop(); }, []);
   // Schnellstart: Aufnahme gleich beginnen; lehnt der Browser ohne Antippen ab, bleibt der Knopf
   useEffect(() => { if (auto && SR) { const t = setTimeout(() => listen(true), 300); return () => clearTimeout(t); } }, []);
 
-  const listen = (quiet = false) => {
-    if (!SR) { toast('Dieser Browser kann keine Sprache erkennen. Tippe den Satz einfach ein.'); return; }
-    if (rec) { r.current?.stop(); return; }
-    const x = new SR();
+  const join = (a: string, b: string) => [a.trim(), b.trim()].filter(Boolean).join(' ');
+
+  const startRec = (quiet: boolean) => {
+    const x = new SR!();
     x.lang = 'de-DE'; x.interimResults = true; x.continuous = false;
-    x.onresult = e => setText(Array.from(e.results).map(res => res[0].transcript).join(' '));
-    x.onend = () => setRec(false);
-    x.onerror = e => { setRec(false); if (e.error === 'not-allowed' && !quiet) toast('Bitte erlaube den Zugriff auf das Mikrofon.'); };
+    x.onresult = e => {
+      const st = sess.current;
+      st.cur = Array.from(e.results).map(res => res[0].transcript).join(' ');
+      st.last = Date.now(); st.first = false;
+      setText(join(st.base, st.cur));
+    };
+    x.onend = () => {
+      const st = sess.current;
+      st.base = join(st.base, st.cur); st.cur = '';
+      const quietFor = Date.now() - st.last;
+      if (!st.stop && quietFor < (st.first ? FIRST : PAUSE)) { startRec(true); return; }
+      setRec(false);
+      // Mit Stichwort geht es ohne weiteres Antippen weiter
+      if (!st.stop && PREFIX.test(st.base)) void go(st.base);
+    };
+    x.onerror = e => {
+      if (e.error === 'no-speech' || e.error === 'aborted') return; // onend entscheidet
+      sess.current.stop = true; setRec(false);
+      if (e.error === 'not-allowed' && !quiet) toast('Bitte erlaube den Zugriff auf das Mikrofon.');
+    };
     r.current = x;
-    try { x.start(); setRec(true); } catch { setRec(false); }
+    try { x.start(); setRec(true); } catch { sess.current.stop = true; setRec(false); }
   };
 
-  const go = async () => {
-    const v = text.trim(); if (!v) return;
+  const listen = (quiet = false) => {
+    if (!SR) { toast('Dieser Browser kann keine Sprache erkennen. Tippe den Satz einfach ein.'); return; }
+    if (rec) { sess.current.stop = true; r.current?.stop(); return; }
+    sess.current = { base: latest.current.text.trim(), cur: '', last: Date.now(), first: true, stop: false };
+    startRec(quiet);
+  };
+
+  const go = async (spoken?: string) => {
+    let v = (spoken ?? latest.current.text).trim(); if (!v) return;
+    let m = latest.current.mode;
+    const pre = v.match(PREFIX);
+    const direct = !!pre;
+    if (pre) {
+      const k = pre[1].toLowerCase();
+      m = k === 'privat' ? 'private' : k === 'familie' ? 'family' : 'board';
+      v = v.slice(pre[0].length).trim();
+      setMode(m);
+      if (!v) return;
+      v = v.charAt(0).toUpperCase() + v.slice(1);
+    }
     setBusy(true);
     try {
-      if (mode === 'board') { await store.postMessage(v); toast('Hängt jetzt an der Wand.'); posted(); return; }
-      const d = await parseSpoken(v, snap.me!, snap.members.filter(m => m.role !== 'guest'));
-      toDraft({ ...d, vis: mode, busy: mode === 'private' && d.busy });
+      if (m === 'board') { await store.postMessage(v); toast('Hängt jetzt an der Wand.'); posted(); return; }
+      const parsed = await parseSpoken(v, snap.me!, snap.members.filter(x => x.role !== 'guest'));
+      const d: Draft = { ...parsed, vis: m, busy: m === 'private' && parsed.busy };
+      if (direct && d.title.trim()) {
+        const id = await store.saveEvent(toNewEvent(d));
+        toast(`${m === 'family' ? 'Familientermin' : 'Privater Termin'} gespeichert: ${d.title}, ${whenText(d)}`);
+        saved(id);
+        return;
+      }
+      toDraft(d);
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
 
@@ -58,8 +111,9 @@ export function MicSheet({ auto, close, toDraft, posted }: { auto?: boolean; clo
         <button type="button" className="board" aria-pressed={mode === 'board'} onClick={() => setMode('board')}><Icon name="board" />Pinnwand<small>Nachricht</small></button>
       </div>
       <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button></div>
-      <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu …' : 'Tippe aufs Mikrofon und sprich, oder schreib den Satz.'}</p>
+      <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : 'Tippe aufs Mikrofon und sprich, oder schreib den Satz.'}</p>
       <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'z. B. Milch fehlt' : 'z. B. Mia hat Donnerstag um 17 Uhr Fußball, Papa fährt'} maxLength={500} />
+      <p className="note">Tipp: Beginnst du mit „Privat“, „Familie“ oder „Pinnwand“, wird ohne Rückfrage gespeichert.</p>
       <div className="chips">{SAMPLES[mode].map(x => <button key={x} type="button" className="chip" onClick={() => setText(x)}>{x}</button>)}</div>
       <div className="btn-row">
         <button type="button" className="btn ghost" onClick={close}>Abbrechen</button>

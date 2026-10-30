@@ -82,7 +82,7 @@ export function Shell() {
         <TabBtn on={tab === 'board'} icon="board" label="Pinnwand" go={() => setTab('board')} />
         <TabBtn on={tab === 'settings'} icon="gear" label="Einstellungen" go={() => setTab('settings')} />
       </nav>
-      {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} />}
+      {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
       {sheet?.kind === 'bdays' && <BdaySheet close={() => setSheet(null)} />}

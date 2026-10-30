@@ -1,10 +1,20 @@
 import { useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
+import type { NewEvent } from '../lib/types';
 import { dayLabel, hm, toMin } from '../lib/dates';
 import { conflicts, nameOf, whenText } from '../lib/model';
 import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
+
+// Entwurf in einen speicherbaren Termin umwandeln (auch für die Direkteingabe ohne Bestätigung)
+export const toNewEvent = (d: Draft, bringTxt = d.bring.join(', ')): NewEvent => ({
+  title: d.title.trim(), date: d.date, end_date: d.all_day ? (d.end_date < d.date ? d.date : d.end_date) : d.date,
+  all_day: d.all_day, start_min: d.all_day ? 0 : d.start_min, end_min: d.all_day ? 1440 : d.end_min,
+  persons: d.persons, driver: d.driver, vis: d.vis === 'family' ? 'family' : d.busy ? 'busy' : 'private',
+  place: d.place.trim(), addr: d.addr.trim(), travel_min: d.driver && d.travel_min ? d.travel_min : null,
+  notes: d.notes.trim(), bring: bringTxt.split(',').map(x => x.trim()).filter(Boolean), discreet: d.vis === 'family' && d.discreet
+});
 
 export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft; fresh: boolean; close: () => void; back: () => void; saved: (id: string) => void }) {
   const snap = useSnapshot();
@@ -26,13 +36,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
     if (!d.all_day && d.end_min <= d.start_min) { toast('Das Ende muss nach dem Beginn liegen.'); return; }
     setBusy(true);
     try {
-      const id = await store.saveEvent({
-        title: d.title.trim(), date: d.date, end_date: d.all_day ? (d.end_date < d.date ? d.date : d.end_date) : d.date,
-        all_day: d.all_day, start_min: d.all_day ? 0 : d.start_min, end_min: d.all_day ? 1440 : d.end_min,
-        persons: d.persons, driver: d.driver, vis: d.vis === 'family' ? 'family' : d.busy ? 'busy' : 'private',
-        place: d.place.trim(), addr: d.addr.trim(), travel_min: d.driver && d.travel_min ? d.travel_min : null,
-        notes: d.notes.trim(), bring: bringTxt.split(',').map(x => x.trim()).filter(Boolean), discreet: d.vis === 'family' && d.discreet
-      }, d.id);
+      const id = await store.saveEvent(toNewEvent(d, bringTxt), d.id);
       toast(d.vis === 'family' ? 'Gespeichert. Steht jetzt auch auf dem Display.' : 'Gespeichert, nur für dich.');
       saved(id);
     } catch (e) { fail(e); } finally { setBusy(false); }
