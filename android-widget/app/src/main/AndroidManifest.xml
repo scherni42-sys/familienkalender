@@ -24,6 +24,22 @@
         </activity>
 
         <activity
+            android:name=".MicActivity"
+            android:exported="true"
+            android:label="@string/mic_name"
+            android:icon="@mipmap/ic_mic"
+            android:roundIcon="@mipmap/ic_mic"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".OpenActivity"
             android:exported="false"
             android:excludeFromRecents="true"

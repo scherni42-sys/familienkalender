@@ -3,4 +3,5 @@
     <string name="app_name">Familien-Widget</string>
     <string name="widget_name">Familienkalender: Heute &amp; Pinnwand</string>
     <string name="widget_desc">Heutige Familientermine und die Pinnwand</string>
+    <string name="mic_name">Familie sprechen</string>
 </resources>
