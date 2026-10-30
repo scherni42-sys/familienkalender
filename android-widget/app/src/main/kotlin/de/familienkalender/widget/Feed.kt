@@ -84,7 +84,7 @@ object Feed {
         Color.GRAY
     }
 
-    // Baut die Zeilen: heutige Familientermine, dann die Pinnwand (wie die Web-Ansicht ?v=mini)
+    // Baut die Zeilen: heutige und morgige Familientermine, dann die Pinnwand (wie die Web-Ansicht ?v=mini)
     fun rows(feed: JSONObject): List<Row> {
         val today = LocalDate.now().toString()
         val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
@@ -102,25 +102,34 @@ object Feed {
 
         val out = ArrayList<Row>()
         val evs = feed.optJSONArray("events") ?: JSONArray()
-        val todays = (0 until evs.length()).map { evs.getJSONObject(it) }
-            .filter { it.optString("date") <= today && today <= it.optString("end_date", it.optString("date")) }
-            .sortedWith(compareBy({ !it.optBoolean("all_day") }, { it.optInt("start_min") }))
-        for (e in todays) {
-            val allDay = e.optBoolean("all_day")
-            val past = !allDay && e.optInt("end_min") <= nowMin
-            if (past && hidePast) continue
-            val persons = e.optJSONArray("persons")
-            val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
-            val driver = e.optString("driver").takeIf { it.isNotEmpty() && it != "null" }
-            out += Row(
-                Kind.EVENT, e.optString("title"),
-                time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
-                sub = driver?.let { "${name[it] ?: ""} fährt" } ?: "",
-                color = first?.let { color[it] } ?: Color.GRAY,
-                faded = past
-            )
+        val all = (0 until evs.length()).map { evs.getJSONObject(it) }
+        fun day(d: String, isToday: Boolean) {
+            val list = all
+                .filter { it.optString("date") <= d && d <= it.optString("end_date", it.optString("date")) }
+                .sortedWith(compareBy({ !it.optBoolean("all_day") }, { it.optInt("start_min") }))
+            var shown = 0
+            for (e in list) {
+                val allDay = e.optBoolean("all_day")
+                val past = isToday && !allDay && e.optInt("end_min") <= nowMin
+                if (past && hidePast) continue
+                val persons = e.optJSONArray("persons")
+                val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
+                val driver = e.optString("driver").takeIf { it.isNotEmpty() && it != "null" }
+                out += Row(
+                    Kind.EVENT, e.optString("title"),
+                    time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
+                    sub = driver?.let { "${name[it] ?: ""} fährt" } ?: "",
+                    color = first?.let { color[it] } ?: Color.GRAY,
+                    faded = past
+                )
+                shown++
+            }
+            if (shown == 0) out += Row(Kind.NOTE, if (isToday) "Keine Familientermine mehr" else "Keine Familientermine")
         }
-        if (todays.isEmpty()) out += Row(Kind.NOTE, "Keine Familientermine")
+        day(today, true)
+        val tomorrow = LocalDate.now().plusDays(1)
+        out += Row(Kind.SECTION, "Morgen · ${dateLabel(tomorrow)}")
+        day(tomorrow.toString(), false)
 
         val msgs = feed.optJSONArray("messages") ?: JSONArray()
         val now = System.currentTimeMillis()
