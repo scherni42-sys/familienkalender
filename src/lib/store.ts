@@ -21,6 +21,7 @@ export interface Store {
   loadExample(): Promise<void>;
   saveEvent(e: NewEvent, editId?: string): Promise<string>;
   deleteEvent(id: string): Promise<void>;
+  deleteMessage(id: string): Promise<void>;
   postMessage(text: string): Promise<void>;
   reply(id: string, text: string): Promise<void>;
   setMessage(id: string, patch: Partial<Pick<Message, 'pinned' | 'done' | 'taker' | 'text'>>): Promise<void>;
@@ -90,6 +91,7 @@ class LocalStore extends Base implements Store {
     return id;
   }
   async deleteEvent(id: string) { this.patch(s => ({ events: s.events.filter(x => x.id !== id) })); }
+  async deleteMessage(id: string) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
   async postMessage(text: string) {
     this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me!, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, replies: [] }] }));
   }
@@ -203,6 +205,7 @@ class SupabaseStore extends Base implements Store {
     return row.id;
   }
   async deleteEvent(id: string) { this.ok(await this.sb.from('events').delete().eq('id', id)); await this.refresh(); }
+  async deleteMessage(id: string) { this.ok(await this.sb.from('messages').delete().eq('id', id)); await this.refresh(); }
   async postMessage(text: string) { this.ok(await this.sb.from('messages').insert({ family_id: this.familyId, from_member: this.snap.me, text })); await this.refresh(); }
   async reply(id: string, text: string) { this.ok(await this.sb.from('replies').insert({ family_id: this.familyId, message_id: id, from_member: this.snap.me, text })); await this.refresh(); }
   async setMessage(id: string, patch: Partial<Message>) {

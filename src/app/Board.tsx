@@ -48,6 +48,7 @@ export function Board({ focus }: { focus?: string | null }) {
             <button type="button" className="small-btn" onClick={() => store.setMessage(m.id, { done: true }).then(() => toast('Erledigt und von der Wand genommen.'), fail)}>✓ Erledigt</button>
             {(m.from_member === snap.me || me.role === 'admin') && <button type="button" className="small-btn" onClick={() => { if (editId === m.id) { setEditId(null); return; } setEditId(m.id); setEditTxt(m.text); }}>{editId === m.id ? 'Abbrechen' : 'Bearbeiten'}</button>}
             <button type="button" className="small-btn" onClick={() => store.setMessage(m.id, { pinned: !m.pinned }).then(() => toast(m.pinned ? `Gelöst: verschwindet in ${ttl}.` : 'Angeheftet: bleibt stehen, bis jemand es löst.'), fail)}>{m.pinned ? 'Lösen' : 'Anheften'}</button>
+            {(m.from_member === snap.me || me.role === 'admin') && <button type="button" className="small-btn" aria-label="Nachricht löschen" title="Löschen" onClick={() => store.deleteMessage(m.id).then(() => toast('Nachricht gelöscht.'), fail)}><Icon name="trash" /></button>}
           </>}
           <span className="left">{m.pinned && <Icon name="pin" />} {leftTxt(m, s)}</span>
         </div>
