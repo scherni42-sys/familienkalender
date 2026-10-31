@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import type { Role, Settings as S } from '../lib/types';
 import { BGS, ROLE, SWATCHES, upcoming, bdLabel } from '../lib/model';
-import { hm, inDays } from '../lib/dates';
+import { hm, inDays, MON } from '../lib/dates';
 import { Badge, cvar, Icon, type IconName } from './ui';
 import { fail, toast } from './toast';
 import { micStart, setMicStart } from '../lib/micstart';
@@ -149,12 +149,18 @@ function Family() {
 // Formular „Geburtstag eintragen“ (Einstellungen und Geburtstagsübersicht, auch aus dem Widget)
 export function BdayForm({ focus }: { focus?: boolean }) {
   const snap = useSnapshot();
-  const [n, setN] = useState(''), [rel, setRel] = useState(''), [date, setDate] = useState(''), [priv, setPriv] = useState(false);
-  return <form className="addform" onSubmit={e => { e.preventDefault(); if (!n.trim() || !date) return; const [y, mo, d] = date.split('-').map(Number);
-        store.addBirthday({ name: n.trim(), rel: rel.trim(), day: d, month: mo, year: y > 1900 ? y : null, owner: priv ? snap.me : null }).then(() => { setN(''); setRel(''); setDate(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail); }}>
+  // Tag und Monat Pflicht, Jahr freiwillig: ohne Jahr kein „wird …“
+  const [n, setN] = useState(''), [rel, setRel] = useState(''), [day, setDay] = useState(''), [mon, setMon] = useState(''), [year, setYear] = useState(''), [priv, setPriv] = useState(false);
+  const y = Number(year);
+  return <form className="addform" onSubmit={e => { e.preventDefault(); if (!n.trim() || !day || !mon) return;
+        store.addBirthday({ name: n.trim(), rel: rel.trim(), day: Number(day), month: Number(mon), year: y > 1900 && y <= new Date().getFullYear() ? y : null, owner: priv ? snap.me : null }).then(() => { setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail); }}>
         <b>Geburtstag eintragen</b>
         <div className="two"><input value={n} onChange={e => setN(e.target.value)} placeholder="Name" required autoFocus={focus} /><input value={rel} onChange={e => setRel(e.target.value)} placeholder="z. B. Patentante" /></div>
-        <label className="field"><span>Geburtsdatum (Jahr für „wird …“)</span><input type="date" value={date} onChange={e => setDate(e.target.value)} required /></label>
+        <div className="bdate">
+          <label className="field"><span>Tag</span><select value={day} onChange={e => setDay(e.target.value)} required><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i} value={i + 1}>{i + 1}.</option>)}</select></label>
+          <label className="field"><span>Monat</span><select value={mon} onChange={e => setMon(e.target.value)} required><option value="">–</option>{MON.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
+          <label className="field"><span>Jahr (freiwillig)</span><input type="number" inputMode="numeric" min={1900} max={new Date().getFullYear()} value={year} onChange={e => setYear(e.target.value)} placeholder="unbekannt" /></label>
+        </div>
         <label className="setrow"><span><Icon name="lock" /> Privat: nur ich sehe ihn (Freunde, Kollegen …)</span><input type="checkbox" checked={priv} onChange={e => setPriv(e.target.checked)} /></label>
         <button className="btn">Eintragen</button>
       </form>;
@@ -166,7 +172,7 @@ function Bdays() {
   const s = snap.family!.settings;
   return <>
     <div>{upcoming(snap.birthdays).map(b => <div key={b.id} className={`bdrow${s.bdLead && b.days <= s.bdLead ? ' soon' : ''}`}>
-      <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel} · {bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
+      <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
       <span className="dd">{inDays(b.days)} {me.role !== 'guest' && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>)}</div>
     {me.role !== 'guest' && <BdayForm />}
   </>;
