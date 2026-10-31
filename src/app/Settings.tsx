@@ -146,25 +146,29 @@ function Family() {
   </>;
 }
 
+// Formular „Geburtstag eintragen“ (Einstellungen und Geburtstagsübersicht, auch aus dem Widget)
+export function BdayForm({ focus }: { focus?: boolean }) {
+  const snap = useSnapshot();
+  const [n, setN] = useState(''), [rel, setRel] = useState(''), [date, setDate] = useState(''), [priv, setPriv] = useState(false);
+  return <form className="addform" onSubmit={e => { e.preventDefault(); if (!n.trim() || !date) return; const [y, mo, d] = date.split('-').map(Number);
+        store.addBirthday({ name: n.trim(), rel: rel.trim(), day: d, month: mo, year: y > 1900 ? y : null, owner: priv ? snap.me : null }).then(() => { setN(''); setRel(''); setDate(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail); }}>
+        <b>Geburtstag eintragen</b>
+        <div className="two"><input value={n} onChange={e => setN(e.target.value)} placeholder="Name" required autoFocus={focus} /><input value={rel} onChange={e => setRel(e.target.value)} placeholder="z. B. Patentante" /></div>
+        <label className="field"><span>Geburtsdatum (Jahr für „wird …“)</span><input type="date" value={date} onChange={e => setDate(e.target.value)} required /></label>
+        <label className="setrow"><span><Icon name="lock" /> Privat: nur ich sehe ihn (Freunde, Kollegen …)</span><input type="checkbox" checked={priv} onChange={e => setPriv(e.target.checked)} /></label>
+        <button className="btn">Eintragen</button>
+      </form>;
+}
+
 function Bdays() {
   const snap = useSnapshot();
   const me = snap.members.find(m => m.id === snap.me)!;
   const s = snap.family!.settings;
-  const [n, setN] = useState(''), [rel, setRel] = useState(''), [date, setDate] = useState(''), [priv, setPriv] = useState(false);
   return <>
     <div>{upcoming(snap.birthdays).map(b => <div key={b.id} className={`bdrow${s.bdLead && b.days <= s.bdLead ? ' soon' : ''}`}>
       <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel} · {bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
       <span className="dd">{inDays(b.days)} {me.role !== 'guest' && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>)}</div>
-    {me.role !== 'guest' && (
-      <form className="addform" onSubmit={e => { e.preventDefault(); if (!n.trim() || !date) return; const [y, mo, d] = date.split('-').map(Number);
-        store.addBirthday({ name: n.trim(), rel: rel.trim(), day: d, month: mo, year: y > 1900 ? y : null, owner: priv ? snap.me : null }).then(() => { setN(''); setRel(''); setDate(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail); }}>
-        <b>Geburtstag eintragen</b>
-        <div className="two"><input value={n} onChange={e => setN(e.target.value)} placeholder="Name" required /><input value={rel} onChange={e => setRel(e.target.value)} placeholder="z. B. Patentante" /></div>
-        <label className="field"><span>Geburtsdatum (Jahr für „wird …“)</span><input type="date" value={date} onChange={e => setDate(e.target.value)} required /></label>
-        <label className="setrow"><span><Icon name="lock" /> Privat: nur ich sehe ihn (Freunde, Kollegen …)</span><input type="checkbox" checked={priv} onChange={e => setPriv(e.target.checked)} /></label>
-        <button className="btn">Eintragen</button>
-      </form>
-    )}
+    {me.role !== 'guest' && <BdayForm />}
   </>;
 }
 

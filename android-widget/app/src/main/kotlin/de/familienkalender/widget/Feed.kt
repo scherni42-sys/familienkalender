@@ -91,6 +91,7 @@ object Feed {
         }.sortedBy { it.third }
         val out = ArrayList<Row>()
         out += Row(Kind.SECTION, "Geburtstage · nächste 12 Monate")
+        out += Row(Kind.NOTE, "＋ Geburtstag eintragen", open = "bdadd")
         if (list.isEmpty()) out += Row(Kind.NOTE, "Keine Geburtstage eingetragen")
         val pages = maxOf(1, (list.size + BD_PER_PAGE - 1) / BD_PER_PAGE)
         val page = minOf(bdPage(ctx), pages - 1)

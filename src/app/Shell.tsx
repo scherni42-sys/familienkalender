@@ -19,7 +19,7 @@ type Filter = 'all' | 'family' | 'mine';
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
-export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board' } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays' } | null;
+export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board' } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays'; adding?: boolean } | null;
 
 // Uhr, die jede Minute neu zeichnet (für „vorbei“, „los in X Min.“)
 export function useMinute() {
@@ -57,6 +57,7 @@ export function Shell() {
       const [k, id] = o.split(':');
       if (k === 'event' && snap.events.some(e => e.id === id)) setSheet({ kind: 'detail', id, day: o.split(':')[2] });
       if (k === 'bdays') setSheet({ kind: 'bdays' });
+      if (k === 'bdadd') setSheet({ kind: 'bdays', adding: true });
       // Tag im Widget angetippt: leerer Termin an diesem Datum
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
       if (k === 'msg') { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
@@ -106,7 +107,7 @@ export function Shell() {
       {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} day={sheet.day} add={newOn} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
-      {sheet?.kind === 'bdays' && <BdaySheet close={() => setSheet(null)} />}
+      {sheet?.kind === 'bdays' && <BdaySheet adding={sheet.adding} close={() => setSheet(null)} />}
       <PushBanner now={now} />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
     </div>
