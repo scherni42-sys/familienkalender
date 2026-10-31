@@ -48,6 +48,37 @@ object Feed {
 
     private fun cache(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
+    // Torten-Knopf: Widget zeigt statt Heute/Pinnwand die Geburtstage, bis er nochmal gedrückt wird
+    fun bdMode(ctx: Context) = cache(ctx).getBoolean("bd", false)
+    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).apply()
+
+    fun bdRows(feed: JSONObject): List<Row> {
+        val today = LocalDate.now()
+        val bds = feed.optJSONArray("birthdays") ?: JSONArray()
+        val list = (0 until bds.length()).map { bds.getJSONObject(it) }.mapNotNull { b ->
+            val m = b.optInt("month"); val d = b.optInt("day")
+            val thisYear = try { LocalDate.of(today.year, m, d) } catch (e: Exception) { LocalDate.of(today.year, m, 28) }
+            val next = if (thisYear.isBefore(today)) thisYear.plusYears(1) else thisYear
+            Triple(b, next, java.time.temporal.ChronoUnit.DAYS.between(today, next))
+        }.sortedBy { it.third }
+        val out = ArrayList<Row>()
+        out += Row(Kind.SECTION, "Geburtstage · nächste 12 Monate")
+        if (list.isEmpty()) out += Row(Kind.NOTE, "Keine Geburtstage eingetragen")
+        for ((b, next, days) in list) {
+            val year = b.optInt("year", 0)
+            val age = if (year > 0) " · wird ${next.year - year}" else ""
+            val left = when (days) { 0L -> "heute 🎉"; 1L -> "morgen"; else -> "in $days T." }
+            out += Row(
+                Kind.EVENT, b.optString("name"),
+                time = "${next.dayOfMonth}.${next.monthValue}.",
+                sub = left + age,
+                color = if (days <= 14) Color.parseColor("#C2477A") else Color.GRAY,
+                open = "bdays"
+            )
+        }
+        return out
+    }
+
     // Lädt den Display-Feed; bei Fehlern bleibt der letzte Stand aus dem Zwischenspeicher
     fun load(ctx: Context): Pair<JSONObject?, String?> {
         val c = config(ctx) ?: return null to "Bitte die Widget-App öffnen und den Code eintragen."

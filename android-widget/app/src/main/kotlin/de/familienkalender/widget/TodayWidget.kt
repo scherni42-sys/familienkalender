@@ -29,6 +29,7 @@ class TodayWidget : AppWidgetProvider() {
         super.onReceive(ctx, intent)
         when (intent.action) {
             REFRESH -> refreshData(ctx)
+            TOGGLE_BD -> { Feed.toggleBd(ctx); refreshData(ctx) }
             // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
             Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx) }
         }
@@ -36,6 +37,7 @@ class TodayWidget : AppWidgetProvider() {
 
     companion object {
         const val REFRESH = "de.familienkalender.widget.REFRESH"
+        const val TOGGLE_BD = "de.familienkalender.widget.TOGGLE_BD"
 
         private fun refreshIntent(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
             ctx, 0, Intent(ctx, TodayWidget::class.java).setAction(REFRESH),
@@ -55,9 +57,14 @@ class TodayWidget : AppWidgetProvider() {
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java))
             val v = RemoteViews(ctx.packageName, R.layout.widget)
             v.setTextViewText(R.id.date, Feed.dateLabel(LocalDate.now()))
+            bdButton(ctx, v)
             for (id in ids) mgr.partiallyUpdateAppWidget(id, v)
             mgr.notifyAppWidgetViewDataChanged(ids, R.id.list)
         }
+
+        // Gedrückte Torte hell hinterlegt, damit man sieht, dass die Geburtstage gezeigt werden
+        private fun bdButton(ctx: Context, v: RemoteViews) =
+            v.setInt(R.id.q_bdays, "setBackgroundResource", if (Feed.bdMode(ctx)) R.drawable.btn_bdays_on else R.drawable.btn_bdays)
 
         fun refreshAll(ctx: Context) {
             val mgr = AppWidgetManager.getInstance(ctx)
@@ -89,9 +96,10 @@ class TodayWidget : AppWidgetProvider() {
                 val mic = Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, mode).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 v.setOnClickPendingIntent(vid, PendingIntent.getActivity(ctx, 10 + i, mic, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             }
-            // Torte: Geburtstagsübersicht in der App
-            val bd = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "bdays").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            v.setOnClickPendingIntent(R.id.q_bdays, PendingIntent.getActivity(ctx, 20, bd, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            // Torte: schaltet die Liste auf Geburtstage um und wieder zurück
+            val bd = Intent(ctx, TodayWidget::class.java).setAction(TOGGLE_BD)
+            v.setOnClickPendingIntent(R.id.q_bdays, PendingIntent.getBroadcast(ctx, 21, bd, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            bdButton(ctx, v)
             val open = Intent(ctx, OpenActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(ctx, 2, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
             return v

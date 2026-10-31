@@ -26,7 +26,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         val (feed, loadErr) = Feed.load(ctx)
         var err = loadErr
         rows = try {
-            if (feed != null) Feed.rows(feed) else emptyList()
+            if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(feed) else Feed.rows(feed)
         } catch (e: Exception) {
             err = "Anzeige-Fehler: ${e.message}"
             emptyList()
