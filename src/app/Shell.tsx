@@ -16,7 +16,7 @@ import { PushBanner } from './PushBanner';
 
 type Tab = 'today' | 'week' | 'board' | 'settings';
 type Filter = 'all' | 'family' | 'mine';
-// Widget-Schnellknöpfe: ?mic=private|family|board legt die Art schon fest
+// Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
 export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board' } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string } | { kind: 'bdays' } | null;
@@ -59,11 +59,11 @@ export function Shell() {
     }
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
-    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); setSheet({ kind: 'mic', auto: true, quick: true, preset: micPreset(q.get('mic')) }); }
+    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); { const preset = micPreset(q.get('mic')); setSheet({ kind: 'mic', auto: !preset, quick: true, preset }); } }
     else if (micStart() && !o) setSheet({ kind: 'mic', auto: true, quick: true });
     // Falls Chrome die laufende App nur nach vorn holt: Startadresse über die Launch-Queue auswerten
     (window as unknown as { launchQueue?: { setConsumer: (f: (p: { targetURL?: string }) => void) => void } }).launchQueue
-      ?.setConsumer(p => { const m = p.targetURL ? new URL(p.targetURL).searchParams : null; if (m?.has('mic')) setSheet({ kind: 'mic', auto: true, quick: true, preset: micPreset(m.get('mic')) }); });
+      ?.setConsumer(p => { const m = p.targetURL ? new URL(p.targetURL).searchParams : null; if (m?.has('mic')) { const preset = micPreset(m.get('mic')); setSheet({ kind: 'mic', auto: !preset, quick: true, preset }); } });
     const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic', auto: true, quick: true }); };
     document.addEventListener('visibilitychange', onShow);
     return () => document.removeEventListener('visibilitychange', onShow);
