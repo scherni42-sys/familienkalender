@@ -21,7 +21,7 @@ const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpee
 
 // Stichwort am Satzanfang: „Privat …“, „Familie …“ oder „Pinnwand …“ speichert ohne Rückfrage
 const PREFIX = /^\s*(privat|familie|pinnwand)\b[\s,.:;!-]*/i;
-const PAUSE = 5000;     // so lange darf man schweigen, bevor die Aufnahme endet
+const PAUSE = 3000;     // so lange darf man schweigen, bevor die Aufnahme endet
 const FIRST = 7000;     // Zeit bis zum ersten Wort
 
 export function MicSheet({ auto, quick, close, toDraft, posted, saved }: { auto?: boolean; quick?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
