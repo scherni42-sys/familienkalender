@@ -166,11 +166,24 @@ object Feed {
         val out = ArrayList<Row>()
         val evs = feed.optJSONArray("events") ?: JSONArray()
         val all = (0 until evs.length()).map { evs.getJSONObject(it) }
+        val bds = feed.optJSONArray("birthdays") ?: JSONArray()
         fun day(d: String, isToday: Boolean, none: String? = null) {
+            // Geburtstage an diesem Tag zuerst, wie im Kalender der App
+            val date = LocalDate.parse(d)
+            var shown = 0
+            for (i in 0 until bds.length()) {
+                val b = bds.getJSONObject(i)
+                if (b.optInt("month") != date.monthValue || b.optInt("day") != date.dayOfMonth) continue
+                val year = b.optInt("year", 0)
+                out += Row(
+                    Kind.EVENT, "🎂 " + b.optString("name") + if (year > 0) " wird ${date.year - year}" else "",
+                    time = "Geb.", color = Color.parseColor("#C2477A"), open = "bdays"
+                )
+                shown++
+            }
             val list = all
                 .filter { it.optString("date") <= d && d <= it.optString("end_date", it.optString("date")) }
                 .sortedWith(compareBy({ !it.optBoolean("all_day") }, { it.optInt("start_min") }))
-            var shown = 0
             for (e in list) {
                 val allDay = e.optBoolean("all_day")
                 val past = isToday && !allDay && e.optInt("end_min") <= nowMin
