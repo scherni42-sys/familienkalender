@@ -18,14 +18,14 @@ android {
     }
 
     // Signatur: Schlüssel kommt im Bau aus dem Secret WIDGET_KEYSTORE (liegt nicht im Repo).
-    // Ohne Secret wird mit einem einmaligen Schlüssel signiert; Updates brauchen dann eine Neuinstallation.
+    // Ohne Secret erzeugt der Bau einmalig einen Schlüssel und hebt ihn im Actions-Cache auf.
     val ks = file("widget.keystore")
     signingConfigs {
         create("widget") {
             storeFile = if (ks.exists()) ks else null
-            storePassword = System.getenv("WIDGET_KEY_PASS") ?: "android"
+            storePassword = System.getenv("WIDGET_KEY_PASS")?.takeIf { it.isNotEmpty() } ?: "android"
             keyAlias = "widget"
-            keyPassword = System.getenv("WIDGET_KEY_PASS") ?: "android"
+            keyPassword = System.getenv("WIDGET_KEY_PASS")?.takeIf { it.isNotEmpty() } ?: "android"
         }
     }
     buildTypes {
