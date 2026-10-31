@@ -141,7 +141,7 @@ object Feed {
             val at = try { OffsetDateTime.parse(m.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { now }
             now - at < ttlHours * 3_600_000L
         }.sortedWith(compareBy({ !it.optBoolean("pinned") }, { -(try { OffsetDateTime.parse(it.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { 0L }) }))
-        out += Row(Kind.SECTION, if (live.isEmpty()) "Pinnwand" else "Pinnwand · ${live.size}")
+        out += Row(Kind.SECTION, "Pinnwand")
         if (live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
         for (m in live) {
             val from = m.optString("from_member")
