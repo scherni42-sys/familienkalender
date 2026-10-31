@@ -8,12 +8,6 @@ import { whenText } from '../lib/model';
 import { fail, toast } from './toast';
 
 type Mode = 'private' | 'family' | 'board';
-const SAMPLES: Record<Mode, string[]> = {
-  family: ['Morgen um 17 Uhr hat Mia Fußball, Papa fährt', 'Übermorgen 15:30 Zahnarzt mit Ben, ich bringe ihn hin', 'Klassenfahrt Mia vom 2.11. bis 6.11.'],
-  private: ['Morgen 10 Uhr Termin bei meiner Ärztin', 'Dienstag 19 Uhr Squash'],
-  board: ['Milch und Eier fehlen', 'Bin um 18 Uhr zurück', 'Wer kann Ben morgen von der Kita holen?']
-};
-
 // Web-Spracherkennung des Browsers (Chrome/Android, Safari/iOS)
 type Rec = { lang: string; interimResults: boolean; continuous: boolean; start(): void; stop(): void; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: ((e: { error: string }) => void) | null };
 const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition
@@ -114,9 +108,8 @@ export function MicSheet({ auto, quick, preset, close, toDraft, posted, saved }:
       </div>
       <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button></div>
       <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : 'Tippe aufs Mikrofon und sprich, oder schreib den Satz.'}</p>
-      <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'z. B. Milch fehlt' : 'z. B. Mia hat Donnerstag um 17 Uhr Fußball, Papa fährt'} maxLength={500} />
+      <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen'} maxLength={500} />
       <p className="note">Tipp: Beginnst du mit „Privat“, „Familie“ oder „Pinnwand“, wird ohne Rückfrage gespeichert.</p>
-      <div className="chips">{SAMPLES[mode].map(x => <button key={x} type="button" className="chip" onClick={() => setText(x)}>{x}</button>)}</div>
       <div className="btn-row">
         <button type="button" className="btn ghost" onClick={close}>Abbrechen</button>
         <button type="button" className="btn" disabled={busy || !text.trim()} onClick={() => void go()}>{busy ? <span className="spin" /> : mode === 'board' ? 'An die Wand' : 'Weiter'}</button>
