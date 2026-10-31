@@ -50,9 +50,18 @@ object Feed {
 
     // Torten-Knopf: Widget zeigt statt Heute/Pinnwand die Geburtstage, bis er nochmal gedrückt wird
     fun bdMode(ctx: Context) = cache(ctx).getBoolean("bd", false)
-    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).apply()
+    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).apply()
 
-    fun bdRows(feed: JSONObject): List<Row> {
+    // Geburtstage seitenweise, damit sie auch bei großer Schrift ohne Scrollen passen
+    const val BD_PER_PAGE = 5
+    fun bdPage(ctx: Context) = cache(ctx).getInt("bdPage", 0)
+    fun bdPages(ctx: Context) = cache(ctx).getInt("bdPages", 1)
+    fun turnBdPage(ctx: Context, by: Int) {
+        val n = maxOf(1, bdPages(ctx))
+        cache(ctx).edit().putInt("bdPage", ((bdPage(ctx) + by) % n + n) % n).apply()
+    }
+
+    fun bdRows(ctx: Context, feed: JSONObject): List<Row> {
         val today = LocalDate.now()
         val bds = feed.optJSONArray("birthdays") ?: JSONArray()
         val list = (0 until bds.length()).map { bds.getJSONObject(it) }.mapNotNull { b ->
@@ -64,7 +73,10 @@ object Feed {
         val out = ArrayList<Row>()
         out += Row(Kind.SECTION, "Geburtstage · nächste 12 Monate")
         if (list.isEmpty()) out += Row(Kind.NOTE, "Keine Geburtstage eingetragen")
-        for ((b, next, days) in list) {
+        val pages = maxOf(1, (list.size + BD_PER_PAGE - 1) / BD_PER_PAGE)
+        val page = minOf(bdPage(ctx), pages - 1)
+        cache(ctx).edit().putInt("bdPages", pages).putInt("bdPage", page).apply()
+        for ((b, next, days) in list.drop(page * BD_PER_PAGE).take(BD_PER_PAGE)) {
             val year = b.optInt("year", 0)
             val age = if (year > 0) " · wird ${next.year - year}" else ""
             val left = when (days) { 0L -> "heute 🎉"; 1L -> "morgen"; else -> "in $days T." }

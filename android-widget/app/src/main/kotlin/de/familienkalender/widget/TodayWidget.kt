@@ -30,6 +30,8 @@ class TodayWidget : AppWidgetProvider() {
         when (intent.action) {
             REFRESH -> refreshData(ctx)
             TOGGLE_BD -> { Feed.toggleBd(ctx); refreshData(ctx) }
+            BD_PREV -> { Feed.turnBdPage(ctx, -1); refreshData(ctx) }
+            BD_NEXT -> { Feed.turnBdPage(ctx, 1); refreshData(ctx) }
             // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
             Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx) }
         }
@@ -38,6 +40,8 @@ class TodayWidget : AppWidgetProvider() {
     companion object {
         const val REFRESH = "de.familienkalender.widget.REFRESH"
         const val TOGGLE_BD = "de.familienkalender.widget.TOGGLE_BD"
+        const val BD_PREV = "de.familienkalender.widget.BD_PREV"
+        const val BD_NEXT = "de.familienkalender.widget.BD_NEXT"
 
         private fun refreshIntent(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
             ctx, 0, Intent(ctx, TodayWidget::class.java).setAction(REFRESH),
@@ -100,6 +104,8 @@ class TodayWidget : AppWidgetProvider() {
             val bd = Intent(ctx, TodayWidget::class.java).setAction(TOGGLE_BD)
             v.setOnClickPendingIntent(R.id.q_bdays, PendingIntent.getBroadcast(ctx, 21, bd, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             bdButton(ctx, v)
+            v.setOnClickPendingIntent(R.id.bdprev, PendingIntent.getBroadcast(ctx, 22, Intent(ctx, TodayWidget::class.java).setAction(BD_PREV), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            v.setOnClickPendingIntent(R.id.bdnext, PendingIntent.getBroadcast(ctx, 23, Intent(ctx, TodayWidget::class.java).setAction(BD_NEXT), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             val open = Intent(ctx, OpenActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(ctx, 2, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
             return v
