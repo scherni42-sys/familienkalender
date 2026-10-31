@@ -1,4 +1,4 @@
-// Edge Function: versteht einen gesprochenen Satz und macht daraus einen Termin-Vorschlag.
+// Edge Function: versteht einen gesprochenen Satz oder ein Foto (Zettel, Brief, Einladung) und macht daraus einen Termin-Vorschlag.
 // Secret setzen: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 // Nur angemeldete Familienmitglieder dürfen die Funktion nutzen (Prüfung im Code, „Verify JWT“ kann aus bleiben).
 import Anthropic from 'npm:@anthropic-ai/sdk';
@@ -41,8 +41,10 @@ Deno.serve(async req => {
     const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
     const { data: mine } = u.user ? await sb.from('members').select('id').eq('user_id', u.user.id).eq('active', true).limit(1) : { data: null };
     if (!mine?.length) return new Response(JSON.stringify({ error: 'Nicht angemeldet' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } });
-    const { text, today, me, members } = await req.json();
-    if (typeof text !== 'string' || !text.trim() || text.length > 500) throw new Error('Kein Text');
+    const { text = '', today, me, members, image } = await req.json();
+    // Foto: verkleinertes JPEG als Base64 vom Handy
+    const img = image && typeof image.data === 'string' && image.data.length < 4_000_000 && /^image\/(jpeg|png|webp)$/.test(image.type) ? image : null;
+    if (typeof text !== 'string' || text.length > 500 || (!text.trim() && !img)) throw new Error('Kein Text');
     const people = (members as { id: string; name: string; role: string }[]).map(m => `- ${m.name} (ID ${m.id}, ${m.role})`).join('\n');
     const speaker = (members as { id: string; name: string }[]).find(m => m.id === me)?.name ?? 'unbekannt';
 
@@ -58,8 +60,15 @@ ${people}
 Regeln: „ich/mich/mein“ meint die sprechende Person. Mama, Papa, Oma usw. ordnest du dem passenden Mitglied zu, wenn es eindeutig ist.
 Wochentage meinen das nächste kommende Datum. Ohne Uhrzeit ist der Termin ganztägig.
 vis ist „family“, wenn andere Mitglieder betroffen sind oder jemand anderes fährt, sonst „private“; bei „privat“ im Satz immer „private“.
-Wer fährt, bringt oder abholt, ist driver und gehört nicht zu persons, außer er nimmt selbst teil.`,
-      messages: [{ role: 'user', content: text }]
+Wer fährt, bringt oder abholt, ist driver und gehört nicht zu persons, außer er nimmt selbst teil.
+Ein Datum ohne Jahr meint das nächste kommende Datum. Bei einem Foto liest du den Termin aus Handschrift, Brief, Einladung oder Screenshot; stehen mehrere Termine darauf, nimm den ersten.`,
+      messages: [{
+        role: 'user',
+        content: img
+          ? [{ type: 'image', source: { type: 'base64', media_type: img.type, data: img.data } },
+             { type: 'text', text: text.trim() || 'Trage den Termin von diesem Foto ein.' }]
+          : text
+      }]
     });
 
     if (response.stop_reason === 'refusal') throw new Error('abgelehnt');

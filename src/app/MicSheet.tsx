@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
-import { parseSpoken } from '../lib/ai';
+import { parseSpoken, shrinkPhoto } from '../lib/ai';
 import type { Draft } from '../lib/parse';
 import { Icon, Sheet } from './ui';
 import { toNewEvent } from './EventSheet';
@@ -98,6 +98,19 @@ export function MicSheet({ auto, quick, preset, close, toDraft, posted, saved }:
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
 
+  // Foto von Zettel, Brief oder Einladung: Claude liest den Termin, danach wie gewohnt bestätigen
+  const photo = async (file?: File) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const img = await shrinkPhoto(file);
+      const parsed = await parseSpoken(latest.current.text.trim(), snap.me!, snap.members.filter(x => x.role !== 'guest'), img);
+      if (parsed.source !== 'ai') { toast(`Foto konnte nicht gelesen werden${parsed.why ? ` (${parsed.why})` : ''}.`); return; }
+      const m = latest.current.mode;
+      toDraft(m === 'board' ? parsed : { ...parsed, vis: m, busy: m === 'private' && parsed.busy });
+    } catch (e) { fail(e); } finally { setBusy(false); }
+  };
+
   return (
     <Sheet onClose={close} label="Sprechen">
       <h2>{mode === 'board' ? 'Nachricht ans Board' : 'Neuer Termin'}</h2>
@@ -106,8 +119,10 @@ export function MicSheet({ auto, quick, preset, close, toDraft, posted, saved }:
         <button type="button" className="family" aria-pressed={mode === 'family'} onClick={() => setMode('family')}><Icon name="home" />Familie<small>alle + Display</small></button>
         <button type="button" className="board" aria-pressed={mode === 'board'} onClick={() => setMode('board')}><Icon name="board" />Board<small>Nachricht</small></button>
       </div>
-      <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button></div>
-      <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : 'Tippe aufs Mikrofon und sprich, oder schreib den Satz.'}</p>
+      <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button>
+        {!store.demo && <label className={`photo${busy ? ' busy' : ''}`} aria-label="Termin vom Foto"><Icon name="camera" /><span>Foto</span>
+          <input type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>}</div>
+      <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : busy ? 'Einen Moment, Claude liest …' : 'Tippe aufs Mikrofon und sprich, schreib den Satz oder fotografiere einen Zettel.'}</p>
       <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen'} maxLength={500} />
       <p className="note">Tipp: Beginnst du mit „Privat“, „Familie“ oder „Board“, wird ohne Rückfrage gespeichert.</p>
       <div className="btn-row">

@@ -3,15 +3,25 @@ import { parseLocal, type Draft } from './parse';
 import { supabase } from './supabase';
 import { today } from './dates';
 
-// KI-Erkennung über die Edge Function „parse-event“; ohne Verbindung die einfache Erkennung auf dem Handy
-export async function parseSpoken(text: string, me: string, members: Member[]): Promise<Draft & { source: 'ai' | 'local'; why?: string }> {
+// Foto verkleinern (längste Seite 1280 px, JPEG), damit es schnell hochlädt
+export async function shrinkPhoto(file: File): Promise<{ type: string; data: string }> {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+  return { type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.82).split(',')[1] };
+}
+
+// KI-Erkennung über die Edge Function „parse-event“ (Text oder Foto); ohne Verbindung die einfache Erkennung auf dem Handy
+export async function parseSpoken(text: string, me: string, members: Member[], image?: { type: string; data: string }): Promise<Draft & { source: 'ai' | 'local'; why?: string }> {
   const local = parseLocal(text, me, members);
   if (!supabase) return { ...local, source: 'local' };
   try {
     const call = supabase.functions.invoke('parse-event', {
-      body: { text, today: today(), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })) }
+      body: { text, today: today(), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), image }
     });
-    const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('keine Antwort nach 25 s')), 25000));
+    const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`keine Antwort nach ${image ? 45 : 25} s`)), image ? 45000 : 25000));
     const { data, error } = await Promise.race([call, timeout]);
     if (error || !data?.event) throw error ?? new Error('leer');
     const e = data.event;
