@@ -37,6 +37,15 @@ class SetupActivity : Activity() {
         if (remind.isChecked && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
+        // Handy-Kalender: Schalter, Erlaubnis, beim Ausschalten den Kalender wieder entfernen
+        val cal = findViewById<CheckBox>(R.id.calsync)
+        cal.isChecked = CalSync.enabled(this)
+        cal.setOnCheckedChangeListener { _, on ->
+            CalSync.setEnabled(this, on)
+            if (on) requestPermissions(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR), 2)
+            else thread { CalSync.remove(this) }
+        }
+
         val code = findViewById<EditText>(R.id.code)
         val status = findViewById<TextView>(R.id.status)
         val saved = getSharedPreferences("familien-widget", MODE_PRIVATE).getString("code", null)
@@ -63,7 +72,7 @@ class SetupActivity : Activity() {
                         status.text = "Verbunden mit $fam. Du kannst das Widget jetzt auf den Startbildschirm legen."
                         TodayWidget.refreshAll(this)
                         NextWidget.updateAll(this, feed)
-                        thread { Reminders.process(this, feed) }
+                        thread { Reminders.process(this, feed); CalSync.sync(this, feed) }
                         TodayWidget.schedule(this)
                         if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
@@ -73,6 +82,12 @@ class SetupActivity : Activity() {
                 }
             }
         }
+    }
+
+    override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
+        // Erlaubnis für den Kalender erteilt: gleich eintragen
+        if (code == 2 && res.isNotEmpty() && res.all { it == PackageManager.PERMISSION_GRANTED })
+            thread { Feed.load(this).first?.let { CalSync.sync(this, it) } }
     }
 
     override fun onResume() {

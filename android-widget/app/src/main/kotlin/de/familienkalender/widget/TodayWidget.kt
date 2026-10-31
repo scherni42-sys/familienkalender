@@ -43,7 +43,7 @@ class TodayWidget : AppWidgetProvider() {
                         Handler(Looper.getMainLooper()).post {
                             Toast.makeText(ctx, err ?: when (act) { "like" -> "👍 gesendet"; "take" -> "Du übernimmst das"; else -> "Erledigt" }, Toast.LENGTH_SHORT).show()
                         }
-                        Feed.load(ctx).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it) }
+                        Feed.load(ctx).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it); CalSync.sync(ctx, it) }
                         refreshData(ctx)
                     } finally { done.finish() }
                 }
@@ -92,10 +92,10 @@ class TodayWidget : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Im Hintergrund laden: Erinnerungen prüfen und Mini-Widgets aktualisieren (die Liste lädt selbst)
+        // Im Hintergrund laden: Erinnerungen prüfen, Mini-Widgets und Handy-Kalender aktualisieren (die Liste lädt selbst)
         private fun background(ctx: Context) {
             thread {
-                Feed.load(ctx, 20_000).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it) }
+                Feed.load(ctx, 20_000).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it); CalSync.sync(ctx, it) }
             }
         }
 
