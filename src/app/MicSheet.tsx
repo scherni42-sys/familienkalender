@@ -24,9 +24,10 @@ const PREFIX = /^\s*(privat|familie|pinnwand)\b[\s,.:;!-]*/i;
 const PAUSE = 5000;     // so lange darf man schweigen, bevor die Aufnahme endet
 const FIRST = 7000;     // Zeit bis zum ersten Wort
 
-export function MicSheet({ auto, close, toDraft, posted, saved }: { auto?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
+export function MicSheet({ auto, quick, close, toDraft, posted, saved }: { auto?: boolean; quick?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
   const snap = useSnapshot();
-  const [mode, setMode] = useState<Mode>('family');
+  // Seitentaste: ohne Stichwort „Privat“/„Familie“ landet das Gesprochene auf der Pinnwand
+  const [mode, setMode] = useState<Mode>(quick ? 'board' : 'family');
   const [text, setText] = useState('');
   const [rec, setRec] = useState(false), [busy, setBusy] = useState(false);
   const r = useRef<Rec | null>(null);
