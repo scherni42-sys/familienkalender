@@ -61,9 +61,9 @@ export function Board({ focus }: { focus?: string | null }) {
       </div>
     ))}
     {canAct && (
-      <form className="compose" onSubmit={e => { e.preventDefault(); const v = text.trim(); if (!v) return; store.postMessage(v).then(() => { setText(''); toast('Hängt jetzt an der Wand.'); }, fail); }}>
+      <form className="compose" onSubmit={e => { e.preventDefault(); const v = text.trim(); if (!v) return; store.postMessage(v).then(() => { setText(''); toast('Hängt jetzt am Board.'); }, fail); }}>
         <input value={text} onChange={e => setText(e.target.value)} placeholder="Nachricht an die Familie" maxLength={500} />
-        <button>An die Wand</button>
+        <button>Boarding</button>
       </form>
     )}
   </>;

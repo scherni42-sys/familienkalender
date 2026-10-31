@@ -106,7 +106,7 @@ export function Display({ token }: { token: string }) {
   const board = (_max: number) => {
     const n = fitN;
     const shown = msgs.slice(0, n);
-    const head = <h3>Pinnwand{msgs.length > n && <span className="w-more">+{msgs.length - n} weitere</span>}</h3>;
+    const head = <h3>Board{msgs.length > n && <span className="w-more">+{msgs.length - n} weitere</span>}</h3>;
     const body = shown.length ? shown.map(m => <div key={m.id} className="w-msg">{sb(m.from_member)}<span>{m.text}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span>
       {m.pinned ? <small className="pinned" title="angeheftet"><Icon name="pin" /></small> : <small>{whenM(m)}</small>}</div>) : <div className="w-empty">Keine Nachrichten</div>;
     return <div className="w-sec">{head}<div className="w-msgs">{body}</div></div>;
@@ -206,7 +206,7 @@ function Mini({ feed, day, now }: { feed: DisplayFeed; day: string; now: number 
           <span className="t">{e.title}{e.driver ? <small> · {nm(e.driver)} fährt</small> : null}</span>
         </div>
       ))}
-      <div className="mini-h board"><b>Pinnwand</b>{msgs.length > 0 && <span>{msgs.length}</span>}</div>
+      <div className="mini-h board"><b>Board</b>{msgs.length > 0 && <span>{msgs.length}</span>}</div>
       {msgs.length === 0 && <div className="mini-empty">Keine Nachrichten</div>}
       {msgs.map(m => (
         <div key={m.id} className="mini-msg" style={cvar(color(m.from_member))}>

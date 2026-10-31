@@ -43,7 +43,7 @@ export function Shell() {
   const s = snap.family!.settings;
   const next = upcoming(snap.birthdays)[0];
   const cake = next && s.bdLead > 0 && next.days <= s.bdLead ? next : null;
-  const titles: Record<Tab, string> = { today: 'Heute', week: 'Kalender', board: 'Pinnwand', settings: 'Einstellungen' };
+  const titles: Record<Tab, string> = { today: 'Heute', week: 'Kalender', board: 'Board', settings: 'Einstellungen' };
   const open = (id: string) => setSheet({ kind: 'detail', id });
   // Leerer Termin an einem Tag (aus dem Widget oder „Weiterer Termin“ im Termin)
   const newOn = (date: string) => setSheet({ kind: 'edit', fresh: true, draft: { title: '', date, end_date: date, all_day: false, start_min: 600, end_min: 660, persons: [me.id], driver: null, vis: 'family', busy: false, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, reason: '', suggested: 'family', timeFound: true } });
@@ -100,7 +100,7 @@ export function Shell() {
         {me.role === 'guest'
           ? <span />
           : <button type="button" className="mic" aria-label="Termin oder Nachricht sprechen" onClick={() => setSheet({ kind: 'mic' })}><Icon name="mic" /></button>}
-        <TabBtn on={tab === 'board'} icon="board" label="Pinnwand" go={() => setTab('board')} />
+        <TabBtn on={tab === 'board'} icon="board" label="Board" go={() => setTab('board')} />
         <TabBtn on={tab === 'settings'} icon="gear" label="Einstellungen" go={() => setTab('settings')} />
       </nav>
       {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}

@@ -13,8 +13,8 @@ type Rec = { lang: string; interimResults: boolean; continuous: boolean; start()
 const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition
   ?? (window as unknown as { webkitSpeechRecognition?: new () => Rec }).webkitSpeechRecognition;
 
-// Stichwort am Satzanfang: „Privat …“, „Familie …“ oder „Pinnwand …“ speichert ohne Rückfrage
-const PREFIX = /^\s*(privat|familie|pinnwand)\b[\s,.:;!-]*/i;
+// Stichwort am Satzanfang: „Privat …“, „Familie …“ oder „Board …“ speichert ohne Rückfrage
+const PREFIX = /^\s*(privat|familie|pinnwand|board|bord)\b[\s,.:;!-]*/i;
 const PAUSE = 3000;     // so lange darf man schweigen, bevor die Aufnahme endet
 const FIRST = 7000;     // Zeit bis zum ersten Wort
 
@@ -85,7 +85,7 @@ export function MicSheet({ auto, quick, preset, close, toDraft, posted, saved }:
     }
     setBusy(true);
     try {
-      if (m === 'board') { await store.postMessage(v); toast('Hängt jetzt an der Wand.'); posted(); return; }
+      if (m === 'board') { await store.postMessage(v); toast('Hängt jetzt am Board.'); posted(); return; }
       const parsed = await parseSpoken(v, snap.me!, snap.members.filter(x => x.role !== 'guest'));
       const d: Draft = { ...parsed, vis: m, busy: m === 'private' && parsed.busy };
       if (direct && d.title.trim()) {
@@ -100,19 +100,19 @@ export function MicSheet({ auto, quick, preset, close, toDraft, posted, saved }:
 
   return (
     <Sheet onClose={close} label="Sprechen">
-      <h2>{mode === 'board' ? 'Nachricht an die Pinnwand' : 'Neuer Termin'}</h2>
+      <h2>{mode === 'board' ? 'Nachricht ans Board' : 'Neuer Termin'}</h2>
       <div className="visbig three" role="group" aria-label="Art">
         <button type="button" className="private" aria-pressed={mode === 'private'} onClick={() => setMode('private')}><Icon name="lock" />Privat<small>nur ich</small></button>
         <button type="button" className="family" aria-pressed={mode === 'family'} onClick={() => setMode('family')}><Icon name="home" />Familie<small>alle + Display</small></button>
-        <button type="button" className="board" aria-pressed={mode === 'board'} onClick={() => setMode('board')}><Icon name="board" />Pinnwand<small>Nachricht</small></button>
+        <button type="button" className="board" aria-pressed={mode === 'board'} onClick={() => setMode('board')}><Icon name="board" />Board<small>Nachricht</small></button>
       </div>
       <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button></div>
       <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : 'Tippe aufs Mikrofon und sprich, oder schreib den Satz.'}</p>
       <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen'} maxLength={500} />
-      <p className="note">Tipp: Beginnst du mit „Privat“, „Familie“ oder „Pinnwand“, wird ohne Rückfrage gespeichert.</p>
+      <p className="note">Tipp: Beginnst du mit „Privat“, „Familie“ oder „Board“, wird ohne Rückfrage gespeichert.</p>
       <div className="btn-row">
         <button type="button" className="btn ghost" onClick={close}>Abbrechen</button>
-        <button type="button" className="btn" disabled={busy || !text.trim()} onClick={() => void go()}>{busy ? <span className="spin" /> : mode === 'board' ? 'An die Wand' : 'Weiter'}</button>
+        <button type="button" className="btn" disabled={busy || !text.trim()} onClick={() => void go()}>{busy ? <span className="spin" /> : mode === 'board' ? 'Boarding' : 'Weiter'}</button>
       </div>
     </Sheet>
   );

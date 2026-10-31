@@ -215,7 +215,7 @@
             android:layout_marginStart="6dp"
             android:background="@drawable/btn_board"
             android:gravity="center"
-            android:text="Pinnwand"
+            android:text="Board"
             android:maxLines="1"
             android:textColor="#FFFFFF"
             android:textSize="12sp"

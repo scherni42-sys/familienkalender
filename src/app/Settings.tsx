@@ -27,11 +27,11 @@ export function Settings() {
     const next = upcoming(snap.birthdays)[0];
     const info: Record<string, string> = {
       family: `${snap.members.length} Mitglieder · Admin: ${snap.members.filter(m => m.role === 'admin').map(m => m.name).join(', ')}`,
-      basic: `Geburtstage ${s.bdLead ? `${s.bdLead} Tage vorher` : 'aus'} · Pinnwand ${s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tage`} · Fahrzeiten ${s.showTravel ? 'an' : 'aus'}`,
+      basic: `Geburtstage ${s.bdLead ? `${s.bdLead} Tage vorher` : 'aus'} · Board ${s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tage`} · Fahrzeiten ${s.showTravel ? 'an' : 'aus'}`,
       colors: 'Jede Person hat ihre eigene Farbe',
       bg: 'Unifarbener Hintergrund für App und Display',
       bdays: `${snap.birthdays.length} eingetragen${next ? ` · ${next.name} ${inDays(next.days)}` : ''}`,
-      displays: `${snap.displays.length || 'Kein'} Display${snap.displays.length === 1 ? '' : 's'} · Pinnwand ${s.boardMode === 'fixed' ? 'fest' : 'dynamisch'}`
+      displays: `${snap.displays.length || 'Kein'} Display${snap.displays.length === 1 ? '' : 's'} · Board ${s.boardMode === 'fixed' ? 'fest' : 'dynamisch'}`
     };
     return <>
       <div className="mem"><Badge m={me} size={30} /><div><div className="nm">{me.name}</div><div className="sub">{ROLE[me.role]} · {snap.family!.name}</div></div><span />
@@ -52,7 +52,7 @@ export function Settings() {
   if (sub === 'basic') content = <>
     {lock}
     <Sel isAdmin={isAdmin} icon="cake" text="Geburtstags-Erinnerung" value={s.bdLead} opts={[[0, 'aus'], [3, '3 Tage vorher'], [7, '7 Tage vorher'], [14, '14 Tage vorher'], [21, '21 Tage vorher'], [30, '30 Tage vorher']]} onPick={v => upd({ bdLead: v }, v ? `Geburtstage erscheinen ab ${v} Tage vorher.` : 'Geburtstags-Erinnerung aus.')} />
-    <Sel isAdmin={isAdmin} icon="board" text="Pinnwand-Nachrichten verschwinden nach" value={s.ttlHours} opts={[[12, '12 Std.'], [24, '1 Tag'], [72, '3 Tagen'], [168, '1 Woche']]} onPick={v => upd({ ttlHours: v }, 'Gespeichert.')} />
+    <Sel isAdmin={isAdmin} icon="board" text="Board-Nachrichten verschwinden nach" value={s.ttlHours} opts={[[12, '12 Std.'], [24, '1 Tag'], [72, '3 Tagen'], [168, '1 Woche']]} onPick={v => upd({ ttlHours: v }, 'Gespeichert.')} />
     <label className="setrow"><span><Icon name="car" /> Fahrzeiten anzeigen</span>{isAdmin ? <input type="checkbox" className="sw" checked={s.showTravel} onChange={e => upd({ showTravel: e.target.checked }, e.target.checked ? 'Fahrzeiten werden angezeigt.' : 'Fahrzeiten ausgeblendet.')} /> : <b>{s.showTravel ? 'ja' : 'nein'}</b>}</label>
     {s.showTravel && <>
       <label className="setrow"><span><Icon name="home" /> Zuhause (Start für Fahrten)</span>{isAdmin ? <input defaultValue={s.home} placeholder="Straße, Ort" onBlur={e => e.target.value.trim() !== s.home && upd({ home: e.target.value.trim() }, 'Zuhause-Adresse gespeichert.')} /> : <b>{s.home || '–'}</b>}</label>
@@ -194,9 +194,9 @@ function Displays() {
         </div></div>;
     })}
     {!store.demo && <button type="button" className="small-btn" style={{ justifySelf: 'start' }} onClick={() => store.addDisplay(`Display ${snap.displays.length + 1}`).then(() => toast('Neues Display angelegt.'), fail)}>Weiteres Display anlegen</button>}
-    <label className="setrow"><span><Icon name="board" /> Pinnwand am Display</span>
+    <label className="setrow"><span><Icon name="board" /> Board am Display</span>
       <select value={s.boardMode} onChange={e => store.updateSettings({ boardMode: e.target.value as 'dynamic' | 'fixed' }).catch(fail)}><option value="dynamic">dynamisch</option><option value="fixed">fest: rechtes Drittel</option></select></label>
-    <p className="note">Dynamisch: Die Pinnwand bekommt den Platz neben den Terminen. Fest: Das rechte Drittel gehört immer der Pinnwand.</p>
+    <p className="note">Dynamisch: Das Board bekommt den Platz neben den Terminen. Fest: Das rechte Drittel gehört immer dem Board.</p>
   </>;
 }
 
