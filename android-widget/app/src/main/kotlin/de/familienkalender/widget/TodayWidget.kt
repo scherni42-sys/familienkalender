@@ -60,6 +60,9 @@ class TodayWidget : AppWidgetProvider() {
             val on = Feed.weekMode(ctx)
             v.setTextViewText(R.id.weeklabel, if (on) Feed.weekLabel(ctx) else "📅 Wochenvorschau")
             v.setInt(R.id.weekbar, "setBackgroundResource", if (on) R.drawable.bar_on else R.drawable.bar_off)
+            // An: grüne Leiste mit weißer Schrift, aus: dezenter Rahmen in Textfarbe (hell und dunkel lesbar)
+            val ink = if (on) 0xFFFFFFFF.toInt() else ctx.getColor(R.color.fg)
+            for (id in intArrayOf(R.id.weeklabel, R.id.weekprev, R.id.weeknext)) v.setTextColor(id, ink)
             v.setViewVisibility(R.id.weekprev, if (on && Feed.weekOff(ctx) > 0) View.VISIBLE else View.INVISIBLE)
             v.setViewVisibility(R.id.weeknext, if (on && Feed.weekOff(ctx) < Feed.MAX_WEEKS) View.VISIBLE else View.INVISIBLE)
         }
