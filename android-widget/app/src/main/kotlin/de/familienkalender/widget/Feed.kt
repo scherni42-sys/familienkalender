@@ -202,14 +202,14 @@ object Feed {
                 )
                 shown++
             }
-            if (shown == 0) out += Row(Kind.NOTE, none ?: if (isToday) "Keine Familientermine mehr" else "Keine Familientermine")
+            if (shown == 0) out += Row(Kind.NOTE, none ?: if (isToday) "Keine Familientermine mehr" else "Keine Familientermine", open = "new:$d")
         }
         // Wochenvorschau: Montag bis Sonntag der gewählten Woche, ohne Pinnwand
         if (week != null) {
             val mon = LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(week.toLong())
             for (i in 0L until 7L) {
                 val d = mon.plusDays(i)
-                out += Row(Kind.SECTION, dateLabel(d) + if (d.toString() == today) " · heute" else "")
+                out += Row(Kind.SECTION, dateLabel(d) + if (d.toString() == today) " · heute" else "", open = "new:$d")
                 day(d.toString(), d.toString() == today, "frei")
             }
             return out

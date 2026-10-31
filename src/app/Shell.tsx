@@ -55,6 +55,8 @@ export function Shell() {
       const [k, id] = o.split(':');
       if (k === 'event' && snap.events.some(e => e.id === id)) setSheet({ kind: 'detail', id });
       if (k === 'bdays') setSheet({ kind: 'bdays' });
+      // Tag im Widget angetippt: leerer Termin an diesem Datum
+      if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) setSheet({ kind: 'edit', fresh: true, draft: { title: '', date: id, end_date: id, all_day: false, start_min: 600, end_min: 660, persons: [me.id], driver: null, vis: 'family', busy: false, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, reason: '', suggested: 'family', timeFound: true } });
       if (k === 'msg') { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
     }
     if (me.role === 'guest') return;

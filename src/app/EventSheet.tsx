@@ -48,8 +48,8 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
 
   return (
     <Sheet onClose={close} label="Termin bestätigen">
-      <h2>{fresh ? 'Stimmt das so?' : 'Termin bearbeiten'}</h2>
-      {fresh && <div className="ai"><Icon name="spark" /><div>
+      <h2>{fresh ? (d.reason ? 'Stimmt das so?' : 'Neuer Termin') : 'Termin bearbeiten'}</h2>
+      {fresh && d.reason && <div className="ai"><Icon name="spark" /><div>
         {d.suggested === d.vis ? <><b>Passt: {d.vis === 'family' ? 'Familie' : 'Privat'}</b>, weil {d.reason}.</>
           : <><b>Hinweis:</b> Du hast {d.vis === 'family' ? 'Familie' : 'Privat'} gewählt. Ich hätte {d.suggested === 'family' ? 'Familie' : 'Privat'} vorgeschlagen, weil {d.reason}.</>}
         {d.timeFound ? '' : ' Keine Uhrzeit genannt, daher ganztägig.'}

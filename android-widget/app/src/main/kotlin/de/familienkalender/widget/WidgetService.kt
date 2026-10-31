@@ -57,8 +57,15 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
     override fun getViewAt(position: Int): RemoteViews {
         val r = rows.getOrNull(position) ?: return RemoteViews(ctx.packageName, R.layout.note)
         val v = when (r.kind) {
-            Kind.SECTION -> RemoteViews(ctx.packageName, R.layout.section).apply { setTextViewText(R.id.text, r.text) }
-            Kind.NOTE -> RemoteViews(ctx.packageName, R.layout.note).apply { setTextViewText(R.id.text, r.text) }
+            // Tag-Überschrift und „frei“ öffnen in der Wochenvorschau einen neuen Termin an diesem Tag
+            Kind.SECTION -> RemoteViews(ctx.packageName, R.layout.section).apply {
+                setTextViewText(R.id.text, r.text)
+                if (r.open.isNotEmpty()) setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
+            }
+            Kind.NOTE -> RemoteViews(ctx.packageName, R.layout.note).apply {
+                setTextViewText(R.id.text, r.text)
+                if (r.open.isNotEmpty()) setOnClickFillInIntent(R.id.text, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
+            }
             Kind.REPLY -> RemoteViews(ctx.packageName, R.layout.reply).apply {
                 setTextViewText(R.id.who, r.time)
                 setTextColor(R.id.who, r.color)
