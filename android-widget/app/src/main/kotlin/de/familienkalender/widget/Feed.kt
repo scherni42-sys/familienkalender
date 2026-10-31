@@ -172,7 +172,8 @@ object Feed {
                 val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
                 val driver = e.optString("driver").takeIf { it.isNotEmpty() && it != "null" }
                 out += Row(
-                    Kind.EVENT, e.optString("title"),
+                    // Eigene private Termine (nur mit persönlichem Widget-Code) mit Schloss kennzeichnen
+                    Kind.EVENT, (if (e.optString("vis", "family") != "family") "🔒 " else "") + e.optString("title"),
                     time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
                     sub = driver?.let { "${name[it] ?: ""} fährt" } ?: "",
                     color = first?.let { color[it] } ?: Color.GRAY,

@@ -173,8 +173,12 @@ function Displays() {
   const s = snap.family!.settings;
   const isAdmin = me.role === 'admin';
   const base = `${location.origin}${location.pathname}`;
-  if (!isAdmin) return <div className="ai"><Icon name="lock" /><div>Displays verwaltet der Admin.</div></div>;
+  // Persönlicher Code: Widget zeigt Familientermine und die eigenen privaten Termine
+  const widget = !store.demo && <div className="mem"><span className="b" style={cvar('var(--accent)')}>H</span><div><div className="nm">Mein Handy-Widget</div><div className="sub">Familientermine und meine privaten Termine</div></div><span />
+    <div className="acts"><button type="button" className="small-btn" onClick={() => store.widgetToken().then(t => navigator.clipboard?.writeText('FK1:' + btoa(JSON.stringify({ u: SUPA.url, k: SUPA.key, t, a: base })))).then(() => toast('Widget-Code kopiert. Jetzt in der Widget-App einfügen.'), fail)}>Widget-Code für Android kopieren</button></div></div>;
+  if (!isAdmin) return <>{widget}<div className="ai"><Icon name="lock" /><div>Displays verwaltet der Admin.</div></div></>;
   return <>
+    {widget}
     <p className="note">Jedes Display ruft die Familienseite unter einer eigenen, geheimen Adresse auf. Diese Adresse im WYSCREEN als Webseite eintragen. Entfernen macht die Adresse sofort ungültig.</p>
     {snap.displays.map(d => {
       const url = `${base}#/display/${d.token}`;
@@ -184,7 +188,6 @@ function Displays() {
           <span className="note">Varianten: <code>?v=bigme</code>, <code>?v=qm</code>, <code>?v=color</code>, <code>?v=eink</code> vor dem # anhängen. <code>?r=5</code> lädt alle 5 Sekunden neu, beides zusammen mit <code>?v=qm&amp;r=5</code>.</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText(url).then(() => toast('Adresse kopiert.'))}>Adresse kopieren</button>
-            {!store.demo && <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText('FK1:' + btoa(JSON.stringify({ u: SUPA.url, k: SUPA.key, t: d.token, a: base }))).then(() => toast('Widget-Code kopiert. Jetzt in der Familien-Widget-App einfügen.'))}>Widget-Code für Android kopieren</button>}
             <a className="small-btn" href={url} target="_blank" rel="noreferrer">Ansehen</a>
             {!store.demo && <button type="button" className="small-btn danger" onClick={() => { if (confirm('Display entfernen? Die Adresse funktioniert dann nicht mehr.')) store.removeDisplay(d.id).catch(fail); }}>Entfernen</button>}
           </div>

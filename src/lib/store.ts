@@ -33,6 +33,7 @@ export interface Store {
   removeBirthday(id: string): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   addDisplay(name: string): Promise<void>;
+  widgetToken(): Promise<string>;
   removeDisplay(id: string): Promise<void>;
   displayFeed(token: string): Promise<DisplayFeed | null>;
   // nur Demo: zwischen den Familienmitgliedern umschalten
@@ -108,6 +109,7 @@ class LocalStore extends Base implements Store {
   async addBirthday(b: Omit<Birthday, 'id'>) { this.patch(s => ({ birthdays: [...s.birthdays, { ...b, id: uid() }] })); }
   async removeBirthday(id: string) { this.patch(s => ({ birthdays: s.birthdays.filter(b => b.id !== id) })); }
   async updateSettings(patch: Partial<Settings>) { this.patch(s => ({ family: s.family && { ...s.family, settings: { ...s.family.settings, ...patch } } })); }
+  async widgetToken() { return 'demo'; }
   async addDisplay(name: string) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
   async removeDisplay(id: string) { this.patch(s => ({ displays: s.displays.filter(d => d.id !== id) })); }
   async displayFeed(): Promise<DisplayFeed | null> {
@@ -232,6 +234,7 @@ class SupabaseStore extends Base implements Store {
     const settings = { ...this.snap.family!.settings, ...patch };
     this.ok(await this.sb.from('families').update({ settings }).eq('id', this.familyId)); await this.refresh();
   }
+  async widgetToken() { return this.ok(await this.sb.rpc('my_widget_token', { fam: this.familyId })) as string; }
   async addDisplay(name: string) { this.ok(await this.sb.from('displays').insert({ family_id: this.familyId, name })); await this.refresh(); }
   async removeDisplay(id: string) { this.ok(await this.sb.from('displays').delete().eq('id', id)); await this.refresh(); }
   async displayFeed(token: string) {
