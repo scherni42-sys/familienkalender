@@ -58,6 +58,8 @@ object Feed {
     fun weekOff(ctx: Context) = cache(ctx).getInt("weekOff", 0)
     fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).apply()
     fun turnWeek(ctx: Context, by: Int) = cache(ctx).edit().putInt("weekOff", (weekOff(ctx) + by).coerceIn(0, MAX_WEEKS)).apply()
+    fun weekNumber(ctx: Context): Int =
+        LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(weekOff(ctx).toLong()).get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     fun weekLabel(ctx: Context): String {
         val mon = LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(weekOff(ctx).toLong())
         val kw = mon.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
