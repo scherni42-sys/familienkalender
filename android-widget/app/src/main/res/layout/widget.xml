@@ -87,8 +87,9 @@
             android:background="@drawable/btn_private"
             android:gravity="center"
             android:text="🎤 Privat"
+            android:maxLines="1"
             android:textColor="#FFFFFF"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
@@ -100,8 +101,9 @@
             android:background="@drawable/btn_family"
             android:gravity="center"
             android:text="🎤 Familie"
+            android:maxLines="1"
             android:textColor="#FFFFFF"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
@@ -113,8 +115,20 @@
             android:background="@drawable/btn_board"
             android:gravity="center"
             android:text="🎤 Pinnwand"
+            android:maxLines="1"
             android:textColor="#FFFFFF"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/q_bdays"
+            android:layout_width="44dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/btn_bdays"
+            android:contentDescription="Geburtstage"
+            android:gravity="center"
+            android:text="🎂"
+            android:textSize="18sp" />
     </LinearLayout>
 </LinearLayout>

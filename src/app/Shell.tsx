@@ -54,6 +54,7 @@ export function Shell() {
       history.replaceState(null, '', location.pathname + location.hash);
       const [k, id] = o.split(':');
       if (k === 'event' && snap.events.some(e => e.id === id)) setSheet({ kind: 'detail', id });
+      if (k === 'bdays') setSheet({ kind: 'bdays' });
       if (k === 'msg') { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
     }
     if (me.role === 'guest') return;
