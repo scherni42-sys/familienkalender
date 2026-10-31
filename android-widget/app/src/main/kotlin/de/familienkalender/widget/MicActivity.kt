@@ -7,10 +7,12 @@ import android.os.Bundle
 
 // App-Symbol „Familie sprechen“ (auch für die Seitentaste): öffnet den Familienkalender direkt mit Spracheingabe
 class MicActivity : Activity() {
+    companion object { const val EXTRA_MODE = "mode" }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val app = Feed.config(this)?.app?.takeIf { it.isNotEmpty() }
-        val target = if (app != null) Intent(Intent.ACTION_VIEW, Uri.parse(app).buildUpon().appendQueryParameter("mic", "1").build())
+        val target = if (app != null) Intent(Intent.ACTION_VIEW, Uri.parse(app).buildUpon().appendQueryParameter("mic", intent?.getStringExtra(EXTRA_MODE) ?: "1").build())
             else Intent(this, SetupActivity::class.java)
         try { startActivity(target) } catch (e: Exception) { startActivity(Intent(this, SetupActivity::class.java)) }
         finish()

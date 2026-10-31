@@ -84,6 +84,11 @@ class TodayWidget : AppWidgetProvider() {
             // Die ganze Kopfzeile aktualisiert (der Knopf allein ist schwer zu treffen); Einträge öffnen die App
             v.setOnClickPendingIntent(R.id.head, refreshIntent(ctx))
             v.setOnClickPendingIntent(R.id.root, refreshIntent(ctx))
+            // Schnellknöpfe unten: Familienkalender mit Aufnahme in der gewählten Art öffnen
+            listOf(R.id.q_private to "private", R.id.q_family to "family", R.id.q_board to "board").forEachIndexed { i, (vid, mode) ->
+                val mic = Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, mode).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                v.setOnClickPendingIntent(vid, PendingIntent.getActivity(ctx, 10 + i, mic, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            }
             val open = Intent(ctx, OpenActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(ctx, 2, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
             return v
