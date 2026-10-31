@@ -70,9 +70,9 @@ class TodayWidget : AppWidgetProvider() {
 
             v.setOnClickPendingIntent(R.id.refresh, refreshIntent(ctx))
 
-            // Antippen öffnet die Familienkalender-App (oder ohne Code die Einrichtung), immer über OpenActivity
+            // Die ganze Kopfzeile aktualisiert (der Knopf allein ist schwer zu treffen); Einträge öffnen die App
+            v.setOnClickPendingIntent(R.id.head, refreshIntent(ctx))
             val open = Intent(ctx, OpenActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            v.setOnClickPendingIntent(R.id.head, PendingIntent.getActivity(ctx, 1, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             v.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(ctx, 2, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
             return v
         }
