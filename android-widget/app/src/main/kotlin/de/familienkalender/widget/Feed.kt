@@ -50,7 +50,19 @@ object Feed {
 
     // Torten-Knopf: Widget zeigt statt Heute/Pinnwand die Geburtstage, bis er nochmal gedrückt wird
     fun bdMode(ctx: Context) = cache(ctx).getBoolean("bd", false)
-    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).apply()
+    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).putBoolean("week", false).apply()
+
+    // Wochenvorschau: blättert ab dieser Woche bis zu 8 Wochen voraus (so weit liefert der Server Termine)
+    const val MAX_WEEKS = 8
+    fun weekMode(ctx: Context) = cache(ctx).getBoolean("week", false)
+    fun weekOff(ctx: Context) = cache(ctx).getInt("weekOff", 0)
+    fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).apply()
+    fun turnWeek(ctx: Context, by: Int) = cache(ctx).edit().putInt("weekOff", (weekOff(ctx) + by).coerceIn(0, MAX_WEEKS)).apply()
+    fun weekLabel(ctx: Context): String {
+        val mon = LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(weekOff(ctx).toLong())
+        val kw = mon.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
+        return "KW $kw · ${mon.dayOfMonth}.${mon.monthValue}.–${mon.plusDays(6).dayOfMonth}.${mon.plusDays(6).monthValue}."
+    }
 
     // Geburtstage seitenweise, damit sie auch bei großer Schrift ohne Scrollen passen
     const val BD_PER_PAGE = 5
@@ -129,7 +141,7 @@ object Feed {
     }
 
     // Baut die Zeilen: heutige und morgige Familientermine, dann die Pinnwand (wie die Web-Ansicht ?v=mini)
-    fun rows(feed: JSONObject): List<Row> {
+    fun rows(feed: JSONObject, week: Int? = null): List<Row> {
         val today = LocalDate.now().toString()
         val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
         val settings = feed.optJSONObject("family")?.optJSONObject("settings") ?: JSONObject()
@@ -147,7 +159,7 @@ object Feed {
         val out = ArrayList<Row>()
         val evs = feed.optJSONArray("events") ?: JSONArray()
         val all = (0 until evs.length()).map { evs.getJSONObject(it) }
-        fun day(d: String, isToday: Boolean) {
+        fun day(d: String, isToday: Boolean, none: String? = null) {
             val list = all
                 .filter { it.optString("date") <= d && d <= it.optString("end_date", it.optString("date")) }
                 .sortedWith(compareBy({ !it.optBoolean("all_day") }, { it.optInt("start_min") }))
@@ -169,7 +181,17 @@ object Feed {
                 )
                 shown++
             }
-            if (shown == 0) out += Row(Kind.NOTE, if (isToday) "Keine Familientermine mehr" else "Keine Familientermine")
+            if (shown == 0) out += Row(Kind.NOTE, none ?: if (isToday) "Keine Familientermine mehr" else "Keine Familientermine")
+        }
+        // Wochenvorschau: Montag bis Sonntag der gewählten Woche, ohne Pinnwand
+        if (week != null) {
+            val mon = LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(week.toLong())
+            for (i in 0L until 7L) {
+                val d = mon.plusDays(i)
+                out += Row(Kind.SECTION, dateLabel(d) + if (d.toString() == today) " · heute" else "")
+                day(d.toString(), d.toString() == today, "frei")
+            }
+            return out
         }
         day(today, true)
         val tomorrow = LocalDate.now().plusDays(1)

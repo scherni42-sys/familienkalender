@@ -26,7 +26,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         val (feed, loadErr) = Feed.load(ctx)
         var err = loadErr
         rows = try {
-            if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(ctx, feed) else Feed.rows(feed)
+            if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(ctx, feed) else Feed.rows(feed, if (Feed.weekMode(ctx)) Feed.weekOff(ctx) else null)
         } catch (e: Exception) {
             err = "Anzeige-Fehler: ${e.message}"
             emptyList()
@@ -43,6 +43,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         val bd = Feed.bdMode(ctx) && Feed.bdPages(ctx) > 1
         head.setViewVisibility(R.id.bdnav, if (bd) View.VISIBLE else View.GONE)
         head.setTextViewText(R.id.bdpage, "${Feed.bdPage(ctx) + 1}/${Feed.bdPages(ctx)}")
+        TodayWidget.weekBar(ctx, head)
         head.setTextViewText(R.id.empty, if (err != null && feed == null) err else "Keine Einträge")
         for (id in mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java))) mgr.partiallyUpdateAppWidget(id, head)
     }
