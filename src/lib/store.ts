@@ -228,7 +228,7 @@ class SupabaseStore extends Base implements Store {
   }
   async removeMember(id: string) { this.ok(await this.sb.from('members').update({ active: false, user_id: null }).eq('id', id)); await this.refresh(); }
   async createInvite(memberId: string) { return this.ok(await this.sb.rpc('create_invite', { p_member: memberId })) as string; }
-  async addBirthday(b: Omit<Birthday, 'id'>) { this.ok(await this.sb.from('birthdays').insert({ ...b, family_id: this.familyId })); await this.refresh(); }
+  async addBirthday({ owner, ...b }: Omit<Birthday, 'id'>) { this.ok(await this.sb.from('birthdays').insert({ ...b, ...(owner ? { owner } : {}), family_id: this.familyId })); await this.refresh(); }
   async removeBirthday(id: string) { this.ok(await this.sb.from('birthdays').delete().eq('id', id)); await this.refresh(); }
   async updateSettings(patch: Partial<Settings>) {
     const settings = { ...this.snap.family!.settings, ...patch };

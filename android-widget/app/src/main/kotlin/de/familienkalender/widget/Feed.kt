@@ -100,7 +100,8 @@ object Feed {
             val age = if (year > 0) " · wird ${next.year - year}" else ""
             val left = when (days) { 0L -> "heute 🎉"; 1L -> "morgen"; else -> "in $days T." }
             out += Row(
-                Kind.EVENT, b.optString("name"),
+                // Private Geburtstage (nur im persönlichen Widget) mit Schloss
+                Kind.EVENT, (if (b.isNull("owner")) "" else "🔒 ") + b.optString("name"),
                 time = "${next.dayOfMonth}.${next.monthValue}.",
                 sub = left + age,
                 color = if (days <= 14) Color.parseColor("#C2477A") else Color.GRAY,
@@ -176,7 +177,7 @@ object Feed {
                 if (b.optInt("month") != date.monthValue || b.optInt("day") != date.dayOfMonth) continue
                 val year = b.optInt("year", 0)
                 out += Row(
-                    Kind.EVENT, "🎂 " + b.optString("name") + if (year > 0) " wird ${date.year - year}" else "",
+                    Kind.EVENT, "🎂 " + (if (b.isNull("owner")) "" else "🔒 ") + b.optString("name") + if (year > 0) " wird ${date.year - year}" else "",
                     time = "Geb.", color = Color.parseColor("#C2477A"), open = "bdays"
                 )
                 shown++
