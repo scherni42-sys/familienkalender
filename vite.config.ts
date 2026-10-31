@@ -20,6 +20,8 @@ export default defineConfig({
         start_url: './',
         scope: './',
         display: 'standalone',
+        // Läuft die App schon, lädt ein Start über Seitentaste/Widget sie mit der neuen Adresse (?mic=1, ?open=…)
+        launch_handler: { client_mode: 'navigate-existing' },
         background_color: '#f3f6f4',
         theme_color: '#1d8657',
         shortcuts: [{ name: 'Neuer Termin', short_name: 'Termin', url: './?mic=1', icons: [{ src: 'icon-192.png', sizes: '192x192' }] }],

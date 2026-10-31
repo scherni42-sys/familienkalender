@@ -57,6 +57,9 @@ export function Shell() {
     const q = new URLSearchParams(location.search);
     if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); setSheet({ kind: 'mic', auto: true, quick: true }); }
     else if (micStart() && !o) setSheet({ kind: 'mic', auto: true, quick: true });
+    // Falls Chrome die laufende App nur nach vorn holt: Startadresse über die Launch-Queue auswerten
+    (window as unknown as { launchQueue?: { setConsumer: (f: (p: { targetURL?: string }) => void) => void } }).launchQueue
+      ?.setConsumer(p => { if (p.targetURL && new URL(p.targetURL).searchParams.has('mic')) setSheet({ kind: 'mic', auto: true, quick: true }); });
     const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic', auto: true, quick: true }); };
     document.addEventListener('visibilitychange', onShow);
     return () => document.removeEventListener('visibilitychange', onShow);
