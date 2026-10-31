@@ -61,6 +61,9 @@ class TodayWidget : AppWidgetProvider() {
             v.setTextViewText(R.id.weeklabel, if (on) "KW ${Feed.weekNumber(ctx)}" else "📅 KW")
             v.setInt(R.id.weeklabel, "setBackgroundResource", if (on) R.drawable.bar_on else R.drawable.bar_off)
             v.setTextColor(R.id.weeklabel, if (on) 0xFFFFFFFF.toInt() else ctx.getColor(R.color.fg))
+            val year = if (on) Feed.weekYear(ctx) else null
+            v.setTextViewText(R.id.weekyear, year?.toString() ?: "")
+            v.setViewVisibility(R.id.weekyear, if (year != null) View.VISIBLE else View.GONE)
             v.setViewVisibility(R.id.weekprev, if (on && Feed.weekOff(ctx) > 0) View.VISIBLE else View.INVISIBLE)
             v.setViewVisibility(R.id.weeknext, if (on && Feed.weekOff(ctx) < Feed.MAX_WEEKS) View.VISIBLE else View.INVISIBLE)
         }

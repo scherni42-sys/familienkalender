@@ -52,12 +52,17 @@ object Feed {
     fun bdMode(ctx: Context) = cache(ctx).getBoolean("bd", false)
     fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).putBoolean("week", false).apply()
 
-    // Wochenvorschau: blättert ab dieser Woche bis zu 8 Wochen voraus (so weit liefert der Server Termine)
-    const val MAX_WEEKS = 8
+    // Wochenvorschau: blättert ab dieser Woche bis ein Jahr voraus (so weit liefert der Server Termine)
+    const val MAX_WEEKS = 52
     fun weekMode(ctx: Context) = cache(ctx).getBoolean("week", false)
     fun weekOff(ctx: Context) = cache(ctx).getInt("weekOff", 0)
     fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).apply()
     fun turnWeek(ctx: Context, by: Int) = cache(ctx).edit().putInt("weekOff", (weekOff(ctx) + by).coerceIn(0, MAX_WEEKS)).apply()
+    // Jahr der gezeigten Woche, nur wenn es nicht das aktuelle ist (z. B. 2027 über dem KW-Knopf)
+    fun weekYear(ctx: Context): Int? {
+        val y = LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(weekOff(ctx).toLong()).get(java.time.temporal.IsoFields.WEEK_BASED_YEAR)
+        return y.takeIf { it != LocalDate.now().get(java.time.temporal.IsoFields.WEEK_BASED_YEAR) }
+    }
     fun weekNumber(ctx: Context): Int =
         LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(weekOff(ctx).toLong()).get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)
     fun weekLabel(ctx: Context): String {
