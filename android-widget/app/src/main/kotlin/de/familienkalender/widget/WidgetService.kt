@@ -23,7 +23,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
     override fun onDestroy() {}
 
     override fun onDataSetChanged() {
-        val (feed, loadErr) = Feed.load(ctx)
+        val (feed, loadErr) = Feed.load(ctx, 20_000)
         var err = loadErr
         rows = try {
             if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(ctx, feed) else Feed.rows(feed, if (Feed.weekMode(ctx)) Feed.weekOff(ctx) else null)
@@ -49,7 +49,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
     }
 
     override fun getCount() = rows.size
-    override fun getViewTypeCount() = 4
+    override fun getViewTypeCount() = 5
     override fun getItemId(position: Int) = position.toLong()
     override fun hasStableIds() = false
     override fun getLoadingView(): RemoteViews? = null
@@ -65,6 +65,12 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
             Kind.NOTE -> RemoteViews(ctx.packageName, R.layout.note).apply {
                 setTextViewText(R.id.text, r.text)
                 if (r.open.isNotEmpty()) setOnClickFillInIntent(R.id.text, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
+            }
+            // 👍 / Mach ich / erledigt: über OpenActivity an den Widget-Empfänger, die App bleibt zu
+            Kind.ACTIONS -> RemoteViews(ctx.packageName, R.layout.actions).apply {
+                setViewVisibility(R.id.a_take, if (r.canTake) View.VISIBLE else View.GONE)
+                for ((id, act) in listOf(R.id.a_like to "like", R.id.a_take to "take", R.id.a_done to "done"))
+                    setOnClickFillInIntent(id, Intent().putExtra(OpenActivity.EXTRA_ACT, act).putExtra(OpenActivity.EXTRA_MSG, r.msg))
             }
             Kind.REPLY -> RemoteViews(ctx.packageName, R.layout.reply).apply {
                 setTextViewText(R.id.who, r.time)

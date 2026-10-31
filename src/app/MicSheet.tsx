@@ -18,7 +18,7 @@ const PREFIX = /^\s*(privat|familie|pinnwand|board|bord)\b[\s,.:;!-]*/i;
 const PAUSE = 3000;     // so lange darf man schweigen, bevor die Aufnahme endet
 const FIRST = 7000;     // Zeit bis zum ersten Wort
 
-export function MicSheet({ auto, quick, preset, close, toDraft, posted, saved }: { auto?: boolean; quick?: boolean; preset?: Mode; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
+export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, posted, saved }: { auto?: boolean; quick?: boolean; preset?: Mode; photoFirst?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
   const snap = useSnapshot();
   // Seitentaste: ohne Stichwort „Privat“/„Familie“ landet das Gesprochene auf der Pinnwand
   const [mode, setMode] = useState<Mode>(preset ?? (quick ? 'board' : 'family'));
@@ -114,6 +114,9 @@ export function MicSheet({ auto, quick, preset, close, toDraft, posted, saved }:
   return (
     <Sheet onClose={close} label="Sprechen">
       <h2>{mode === 'board' ? 'Nachricht ans Board' : 'Neuer Termin'}</h2>
+      {/* Aus dem Widget-Kamera-Knopf: großer Foto-Knopf zuerst (Android verlangt einen Tipp, bevor die Kamera aufgeht) */}
+      {photoFirst && !store.demo && <label className={`photobig${busy ? ' busy' : ''}`}><Icon name="camera" />{busy ? 'Claude liest das Foto …' : 'Foto aufnehmen'}
+        <input type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>}
       <div className="visbig three" role="group" aria-label="Art">
         <button type="button" className="private" aria-pressed={mode === 'private'} onClick={() => setMode('private')}><Icon name="lock" />Privat<small>nur ich</small></button>
         <button type="button" className="family" aria-pressed={mode === 'family'} onClick={() => setMode('family')}><Icon name="home" />Familie<small>alle + Display</small></button>

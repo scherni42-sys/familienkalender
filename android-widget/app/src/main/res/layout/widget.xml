@@ -222,8 +222,19 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/q_photo"
+            android:layout_width="40dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/btn_photo"
+            android:contentDescription="Termin vom Foto"
+            android:gravity="center"
+            android:text="📷"
+            android:textSize="17sp" />
+
+        <TextView
             android:id="@+id/q_bdays"
-            android:layout_width="44dp"
+            android:layout_width="40dp"
             android:layout_height="36dp"
             android:layout_marginStart="6dp"
             android:background="@drawable/btn_bdays"

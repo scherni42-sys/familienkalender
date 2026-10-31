@@ -8,10 +8,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
+import android.widget.Toast
 import android.view.View
 import android.widget.RemoteViews
 import java.time.LocalDate
+import kotlin.concurrent.thread
 
 // Das Widget: Kopf mit Datum und Aktualisieren-Knopf, darunter die Liste aus WidgetService
 class TodayWidget : AppWidgetProvider() {
@@ -22,14 +26,28 @@ class TodayWidget : AppWidgetProvider() {
         schedule(ctx)
     }
 
-    override fun onDisabled(ctx: Context) {
-        (ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(refreshIntent(ctx))
-    }
+    override fun onDisabled(ctx: Context) = unscheduleIfUnused(ctx)
 
     override fun onReceive(ctx: Context, intent: Intent) {
         super.onReceive(ctx, intent)
         when (intent.action) {
-            REFRESH -> refreshData(ctx)
+            REFRESH, Reminders.REMIND -> { refreshData(ctx); background(ctx) }
+            // Board-Knopf aus dem Widget: ausführen, kurz melden, neu laden
+            ACT -> {
+                val act = intent.getStringExtra(OpenActivity.EXTRA_ACT) ?: return
+                val msg = intent.getStringExtra(OpenActivity.EXTRA_MSG) ?: return
+                val done = goAsync()
+                thread {
+                    try {
+                        val err = Feed.act(ctx, act, msg)
+                        Handler(Looper.getMainLooper()).post {
+                            Toast.makeText(ctx, err ?: when (act) { "like" -> "👍 gesendet"; "take" -> "Du übernimmst das"; else -> "Erledigt" }, Toast.LENGTH_SHORT).show()
+                        }
+                        Feed.load(ctx).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it) }
+                        refreshData(ctx)
+                    } finally { done.finish() }
+                }
+            }
             TOGGLE_BD -> { Feed.toggleBd(ctx); refreshData(ctx) }
             BD_PREV -> { Feed.turnBdPage(ctx, -1); refreshData(ctx) }
             BD_NEXT -> { Feed.turnBdPage(ctx, 1); refreshData(ctx) }
@@ -37,12 +55,13 @@ class TodayWidget : AppWidgetProvider() {
             WEEK_PREV -> { Feed.turnWeek(ctx, -1); refreshData(ctx) }
             WEEK_NEXT -> { Feed.turnWeek(ctx, 1); refreshData(ctx) }
             // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
-            Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx) }
+            Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx); background(ctx) }
         }
     }
 
     companion object {
         const val REFRESH = "de.familienkalender.widget.REFRESH"
+        const val ACT = "de.familienkalender.widget.ACT"
         const val TOGGLE_BD = "de.familienkalender.widget.TOGGLE_BD"
         const val BD_PREV = "de.familienkalender.widget.BD_PREV"
         const val BD_NEXT = "de.familienkalender.widget.BD_NEXT"
@@ -72,6 +91,21 @@ class TodayWidget : AppWidgetProvider() {
             ctx, 0, Intent(ctx, TodayWidget::class.java).setAction(REFRESH),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+
+        // Im Hintergrund laden: Erinnerungen prüfen und Mini-Widgets aktualisieren (die Liste lädt selbst)
+        private fun background(ctx: Context) {
+            thread {
+                Feed.load(ctx, 20_000).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it) }
+            }
+        }
+
+        // Minuten-Alarm nur abstellen, wenn kein Widget dieser App mehr liegt
+        fun unscheduleIfUnused(ctx: Context) {
+            val mgr = AppWidgetManager.getInstance(ctx)
+            val any = mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java)).isNotEmpty() ||
+                mgr.getAppWidgetIds(ComponentName(ctx, NextWidget::class.java)).isNotEmpty()
+            if (!any) (ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager).cancel(refreshIntent(ctx))
+        }
 
         // Jede Minute neu laden, aber nur solange das Handy wach ist (kein Wecken, schont den Akku)
         fun schedule(ctx: Context) {
@@ -126,6 +160,9 @@ class TodayWidget : AppWidgetProvider() {
                 val mic = Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, mode).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 v.setOnClickPendingIntent(vid, PendingIntent.getActivity(ctx, 10 + i, mic, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             }
+            // Kamera: Familienkalender öffnet „Termin vom Foto“
+            val cam = Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, "photo").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            v.setOnClickPendingIntent(R.id.q_photo, PendingIntent.getActivity(ctx, 13, cam, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             // Torte: schaltet die Liste auf Geburtstage um und wieder zurück
             val bd = Intent(ctx, TodayWidget::class.java).setAction(TOGGLE_BD)
             v.setOnClickPendingIntent(R.id.q_bdays, PendingIntent.getBroadcast(ctx, 21, bd, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))

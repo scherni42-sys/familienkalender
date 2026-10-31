@@ -8,10 +8,22 @@ import android.os.Bundle
 // Unsichtbarer Zwischenschritt: Android 14 verbietet veränderbare PendingIntents mit offenem Ziel,
 // daher zeigen Klicks im Widget hierher und wir öffnen von hier den Familienkalender.
 class OpenActivity : Activity() {
-    companion object { const val EXTRA_OPEN = "open" }
+    companion object {
+        const val EXTRA_OPEN = "open"
+        const val EXTRA_ACT = "act"
+        const val EXTRA_MSG = "msg"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Board-Knopf im Widget: nur ausführen, nichts öffnen
+        val act = intent?.getStringExtra(EXTRA_ACT)
+        if (act != null) {
+            sendBroadcast(Intent(this, TodayWidget::class.java).setAction(TodayWidget.ACT)
+                .putExtra(EXTRA_ACT, act).putExtra(EXTRA_MSG, intent.getStringExtra(EXTRA_MSG)))
+            finish()
+            return
+        }
         val app = Feed.config(this)?.app?.takeIf { it.isNotEmpty() }
         // Angetippter Eintrag: App öffnet direkt diesen Termin bzw. diese Nachricht
         val open = intent?.getStringExtra(EXTRA_OPEN)?.takeIf { it.isNotEmpty() }

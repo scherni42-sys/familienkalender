@@ -1,11 +1,15 @@
 package de.familienkalender.widget
 
+import android.Manifest
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import kotlin.concurrent.thread
@@ -21,6 +25,17 @@ class SetupActivity : Activity() {
             ?: AppWidgetManager.INVALID_APPWIDGET_ID
         // Abbrechen soll beim Anlegen kein leeres Widget hinterlassen
         setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+
+        // Erinnerungen: Schalter und (ab Android 13) Erlaubnis für Benachrichtigungen
+        val remind = findViewById<CheckBox>(R.id.remind)
+        remind.isChecked = Reminders.enabled(this)
+        remind.setOnCheckedChangeListener { _, on ->
+            Reminders.setEnabled(this, on)
+            if (on && Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+            thread { Feed.cached(this)?.let { Reminders.process(this, it) } }
+        }
+        if (remind.isChecked && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
         val code = findViewById<EditText>(R.id.code)
         val status = findViewById<TextView>(R.id.status)
@@ -47,6 +62,8 @@ class SetupActivity : Activity() {
                         val fam = feed.optJSONObject("family")?.optString("name") ?: ""
                         status.text = "Verbunden mit $fam. Du kannst das Widget jetzt auf den Startbildschirm legen."
                         TodayWidget.refreshAll(this)
+                        NextWidget.updateAll(this, feed)
+                        thread { Reminders.process(this, feed) }
                         TodayWidget.schedule(this)
                         if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))

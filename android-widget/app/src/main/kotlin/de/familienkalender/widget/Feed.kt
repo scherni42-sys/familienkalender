@@ -16,7 +16,7 @@ import java.util.Locale
 // Zugang aus dem Widget-Code der App: Supabase-Adresse, öffentlicher Schlüssel, Display-Token, App-Adresse
 data class Config(val url: String, val key: String, val token: String, val app: String)
 
-enum class Kind { SECTION, EVENT, MESSAGE, REPLY, NOTE }
+enum class Kind { SECTION, EVENT, MESSAGE, REPLY, NOTE, ACTIONS }
 
 data class Row(
     val kind: Kind,
@@ -26,7 +26,10 @@ data class Row(
     val color: Int = Color.GRAY,
     val faded: Boolean = false,
     val pinned: Boolean = false,
-    val open: String = ""
+    val open: String = "",
+    // Board-Knöpfe: Nachricht und ob „Mach ich“ noch frei ist
+    val msg: String = "",
+    val canTake: Boolean = false
 )
 
 object Feed {
@@ -113,8 +116,12 @@ object Feed {
     }
 
     // Lädt den Display-Feed; bei Fehlern bleibt der letzte Stand aus dem Zwischenspeicher
-    fun load(ctx: Context): Pair<JSONObject?, String?> {
+    // maxAgeMs > 0: eine gerade erst geladene Antwort wiederverwenden (Widget, Mini-Widget und Erinnerungen laden gleichzeitig)
+    fun load(ctx: Context, maxAgeMs: Long = 0): Pair<JSONObject?, String?> {
         val c = config(ctx) ?: return null to "Bitte die Widget-App öffnen und den Code eintragen."
+        if (maxAgeMs > 0 && System.currentTimeMillis() - loadedAt(ctx) < maxAgeMs) {
+            cache(ctx).getString("feed", null)?.let { return JSONObject(it) to null }
+        }
         return try {
             val conn = URL("${c.url}/rest/v1/rpc/display_feed").openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
@@ -137,6 +144,32 @@ object Feed {
     }
 
     fun loadedAt(ctx: Context): Long = cache(ctx).getLong("at", 0)
+    fun cached(ctx: Context): JSONObject? = try { cache(ctx).getString("feed", null)?.let { JSONObject(it) } } catch (e: Exception) { null }
+
+    // Eigene Person (nur mit persönlichem Widget-Code), sonst null
+    fun me(feed: JSONObject): String? = feed.optString("me").takeIf { it.isNotEmpty() && it != "null" }
+
+    // Board-Knopf im Widget ausführen: like, take oder done; liefert eine Fehlermeldung oder null
+    fun act(ctx: Context, action: String, msg: String): String? {
+        val c = config(ctx) ?: return "Kein Widget-Code"
+        return try {
+            val conn = URL("${c.url}/rest/v1/rpc/widget_act").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 15000
+            conn.doOutput = true
+            conn.setRequestProperty("apikey", c.key)
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(JSONObject().put("p_token", c.token).put("p_msg", msg).put("p_action", action).toString().toByteArray()) }
+            val code = conn.responseCode
+            if (code in 200..299) null else {
+                val body = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                (try { JSONObject(body).optString("message") } catch (e: Exception) { "" }).ifEmpty { "Server meldet $code" }
+            }
+        } catch (e: Exception) {
+            "Keine Verbindung"
+        }
+    }
 
     fun dateLabel(d: LocalDate): String =
         "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".")} ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
@@ -249,6 +282,8 @@ object Feed {
                 if (taker != null && who == taker && r.optString("text") == "Mach ich") continue
                 out += Row(Kind.REPLY, r.optString("text"), time = "↳ ${name[who] ?: ""}:", color = color[who] ?: Color.GRAY, open = open)
             }
+            // Knöpfe direkt im Widget, nur mit persönlichem Code (der Server weiß dann, wer drückt)
+            if (me(feed) != null) out += Row(Kind.ACTIONS, "", msg = m.optString("id"), canTake = taker == null)
         }
         return out
     }
