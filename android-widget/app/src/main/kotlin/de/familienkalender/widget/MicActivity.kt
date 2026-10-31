@@ -5,7 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 
-// Eigenes Symbol „Familie sprechen“ (z. B. für die Seitentaste): öffnet den Familienkalender direkt mit Spracheingabe
+// App-Symbol „Familie sprechen“ (auch für die Seitentaste): öffnet den Familienkalender direkt mit Spracheingabe
 class MicActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

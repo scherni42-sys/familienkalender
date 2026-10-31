@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Familien-Widget</string>
+    <string name="app_name">Familie sprechen</string>
+    <string name="setup_name">Widget einrichten</string>
     <string name="widget_name">Familienkalender: Heute &amp; Pinnwand</string>
     <string name="widget_desc">Heutige Familientermine und die Pinnwand</string>
-    <string name="mic_name">Familie sprechen</string>
 </resources>
