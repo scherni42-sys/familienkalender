@@ -19,7 +19,7 @@ type Filter = 'all' | 'family' | 'mine';
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
-export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board' } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string } | { kind: 'bdays' } | null;
+export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board' } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays' } | null;
 
 // Uhr, die jede Minute neu zeichnet (für „vorbei“, „los in X Min.“)
 export function useMinute() {
@@ -45,6 +45,8 @@ export function Shell() {
   const cake = next && s.bdLead > 0 && next.days <= s.bdLead ? next : null;
   const titles: Record<Tab, string> = { today: 'Heute', week: 'Kalender', board: 'Pinnwand', settings: 'Einstellungen' };
   const open = (id: string) => setSheet({ kind: 'detail', id });
+  // Leerer Termin an einem Tag (aus dem Widget oder „Weiterer Termin“ im Termin)
+  const newOn = (date: string) => setSheet({ kind: 'edit', fresh: true, draft: { title: '', date, end_date: date, all_day: false, start_min: 600, end_min: 660, persons: [me.id], driver: null, vis: 'family', busy: false, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, reason: '', suggested: 'family', timeFound: true } });
   const saved = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 4000); };
 
   // Schnellstart: ?mic=1 (Verknüpfung) oder Geräte-Einstellung öffnet beim Start und beim Zurückkehren sofort die Spracheingabe
@@ -53,10 +55,10 @@ export function Shell() {
     if (o) {
       history.replaceState(null, '', location.pathname + location.hash);
       const [k, id] = o.split(':');
-      if (k === 'event' && snap.events.some(e => e.id === id)) setSheet({ kind: 'detail', id });
+      if (k === 'event' && snap.events.some(e => e.id === id)) setSheet({ kind: 'detail', id, day: o.split(':')[2] });
       if (k === 'bdays') setSheet({ kind: 'bdays' });
       // Tag im Widget angetippt: leerer Termin an diesem Datum
-      if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) setSheet({ kind: 'edit', fresh: true, draft: { title: '', date: id, end_date: id, all_day: false, start_min: 600, end_min: 660, persons: [me.id], driver: null, vis: 'family', busy: false, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, reason: '', suggested: 'family', timeFound: true } });
+      if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
       if (k === 'msg') { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
     }
     if (me.role === 'guest') return;
@@ -103,7 +105,7 @@ export function Shell() {
       </nav>
       {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
-      {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
+      {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} day={sheet.day} add={newOn} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
       {sheet?.kind === 'bdays' && <BdaySheet close={() => setSheet(null)} />}
       <PushBanner now={now} />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}

@@ -198,7 +198,7 @@ object Feed {
                     sub = driver?.let { "${name[it] ?: ""} fährt" } ?: "",
                     color = first?.let { color[it] } ?: Color.GRAY,
                     faded = past,
-                    open = "event:" + e.optString("id")
+                    open = "event:" + e.optString("id") + ":" + d
                 )
                 shown++
             }
