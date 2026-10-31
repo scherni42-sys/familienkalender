@@ -28,7 +28,7 @@ class TodayWidget : AppWidgetProvider() {
     override fun onReceive(ctx: Context, intent: Intent) {
         super.onReceive(ctx, intent)
         when (intent.action) {
-            REFRESH -> refreshAll(ctx)
+            REFRESH -> refreshData(ctx)
             // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
             Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx) }
         }
@@ -46,6 +46,17 @@ class TodayWidget : AppWidgetProvider() {
         fun schedule(ctx: Context) {
             val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             am.setRepeating(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 60_000, 60_000, refreshIntent(ctx))
+        }
+
+        // Nur Datum und Liste neu laden, ohne das Widget neu aufzubauen; sonst ist es kurz ohne Tipp-Belegung
+        // und der Startbildschirm öffnet bei schnellem Mehrfachtippen die App
+        fun refreshData(ctx: Context) {
+            val mgr = AppWidgetManager.getInstance(ctx)
+            val ids = mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java))
+            val v = RemoteViews(ctx.packageName, R.layout.widget)
+            v.setTextViewText(R.id.date, Feed.dateLabel(LocalDate.now()))
+            for (id in ids) mgr.partiallyUpdateAppWidget(id, v)
+            mgr.notifyAppWidgetViewDataChanged(ids, R.id.list)
         }
 
         fun refreshAll(ctx: Context) {
@@ -72,6 +83,7 @@ class TodayWidget : AppWidgetProvider() {
 
             // Die ganze Kopfzeile aktualisiert (der Knopf allein ist schwer zu treffen); Einträge öffnen die App
             v.setOnClickPendingIntent(R.id.head, refreshIntent(ctx))
+            v.setOnClickPendingIntent(R.id.root, refreshIntent(ctx))
             val open = Intent(ctx, OpenActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setPendingIntentTemplate(R.id.list, PendingIntent.getActivity(ctx, 2, open, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE))
             return v
