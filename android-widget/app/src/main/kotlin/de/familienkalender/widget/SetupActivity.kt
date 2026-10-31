@@ -46,6 +46,22 @@ class SetupActivity : Activity() {
             else thread { CalSync.remove(this) }
         }
 
+        // Handy-Kalender in den Familienkalender übernehmen (nur mit persönlichem Code)
+        val imp = findViewById<CheckBox>(R.id.calimport)
+        imp.isChecked = CalImport.enabled(this)
+        imp.setOnCheckedChangeListener { _, on ->
+            if (on && Feed.cached(this)?.let { Feed.me(it) } == null) {
+                imp.isChecked = false
+                findViewById<TextView>(R.id.impstatus).text = "Dafür brauchst du deinen persönlichen Code: in der Familienkalender-App unter Einstellungen → „Mein Handy-Widget“ kopieren und oben speichern."
+                return@setOnCheckedChangeListener
+            }
+            CalImport.setEnabled(this, on)
+            if (on && !CalImport.allowed(this)) requestPermissions(arrayOf(Manifest.permission.READ_CALENDAR), 3)
+            if (!on) thread { CalImport.clear(this) }
+            showCalendars()
+        }
+        showCalendars()
+
         val code = findViewById<EditText>(R.id.code)
         val status = findViewById<TextView>(R.id.status)
         val saved = getSharedPreferences("familien-widget", MODE_PRIVATE).getString("code", null)
@@ -88,6 +104,43 @@ class SetupActivity : Activity() {
         // Erlaubnis für den Kalender erteilt: gleich eintragen
         if (code == 2 && res.isNotEmpty() && res.all { it == PackageManager.PERMISSION_GRANTED })
             thread { Feed.load(this).first?.let { CalSync.sync(this, it) } }
+        if (code == 3) showCalendars()
+    }
+
+    // Liste der Handy-Kalender zum Ankreuzen
+    private fun showCalendars() {
+        val box = findViewById<android.widget.LinearLayout>(R.id.impcals)
+        val status = findViewById<TextView>(R.id.impstatus)
+        box.removeAllViews()
+        if (!CalImport.enabled(this)) { status.text = ""; return }
+        if (!CalImport.allowed(this)) { status.text = "Bitte den Zugriff auf den Kalender erlauben."; return }
+        val cals = CalImport.calendars(this)
+        val sel = CalImport.selected(this).toMutableSet()
+        for (c in cals) {
+            val cb = CheckBox(this)
+            cb.text = if (c.account.isNotBlank() && c.account != c.name) "${c.name}  (${c.account})" else c.name
+            cb.isChecked = c.id in sel
+            cb.setOnCheckedChangeListener { _, on ->
+                if (on) sel += c.id else sel -= c.id
+                CalImport.setSelected(this, sel)
+                syncNow()
+            }
+            box.addView(cb)
+        }
+        status.text = when {
+            cals.isEmpty() -> "Keine Kalender auf dem Handy gefunden."
+            sel.isEmpty() -> "Bitte ankreuzen, welche Kalender übernommen werden sollen."
+            else -> CalImport.lastResult(this).ifEmpty { "Wird übernommen …" }
+        }
+    }
+
+    private fun syncNow() {
+        val status = findViewById<TextView>(R.id.impstatus)
+        status.text = "Wird übernommen …"
+        thread {
+            CalImport.maybeSync(this, force = true)
+            runOnUiThread { status.text = CalImport.lastResult(this).ifEmpty { "Keine Verbindung, ich versuche es später wieder." } }
+        }
     }
 
     override fun onResume() {

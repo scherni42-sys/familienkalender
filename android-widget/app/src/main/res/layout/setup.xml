@@ -57,6 +57,28 @@
             android:text="Termine im Kalender des Handys anzeigen (Samsung-Kalender: eigener Kalender „Familienkalender“, nur lesen)"
             android:textSize="15sp" />
 
+        <CheckBox
+            android:id="@+id/calimport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Meine Handy-Termine als private Termine in den Familienkalender übernehmen (ganztägige mit „Geburtstag“ werden private Geburtstage)"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:id="@+id/impcals"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="32dp"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/impstatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="32dp"
+            android:textSize="13sp" />
+
         <TextView
             android:id="@+id/status"
             android:layout_width="match_parent"

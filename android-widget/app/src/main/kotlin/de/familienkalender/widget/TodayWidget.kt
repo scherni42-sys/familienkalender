@@ -96,6 +96,7 @@ class TodayWidget : AppWidgetProvider() {
         private fun background(ctx: Context) {
             thread {
                 Feed.load(ctx, 20_000).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it); CalSync.sync(ctx, it) }
+                try { CalImport.maybeSync(ctx) } catch (e: Exception) { }
             }
         }
 
