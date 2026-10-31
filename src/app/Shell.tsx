@@ -56,8 +56,8 @@ export function Shell() {
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
     if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); setSheet({ kind: 'mic', auto: true, quick: true }); }
-    else if (micStart() && !o) setSheet({ kind: 'mic', auto: true });
-    const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic', auto: true }); };
+    else if (micStart() && !o) setSheet({ kind: 'mic', auto: true, quick: true });
+    const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic', auto: true, quick: true }); };
     document.addEventListener('visibilitychange', onShow);
     return () => document.removeEventListener('visibilitychange', onShow);
   }, [me.role]);
