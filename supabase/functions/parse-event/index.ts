@@ -36,12 +36,22 @@ const schema = {
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const auth = req.headers.get('Authorization') ?? '';
-    const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
-    const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
-    const { data: mine } = u.user ? await sb.from('members').select('id').eq('user_id', u.user.id).eq('active', true).limit(1) : { data: null };
-    if (!mine?.length) return new Response(JSON.stringify({ error: 'Nicht angemeldet' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } });
-    const { text = '', today, me, members, image } = await req.json();
+    const body = await req.json();
+    const { text = '', today, me, members, image, widget_token } = body;
+    // Zugang: angemeldet in der App, oder aus der Widget-App mit persönlichem Widget-Code
+    let ok = false;
+    if (typeof widget_token === 'string' && widget_token) {
+      const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
+      const { error } = await sb.rpc('widget_member', { p_token: widget_token });
+      ok = !error;
+    } else {
+      const auth = req.headers.get('Authorization') ?? '';
+      const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
+      const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
+      const { data: mine } = u.user ? await sb.from('members').select('id').eq('user_id', u.user.id).eq('active', true).limit(1) : { data: null };
+      ok = !!mine?.length;
+    }
+    if (!ok) return new Response(JSON.stringify({ error: 'Nicht angemeldet' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } });
     // Foto: verkleinertes JPEG als Base64 vom Handy
     const img = image && typeof image.data === 'string' && image.data.length < 4_000_000 && /^image\/(jpeg|png|webp)$/.test(image.type) ? image : null;
     if (typeof text !== 'string' || text.length > 500 || (!text.trim() && !img)) throw new Error('Kein Text');

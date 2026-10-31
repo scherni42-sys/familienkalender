@@ -3,4 +3,12 @@
     <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:colorAccent">@color/accent</item>
     </style>
+
+    <!-- Schnelleingabe: kleines Fenster über dem Startbildschirm -->
+    <style name="QuickTheme" parent="android:Theme.Material.Light.Dialog.NoActionBar">
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:windowMinWidthMajor">92%</item>
+        <item name="android:windowMinWidthMinor">92%</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+    </style>
 </resources>
