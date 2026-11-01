@@ -132,7 +132,7 @@ class TodayWidget : AppWidgetProvider() {
 
         // Gedrückte Torte hell hinterlegt, damit man sieht, dass die Geburtstage gezeigt werden
         private fun bdButton(ctx: Context, v: RemoteViews) =
-            v.setInt(R.id.q_bdays, "setBackgroundResource", if (Feed.bdMode(ctx)) R.drawable.btn_bdays_on else R.drawable.btn_bdays)
+            v.setImageViewResource(R.id.q_bdring, if (Feed.bdMode(ctx)) R.drawable.ring_bd_on else R.drawable.ring_bd)
 
         // Home-Knopf nur zeigen, wenn berufliche Kalender übernommen werden; eingeschaltet grün hinterlegt
         private fun homeButton(ctx: Context, v: RemoteViews) {

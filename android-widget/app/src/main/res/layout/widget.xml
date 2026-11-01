@@ -189,29 +189,36 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
-        <TextView
+        <FrameLayout
             android:id="@+id/q_bdays"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginStart="6dp"
-            android:background="@drawable/btn_bdays"
-            android:contentDescription="Geburtstage"
-            android:gravity="center"
-            android:text="🎂"
-            android:textSize="18sp" />
+            android:contentDescription="Geburtstage">
 
-        <TextView
+            <ImageView
+                android:id="@+id/q_bdring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ring_bd" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="🎂"
+                android:textSize="18sp" />
+        </FrameLayout>
+
+        <ImageView
             android:id="@+id/q_add"
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginStart="8dp"
-            android:background="@drawable/btn_add"
-            android:includeFontPadding="false"
             android:contentDescription="Neuer Eintrag"
-            android:gravity="center"
-            android:text="+"
-            android:textColor="#34A86E"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+            android:scaleType="fitCenter"
+            android:src="@drawable/ring_add" />
     </LinearLayout>
 </LinearLayout>
