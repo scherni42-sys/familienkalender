@@ -86,5 +86,5 @@ export function conflicts(events: CalEvent[], busy: BusySlot[], draft: { date: s
   return out;
 }
 
-export const visLabel = (v: Vis) => (v === 'family' ? 'Familie: alle und das Display' : v === 'busy' ? 'Privat, Familie sieht „belegt“' : 'Privat: nur du');
+export const visLabel = (v: Vis) => (v === 'family' ? 'Familie: alle und das Display' : v === 'busy' ? 'Privat: nur du (andere sehen bei Überschneidung „belegt“)' : 'Privat: nur du');
 export { addDays };

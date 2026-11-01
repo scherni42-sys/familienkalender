@@ -289,3 +289,5 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .photobig { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 4px 0 12px; padding: 18px; border-radius: 16px; background: var(--accent); color: #fff; font-weight: 700; font-size: 18px; cursor: pointer; }
 .photobig .ico { width: 28px; height: 28px; }
 .photobig.busy { opacity: .6; pointer-events: none; }
+
+.btn-row .del-btn { flex: 0 0 auto; color: #d9534f; padding-left: 14px; padding-right: 14px; }

@@ -1,5 +1,6 @@
-import { useSnapshot } from '../lib/store';
+import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
+import { fail, toast } from './toast';
 import { hm } from '../lib/dates';
 import { bdLabel, depart, nameOf, travel, upcoming, visLabel, whenText } from '../lib/model';
 import { inDays } from '../lib/dates';
@@ -44,7 +45,10 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>
         <Row k="Angelegt von">{nameOf(snap.members, e.owner)}</Row>
       </div>
-      <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Schließen</button>{canEdit && <button type="button" className="btn" onClick={() => edit(toDraft())}>Bearbeiten</button>}</div>
+      <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Schließen</button>{canEdit && <button type="button" className="btn" onClick={() => edit(toDraft())}>Bearbeiten</button>}
+        {canEdit && <button type="button" className="btn ghost del-btn" aria-label="Termin löschen" onClick={async () => {
+          try { await store.deleteEvent(e.id); toast(e.ext_id ? 'Gelöscht. Im Handy-Kalender bleibt er, beim nächsten Abgleich kommt er wieder.' : 'Termin gelöscht.'); close(); } catch (x) { fail(x); }
+        }}><Icon name="trash" /></button>}</div>
       {add && me.role !== 'guest' && <button type="button" className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => add(day ?? e.date)}>＋ Weiterer Termin an diesem Tag</button>}
     </Sheet>
   );
