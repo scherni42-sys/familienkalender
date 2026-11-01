@@ -59,6 +59,25 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ShareActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="Termin eintragen"
+            android:taskAffinity=""
+            android:theme="@style/QuickTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".OpenActivity"
             android:exported="false"
             android:excludeFromRecents="true"
