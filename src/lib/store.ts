@@ -32,6 +32,7 @@ export interface Store {
   createInvite(memberId: string): Promise<string>;
   addBirthday(b: Omit<Birthday, 'id'>): Promise<void>;
   removeBirthday(id: string): Promise<void>;
+  updateBirthday(old: Birthday, b: Omit<Birthday, 'id'>): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   addDisplay(name: string): Promise<void>;
   widgetToken(): Promise<string>;
@@ -110,6 +111,7 @@ class LocalStore extends Base implements Store {
   async createInvite(memberId: string) { const c = code6(); this.invites[c] = memberId; this.save(this.snap); return c; }
   async addBirthday(b: Omit<Birthday, 'id'>) { this.patch(s => ({ birthdays: [...s.birthdays, { ...b, id: uid() }] })); }
   async removeBirthday(id: string) { this.patch(s => ({ birthdays: s.birthdays.filter(b => b.id !== id) })); }
+  async updateBirthday(old: Birthday, b: Omit<Birthday, 'id'>) { this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === old.id ? { ...b, id: old.id } : x) })); }
   async updateSettings(patch: Partial<Settings>) { this.patch(s => ({ family: s.family && { ...s.family, settings: { ...s.family.settings, ...patch } } })); }
   async widgetToken() { return 'demo'; }
   async addDisplay(name: string) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
@@ -257,6 +259,14 @@ class SupabaseStore extends Base implements Store {
   async createInvite(memberId: string) { return this.ok(await this.sb.rpc('create_invite', { p_member: memberId })) as string; }
   async addBirthday({ owner, ...b }: Omit<Birthday, 'id'>) { this.ok(await this.sb.from('birthdays').insert({ ...b, ...(owner ? { owner } : {}), family_id: this.familyId })); await this.refresh(); }
   async removeBirthday(id: string) { this.ok(await this.sb.from('birthdays').delete().eq('id', id)); await this.refresh(); }
+  // Ändern = neu eintragen, dann alten löschen (kommt ohne Update-Recht in der Datenbank aus; bei Fehler bleibt der alte)
+  async updateBirthday(old: Birthday, { owner, ...b }: Omit<Birthday, 'id'>) {
+    const keep = old.ext_id && old.owner === owner ? { ext_id: old.ext_id } : {};
+    if (old.ext_id) this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
+    this.ok(await this.sb.from('birthdays').insert({ ...b, ...keep, ...(owner ? { owner } : {}), family_id: this.familyId }));
+    if (!old.ext_id) this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
+    await this.refresh();
+  }
   async updateSettings(patch: Partial<Settings>) {
     const settings = { ...this.snap.family!.settings, ...patch };
     this.ok(await this.sb.from('families').update({ settings }).eq('id', this.familyId)); await this.refresh();

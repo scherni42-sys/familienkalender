@@ -1,7 +1,7 @@
 declare const __BUILD__: string;
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { store, useSnapshot } from '../lib/store';
-import type { Role, Settings as S } from '../lib/types';
+import type { Birthday, Role, Settings as S } from '../lib/types';
 import { BGS, ROLE, SWATCHES, upcoming, bdLabel } from '../lib/model';
 import { hm, inDays, MON } from '../lib/dates';
 import { Badge, cvar, Icon, type IconName } from './ui';
@@ -149,34 +149,49 @@ function Family() {
 }
 
 // Formular „Geburtstag eintragen“ (Einstellungen und Geburtstagsübersicht, auch aus dem Widget)
-export function BdayForm({ focus }: { focus?: boolean }) {
+export function BdayForm({ focus, edit, done }: { focus?: boolean; edit?: Birthday; done?: () => void }) {
   const snap = useSnapshot();
   // Tag und Monat Pflicht, Jahr freiwillig: ohne Jahr kein „wird …“
-  const [n, setN] = useState(''), [rel, setRel] = useState(''), [day, setDay] = useState(''), [mon, setMon] = useState(''), [year, setYear] = useState(''), [priv, setPriv] = useState(false);
+  const [n, setN] = useState(edit?.name ?? ''), [rel, setRel] = useState(edit?.rel ?? ''), [day, setDay] = useState(edit ? String(edit.day) : ''), [mon, setMon] = useState(edit ? String(edit.month) : ''), [year, setYear] = useState(edit?.year ? String(edit.year) : ''), [priv, setPriv] = useState(!!edit?.owner);
   const y = Number(year);
   return <form className="addform" onSubmit={e => { e.preventDefault(); if (!n.trim() || !day || !mon) return;
-        store.addBirthday({ name: n.trim(), rel: rel.trim(), day: Number(day), month: Number(mon), year: y > 1900 && y <= new Date().getFullYear() ? y : null, owner: priv ? snap.me : null }).then(() => { setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail); }}>
-        <b>Geburtstag eintragen</b>
-        <div className="two"><input value={n} onChange={e => setN(e.target.value)} placeholder="Name" required autoFocus={focus} /><input value={rel} onChange={e => setRel(e.target.value)} placeholder="z. B. Patentante" /></div>
+        const b = { name: n.trim(), rel: rel.trim(), day: Number(day), month: Number(mon), year: y > 1900 && y <= new Date().getFullYear() ? y : null, owner: priv ? snap.me : null };
+        if (edit) { store.updateBirthday(edit, b).then(() => { toast('Geburtstag geändert.'); done?.(); }, fail); return; }
+        store.addBirthday(b).then(() => { setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail); }}>
+        <b>{edit ? `${edit.name} bearbeiten` : 'Geburtstag eintragen'}</b>
+        {edit?.ext_id && <span className="note">Kommt aus deinem Handy-Kalender. Änderungen besser dort machen, sonst überschreibt der nächste Abgleich sie.</span>}
+        <div className="two"><input value={n} onChange={e => setN(e.target.value)} placeholder="Name" required autoFocus={focus || !!edit} /><input value={rel} onChange={e => setRel(e.target.value)} placeholder="z. B. Patentante" /></div>
         <div className="bdate">
           <label className="field"><span>Tag</span><select value={day} onChange={e => setDay(e.target.value)} required><option value="">–</option>{Array.from({ length: 31 }, (_, i) => <option key={i} value={i + 1}>{i + 1}.</option>)}</select></label>
           <label className="field"><span>Monat</span><select value={mon} onChange={e => setMon(e.target.value)} required><option value="">–</option>{MON.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select></label>
           <label className="field"><span>Jahr (freiwillig)</span><input type="number" inputMode="numeric" min={1900} max={new Date().getFullYear()} value={year} onChange={e => setYear(e.target.value)} placeholder="unbekannt" /></label>
         </div>
         <label className="setrow"><span><Icon name="lock" /> Privat: nur ich sehe ihn (Freunde, Kollegen …)</span><input type="checkbox" checked={priv} onChange={e => setPriv(e.target.checked)} /></label>
-        <button className="btn">Eintragen</button>
+        {edit ? <div className="btn-row"><button type="button" className="btn ghost" onClick={done}>Abbrechen</button><button className="btn">Speichern</button></div> : <button className="btn">Eintragen</button>}
       </form>;
+}
+
+// Lange drücken öffnet einen Geburtstag zum Bearbeiten
+function BdayRow({ b, lead, canEdit, onEdit }: { b: ReturnType<typeof upcoming>[number]; lead: number; canEdit: boolean; onEdit: () => void }) {
+  const timer = useRef<number | undefined>(undefined);
+  const press = () => { window.clearTimeout(timer.current); if (canEdit) timer.current = window.setTimeout(() => { navigator.vibrate?.(20); onEdit(); }, 550); };
+  const release = () => window.clearTimeout(timer.current);
+  return <div className={`bdrow${lead && b.days <= lead ? ' soon' : ''}`} onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (canEdit) x.preventDefault(); }}>
+    <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
+    <span className="dd">{inDays(b.days)} {canEdit && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onPointerDown={x => x.stopPropagation()} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>;
 }
 
 function Bdays() {
   const snap = useSnapshot();
   const me = snap.members.find(m => m.id === snap.me)!;
   const s = snap.family!.settings;
+  const [edit, setEdit] = useState<Birthday | null>(null);
+  const can = me.role !== 'guest';
+  if (edit) return <BdayForm key={edit.id} edit={edit} done={() => setEdit(null)} />;
   return <>
-    <div>{upcoming(snap.birthdays).map(b => <div key={b.id} className={`bdrow${s.bdLead && b.days <= s.bdLead ? ' soon' : ''}`}>
-      <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
-      <span className="dd">{inDays(b.days)} {me.role !== 'guest' && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>)}</div>
-    {me.role !== 'guest' && <BdayForm />}
+    {can && snap.birthdays.length > 0 && <p className="note">Zum Ändern einen Geburtstag lange drücken.</p>}
+    <div>{upcoming(snap.birthdays).map(b => <BdayRow key={b.id} b={b} lead={s.bdLead} canEdit={can} onEdit={() => setEdit(snap.birthdays.find(x => x.id === b.id) ?? null)} />)}</div>
+    {can && <BdayForm />}
   </>;
 }
 

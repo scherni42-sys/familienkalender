@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { BGS, ROLE, SWATCHES, upcoming, bdLabel } from '../lib/model';
 import { hm, inDays, MON } from '../lib/dates';
@@ -93,23 +93,41 @@ function Family() {
                 }, children: [_jsx("b", { children: "Mitglied hinzuf\u00FCgen" }), _jsxs("div", { className: "two", children: [_jsx("input", { value: name, onChange: e => setName(e.target.value), placeholder: "Name", required: true }), _jsx("select", { value: role, onChange: e => setRole(e.target.value), children: Object.entries(ROLE).filter(([k]) => k !== 'admin').map(([k, l]) => _jsx("option", { value: k, children: l }, k)) })] }), _jsx("button", { className: "btn", children: "Hinzuf\u00FCgen" }), _jsx("span", { className: "note", children: "Mitglieder und G\u00E4ste verbinden ihr Handy mit einem Einladungscode. Kinder ohne Smartphone sind sofort dabei; Eltern tragen f\u00FCr sie ein." })] }))] });
 }
 // Formular „Geburtstag eintragen“ (Einstellungen und Geburtstagsübersicht, auch aus dem Widget)
-export function BdayForm({ focus }) {
+export function BdayForm({ focus, edit, done }) {
     const snap = useSnapshot();
     // Tag und Monat Pflicht, Jahr freiwillig: ohne Jahr kein „wird …“
-    const [n, setN] = useState(''), [rel, setRel] = useState(''), [day, setDay] = useState(''), [mon, setMon] = useState(''), [year, setYear] = useState(''), [priv, setPriv] = useState(false);
+    const [n, setN] = useState(edit?.name ?? ''), [rel, setRel] = useState(edit?.rel ?? ''), [day, setDay] = useState(edit ? String(edit.day) : ''), [mon, setMon] = useState(edit ? String(edit.month) : ''), [year, setYear] = useState(edit?.year ? String(edit.year) : ''), [priv, setPriv] = useState(!!edit?.owner);
     const y = Number(year);
     return _jsxs("form", { className: "addform", onSubmit: e => {
             e.preventDefault();
             if (!n.trim() || !day || !mon)
                 return;
-            store.addBirthday({ name: n.trim(), rel: rel.trim(), day: Number(day), month: Number(mon), year: y > 1900 && y <= new Date().getFullYear() ? y : null, owner: priv ? snap.me : null }).then(() => { setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail);
-        }, children: [_jsx("b", { children: "Geburtstag eintragen" }), _jsxs("div", { className: "two", children: [_jsx("input", { value: n, onChange: e => setN(e.target.value), placeholder: "Name", required: true, autoFocus: focus }), _jsx("input", { value: rel, onChange: e => setRel(e.target.value), placeholder: "z. B. Patentante" })] }), _jsxs("div", { className: "bdate", children: [_jsxs("label", { className: "field", children: [_jsx("span", { children: "Tag" }), _jsxs("select", { value: day, onChange: e => setDay(e.target.value), required: true, children: [_jsx("option", { value: "", children: "\u2013" }), Array.from({ length: 31 }, (_, i) => _jsxs("option", { value: i + 1, children: [i + 1, "."] }, i))] })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Monat" }), _jsxs("select", { value: mon, onChange: e => setMon(e.target.value), required: true, children: [_jsx("option", { value: "", children: "\u2013" }), MON.map((m, i) => _jsx("option", { value: i + 1, children: m }, m))] })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Jahr (freiwillig)" }), _jsx("input", { type: "number", inputMode: "numeric", min: 1900, max: new Date().getFullYear(), value: year, onChange: e => setYear(e.target.value), placeholder: "unbekannt" })] })] }), _jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: "lock" }), " Privat: nur ich sehe ihn (Freunde, Kollegen \u2026)"] }), _jsx("input", { type: "checkbox", checked: priv, onChange: e => setPriv(e.target.checked) })] }), _jsx("button", { className: "btn", children: "Eintragen" })] });
+            const b = { name: n.trim(), rel: rel.trim(), day: Number(day), month: Number(mon), year: y > 1900 && y <= new Date().getFullYear() ? y : null, owner: priv ? snap.me : null };
+            if (edit) {
+                store.updateBirthday(edit, b).then(() => { toast('Geburtstag geändert.'); done?.(); }, fail);
+                return;
+            }
+            store.addBirthday(b).then(() => { setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail);
+        }, children: [_jsx("b", { children: edit ? `${edit.name} bearbeiten` : 'Geburtstag eintragen' }), edit?.ext_id && _jsx("span", { className: "note", children: "Kommt aus deinem Handy-Kalender. \u00C4nderungen besser dort machen, sonst \u00FCberschreibt der n\u00E4chste Abgleich sie." }), _jsxs("div", { className: "two", children: [_jsx("input", { value: n, onChange: e => setN(e.target.value), placeholder: "Name", required: true, autoFocus: focus || !!edit }), _jsx("input", { value: rel, onChange: e => setRel(e.target.value), placeholder: "z. B. Patentante" })] }), _jsxs("div", { className: "bdate", children: [_jsxs("label", { className: "field", children: [_jsx("span", { children: "Tag" }), _jsxs("select", { value: day, onChange: e => setDay(e.target.value), required: true, children: [_jsx("option", { value: "", children: "\u2013" }), Array.from({ length: 31 }, (_, i) => _jsxs("option", { value: i + 1, children: [i + 1, "."] }, i))] })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Monat" }), _jsxs("select", { value: mon, onChange: e => setMon(e.target.value), required: true, children: [_jsx("option", { value: "", children: "\u2013" }), MON.map((m, i) => _jsx("option", { value: i + 1, children: m }, m))] })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Jahr (freiwillig)" }), _jsx("input", { type: "number", inputMode: "numeric", min: 1900, max: new Date().getFullYear(), value: year, onChange: e => setYear(e.target.value), placeholder: "unbekannt" })] })] }), _jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: "lock" }), " Privat: nur ich sehe ihn (Freunde, Kollegen \u2026)"] }), _jsx("input", { type: "checkbox", checked: priv, onChange: e => setPriv(e.target.checked) })] }), edit ? _jsxs("div", { className: "btn-row", children: [_jsx("button", { type: "button", className: "btn ghost", onClick: done, children: "Abbrechen" }), _jsx("button", { className: "btn", children: "Speichern" })] }) : _jsx("button", { className: "btn", children: "Eintragen" })] });
+}
+// Lange drücken öffnet einen Geburtstag zum Bearbeiten
+function BdayRow({ b, lead, canEdit, onEdit }) {
+    const timer = useRef(undefined);
+    const press = () => { window.clearTimeout(timer.current); if (canEdit)
+        timer.current = window.setTimeout(() => { navigator.vibrate?.(20); onEdit(); }, 550); };
+    const release = () => window.clearTimeout(timer.current);
+    return _jsxs("div", { className: `bdrow${lead && b.days <= lead ? ' soon' : ''}`, onPointerDown: press, onPointerUp: release, onPointerLeave: release, onPointerCancel: release, onContextMenu: x => { if (canEdit)
+            x.preventDefault(); }, children: [_jsxs("div", { children: [_jsxs("b", { children: [b.owner ? '🔒 ' : '', b.name] }), _jsxs("small", { children: [b.owner ? 'privat · ' : '', b.rel ? `${b.rel} · ` : '', bdLabel(b), b.age ? ` · wird ${b.age}` : ''] })] }), _jsxs("span", { className: "dd", children: [inDays(b.days), " ", canEdit && _jsx("button", { type: "button", className: "small-btn danger", "aria-label": `${b.name} entfernen`, onPointerDown: x => x.stopPropagation(), onClick: () => store.removeBirthday(b.id).catch(fail), children: "\u00D7" })] })] });
 }
 function Bdays() {
     const snap = useSnapshot();
     const me = snap.members.find(m => m.id === snap.me);
     const s = snap.family.settings;
-    return _jsxs(_Fragment, { children: [_jsx("div", { children: upcoming(snap.birthdays).map(b => _jsxs("div", { className: `bdrow${s.bdLead && b.days <= s.bdLead ? ' soon' : ''}`, children: [_jsxs("div", { children: [_jsxs("b", { children: [b.owner ? '🔒 ' : '', b.name] }), _jsxs("small", { children: [b.owner ? 'privat · ' : '', b.rel ? `${b.rel} · ` : '', bdLabel(b), b.age ? ` · wird ${b.age}` : ''] })] }), _jsxs("span", { className: "dd", children: [inDays(b.days), " ", me.role !== 'guest' && _jsx("button", { type: "button", className: "small-btn danger", "aria-label": `${b.name} entfernen`, onClick: () => store.removeBirthday(b.id).catch(fail), children: "\u00D7" })] })] }, b.id)) }), me.role !== 'guest' && _jsx(BdayForm, {})] });
+    const [edit, setEdit] = useState(null);
+    const can = me.role !== 'guest';
+    if (edit)
+        return _jsx(BdayForm, { edit: edit, done: () => setEdit(null) }, edit.id);
+    return _jsxs(_Fragment, { children: [can && snap.birthdays.length > 0 && _jsx("p", { className: "note", children: "Zum \u00C4ndern einen Geburtstag lange dr\u00FCcken." }), _jsx("div", { children: upcoming(snap.birthdays).map(b => _jsx(BdayRow, { b: b, lead: s.bdLead, canEdit: can, onEdit: () => setEdit(snap.birthdays.find(x => x.id === b.id) ?? null) }, b.id)) }), can && _jsx(BdayForm, {})] });
 }
 function Displays() {
     const snap = useSnapshot();

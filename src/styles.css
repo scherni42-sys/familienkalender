@@ -216,7 +216,7 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .cake .ico { width: 18px; height: 18px; color: var(--p-mia); }
 .bd-line { display: flex; align-items: center; gap: 8px; font-size: 13.5px; padding: 8px 12px; border-radius: 12px; background: color-mix(in srgb, var(--p-mia) 10%, var(--surface)); }
 .bd-line .ico { color: var(--p-mia); width: 18px; height: 18px; }
-.bdrow { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: center; }
+.bdrow { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); align-items: center; }
 .bdrow small { display: block; color: var(--muted); font-size: 12px; }
 .bdrow .dd { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .bdrow.soon .dd { color: var(--p-mia); }

@@ -87,6 +87,7 @@ class LocalStore extends Base {
     async createInvite(memberId) { const c = code6(); this.invites[c] = memberId; this.save(this.snap); return c; }
     async addBirthday(b) { this.patch(s => ({ birthdays: [...s.birthdays, { ...b, id: uid() }] })); }
     async removeBirthday(id) { this.patch(s => ({ birthdays: s.birthdays.filter(b => b.id !== id) })); }
+    async updateBirthday(old, b) { this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === old.id ? { ...b, id: old.id } : x) })); }
     async updateSettings(patch) { this.patch(s => ({ family: s.family && { ...s.family, settings: { ...s.family.settings, ...patch } } })); }
     async widgetToken() { return 'demo'; }
     async addDisplay(name) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
@@ -263,6 +264,16 @@ class SupabaseStore extends Base {
     async createInvite(memberId) { return this.ok(await this.sb.rpc('create_invite', { p_member: memberId })); }
     async addBirthday({ owner, ...b }) { this.ok(await this.sb.from('birthdays').insert({ ...b, ...(owner ? { owner } : {}), family_id: this.familyId })); await this.refresh(); }
     async removeBirthday(id) { this.ok(await this.sb.from('birthdays').delete().eq('id', id)); await this.refresh(); }
+    // Ändern = neu eintragen, dann alten löschen (kommt ohne Update-Recht in der Datenbank aus; bei Fehler bleibt der alte)
+    async updateBirthday(old, { owner, ...b }) {
+        const keep = old.ext_id && old.owner === owner ? { ext_id: old.ext_id } : {};
+        if (old.ext_id)
+            this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
+        this.ok(await this.sb.from('birthdays').insert({ ...b, ...keep, ...(owner ? { owner } : {}), family_id: this.familyId }));
+        if (!old.ext_id)
+            this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
+        await this.refresh();
+    }
     async updateSettings(patch) {
         const settings = { ...this.snap.family.settings, ...patch };
         this.ok(await this.sb.from('families').update({ settings }).eq('id', this.familyId));
