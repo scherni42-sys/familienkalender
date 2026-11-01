@@ -1,0 +1,257 @@
+import { useSyncExternalStore } from 'react';
+import { DEFAULT_SETTINGS } from './types';
+import { supabase } from './supabase';
+import { seed } from './seed';
+import { addDays, today } from './dates';
+const EMPTY = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [] };
+class Base {
+    snap = EMPTY;
+    isReady = false;
+    subs = new Set();
+    get = () => this.snap;
+    ready = () => this.isReady;
+    subscribe = (cb) => { this.subs.add(cb); return () => { this.subs.delete(cb); }; };
+    emit(next) { this.snap = next; this.isReady = true; this.subs.forEach(f => f()); }
+}
+const uid = () => crypto.randomUUID();
+const code6 = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
+/* ---------- Demo: alles im localStorage ---------- */
+const KEY = 'familienkalender-demo-v1';
+class LocalStore extends Base {
+    demo = true;
+    invites = {};
+    save(next) {
+        try {
+            localStorage.setItem(KEY, JSON.stringify({ snap: next, invites: this.invites }));
+        }
+        catch { /* privates Fenster */ }
+        this.emit(next);
+    }
+    patch(f) { this.save({ ...this.snap, ...f(this.snap) }); }
+    async init() {
+        let stored = null;
+        try {
+            stored = JSON.parse(localStorage.getItem(KEY) || 'null');
+        }
+        catch {
+            stored = null;
+        }
+        if (stored?.snap) {
+            this.invites = stored.invites || {};
+            this.emit({ ...EMPTY, ...stored.snap });
+        }
+        else
+            this.emit(EMPTY);
+        // Andere Tabs (z. B. das Display) aktuell halten
+        addEventListener('storage', e => { if (e.key === KEY)
+            void this.init(); });
+    }
+    async createFamily(familyName, myName, color) {
+        const me = uid();
+        this.save({ ...EMPTY, family: { id: uid(), name: familyName, settings: { ...DEFAULT_SETTINGS } }, me,
+            members: [{ id: me, name: myName, role: 'admin', color, adult: true, linked: true, app_bg: null }],
+            displays: [{ id: uid(), name: 'Flur', token: 'demo' }] });
+    }
+    async joinWithCode(code) {
+        const id = this.invites[code.trim().toUpperCase()];
+        if (!id)
+            throw new Error('Code unbekannt oder abgelaufen.');
+        delete this.invites[code.trim().toUpperCase()];
+        this.patch(s => ({ me: id, members: s.members.map(m => m.id === id ? { ...m, linked: true } : m) }));
+    }
+    async loadExample() { this.save(seed()); }
+    async saveEvent(e, editId) {
+        if (editId) {
+            this.patch(s => ({ events: s.events.map(x => x.id === editId ? { ...x, ...e } : x) }));
+            return editId;
+        }
+        const id = uid();
+        this.patch(s => ({ events: [...s.events, { ...e, id, owner: s.me }] }));
+        return id;
+    }
+    async deleteEvent(id) { this.patch(s => ({ events: s.events.filter(x => x.id !== id) })); }
+    async deleteMessage(id) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
+    async postMessage(text) {
+        this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, replies: [] }] }));
+    }
+    async reply(id, text) {
+        this.patch(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, replies: [...m.replies, { id: uid(), from_member: s.me, text, created_at: new Date().toISOString() }] } : m) }));
+    }
+    async setMessage(id, patch) {
+        this.patch(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, ...patch, ...(patch.pinned === false ? { created_at: new Date().toISOString() } : {}) } : m) }));
+    }
+    async addMember(m) { const id = uid(); this.patch(s => ({ members: [...s.members, { ...m, id, linked: false, app_bg: null }] })); return id; }
+    async updateMember(id, patch) { this.patch(s => ({ members: s.members.map(m => m.id === id ? { ...m, ...patch } : m) })); }
+    async removeMember(id) { this.patch(s => ({ members: s.members.filter(m => m.id !== id) })); }
+    async createInvite(memberId) { const c = code6(); this.invites[c] = memberId; this.save(this.snap); return c; }
+    async addBirthday(b) { this.patch(s => ({ birthdays: [...s.birthdays, { ...b, id: uid() }] })); }
+    async removeBirthday(id) { this.patch(s => ({ birthdays: s.birthdays.filter(b => b.id !== id) })); }
+    async updateSettings(patch) { this.patch(s => ({ family: s.family && { ...s.family, settings: { ...s.family.settings, ...patch } } })); }
+    async widgetToken() { return 'demo'; }
+    async addDisplay(name) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
+    async removeDisplay(id) { this.patch(s => ({ displays: s.displays.filter(d => d.id !== id) })); }
+    async displayFeed() {
+        const s = this.snap;
+        if (!s.family)
+            return null;
+        const until = addDays(today(), 8);
+        return { family: { name: s.family.name, settings: s.family.settings }, members: s.members.map(({ id, name, color }) => ({ id, name, color })),
+            events: s.events.filter(e => e.vis === 'family' && e.end_date >= today() && e.date <= until), messages: s.messages, birthdays: s.birthdays };
+    }
+    switchUser(id) { this.patch(() => ({ me: id })); }
+    async reset() { try {
+        localStorage.removeItem(KEY);
+    }
+    catch { /* egal */ } this.invites = {}; this.emit(EMPTY); }
+}
+/* ---------- Supabase ---------- */
+class SupabaseStore extends Base {
+    demo = false;
+    sb = supabase;
+    familyId = null;
+    timer = null;
+    channel = null;
+    async user() {
+        const { data } = await this.sb.auth.getSession();
+        if (data.session)
+            return data.session.user.id;
+        const { data: d2, error } = await this.sb.auth.signInAnonymously();
+        if (error || !d2.user)
+            throw new Error('Anmeldung fehlgeschlagen. Sind anonyme Anmeldungen in Supabase aktiviert?');
+        return d2.user.id;
+    }
+    ok(r) { if (r.error)
+        throw new Error(r.error.message); return r.data; }
+    async init() {
+        const { data } = await this.sb.auth.getSession();
+        if (!data.session) {
+            this.emit(EMPTY);
+            return;
+        }
+        await this.load();
+    }
+    async load() {
+        const userId = (await this.sb.auth.getSession()).data.session?.user.id;
+        if (!userId) {
+            this.emit(EMPTY);
+            return;
+        }
+        const mine = this.ok(await this.sb.from('members').select('id, family_id').eq('user_id', userId).eq('active', true).limit(1));
+        if (!mine?.length) {
+            this.emit(EMPTY);
+            return;
+        }
+        const fam = mine[0].family_id, me = mine[0].id;
+        this.familyId = fam;
+        const [f, mem, ev, busy, msg, rep, bd, disp] = await Promise.all([
+            this.sb.from('families').select('id, name, settings').eq('id', fam).single(),
+            this.sb.from('members').select('id, name, role, color, adult, user_id, app_bg').eq('family_id', fam).eq('active', true).order('created_at'),
+            this.sb.from('events').select('*').eq('family_id', fam).gte('end_date', addDays(today(), -62)),
+            this.sb.rpc('busy_slots', { fam }),
+            this.sb.from('messages').select('*').eq('family_id', fam).order('created_at'),
+            this.sb.from('replies').select('*').eq('family_id', fam).order('created_at'),
+            this.sb.from('birthdays').select('*').eq('family_id', fam),
+            this.sb.from('displays').select('id, name, token').eq('family_id', fam)
+        ]);
+        const family = this.ok(f);
+        const replies = (this.ok(rep) ?? []);
+        this.emit({
+            family: { id: family.id, name: family.name, settings: { ...DEFAULT_SETTINGS, ...family.settings } },
+            me,
+            members: (this.ok(mem) ?? []).map(({ user_id, ...m }) => ({ ...m, linked: !!user_id, app_bg: m.id === me ? m.app_bg : null })),
+            events: (this.ok(ev) ?? []),
+            busy: (this.ok(busy) ?? []),
+            messages: (this.ok(msg) ?? []).map(m => ({ ...m, replies: replies.filter(r => r.message_id === m.id) })),
+            birthdays: (this.ok(bd) ?? []),
+            displays: (this.ok(disp) ?? [])
+        });
+        this.listen(fam);
+    }
+    // Änderungen anderer Familienmitglieder kommen per Realtime; dann wird neu geladen
+    listen(fam) {
+        if (this.channel)
+            return;
+        const again = () => { if (this.timer)
+            clearTimeout(this.timer); this.timer = setTimeout(() => void this.load(), 400); };
+        let ch = this.sb.channel(`family-${fam}`);
+        for (const table of ['events', 'messages', 'replies', 'members', 'birthdays', 'families', 'displays']) {
+            ch = ch.on('postgres_changes', { event: '*', schema: 'public', table, filter: table === 'families' ? `id=eq.${fam}` : `family_id=eq.${fam}` }, again);
+        }
+        this.channel = ch.subscribe();
+        addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible')
+            again(); });
+    }
+    refresh = () => this.load();
+    async createFamily(familyName, myName, color) {
+        await this.user();
+        this.ok(await this.sb.rpc('create_family', { fam_name: familyName, my_name: myName, my_color: color }));
+        await this.load();
+    }
+    async joinWithCode(code) {
+        await this.user();
+        this.ok(await this.sb.rpc('redeem_invite', { p_code: code.trim().toUpperCase() }));
+        await this.load();
+    }
+    async loadExample() { throw new Error('Die Beispielfamilie gibt es nur im Demo-Modus.'); }
+    async saveEvent(e, editId) {
+        if (editId) {
+            this.ok(await this.sb.from('events').update(e).eq('id', editId));
+            await this.refresh();
+            return editId;
+        }
+        const row = this.ok(await this.sb.from('events').insert({ ...e, family_id: this.familyId, owner: this.snap.me }).select('id').single());
+        await this.refresh();
+        return row.id;
+    }
+    async deleteEvent(id) { this.ok(await this.sb.from('events').delete().eq('id', id)); await this.refresh(); }
+    async deleteMessage(id) { this.ok(await this.sb.from('messages').delete().eq('id', id)); await this.refresh(); }
+    async postMessage(text) { this.ok(await this.sb.from('messages').insert({ family_id: this.familyId, from_member: this.snap.me, text })); await this.refresh(); }
+    async reply(id, text) { this.ok(await this.sb.from('replies').insert({ family_id: this.familyId, message_id: id, from_member: this.snap.me, text })); await this.refresh(); }
+    async setMessage(id, patch) {
+        // Lösen setzt die Uhr neu: die Nachricht bleibt danach noch die eingestellte Zeit stehen
+        const p = patch.pinned === false ? { ...patch, created_at: new Date().toISOString() } : patch;
+        this.ok(await this.sb.from('messages').update(p).eq('id', id));
+        await this.refresh();
+    }
+    async addMember(m) {
+        const row = this.ok(await this.sb.from('members').insert({ ...m, family_id: this.familyId }).select('id').single());
+        await this.refresh();
+        return row.id;
+    }
+    async updateMember(id, patch) {
+        if (id === this.snap.me && !('role' in patch) && !('name' in patch) && !('adult' in patch)) {
+            const cur = this.snap.members.find(m => m.id === id);
+            this.ok(await this.sb.rpc('update_my_member', { p_color: patch.color ?? cur.color, p_app_bg: patch.app_bg === undefined ? cur.app_bg : patch.app_bg }));
+        }
+        else
+            this.ok(await this.sb.from('members').update(patch).eq('id', id));
+        await this.refresh();
+    }
+    async removeMember(id) { this.ok(await this.sb.from('members').update({ active: false, user_id: null }).eq('id', id)); await this.refresh(); }
+    async createInvite(memberId) { return this.ok(await this.sb.rpc('create_invite', { p_member: memberId })); }
+    async addBirthday({ owner, ...b }) { this.ok(await this.sb.from('birthdays').insert({ ...b, ...(owner ? { owner } : {}), family_id: this.familyId })); await this.refresh(); }
+    async removeBirthday(id) { this.ok(await this.sb.from('birthdays').delete().eq('id', id)); await this.refresh(); }
+    async updateSettings(patch) {
+        const settings = { ...this.snap.family.settings, ...patch };
+        this.ok(await this.sb.from('families').update({ settings }).eq('id', this.familyId));
+        await this.refresh();
+    }
+    async widgetToken() { return this.ok(await this.sb.rpc('my_widget_token', { fam: this.familyId })); }
+    async addDisplay(name) { this.ok(await this.sb.from('displays').insert({ family_id: this.familyId, name })); await this.refresh(); }
+    async removeDisplay(id) { this.ok(await this.sb.from('displays').delete().eq('id', id)); await this.refresh(); }
+    async displayFeed(token) {
+        const { data, error } = await this.sb.rpc('display_feed', { p_token: token });
+        if (error || !data)
+            return null;
+        const f = data;
+        return { ...f, family: { ...f.family, settings: { ...DEFAULT_SETTINGS, ...f.family.settings } } };
+    }
+    async reset() { await this.sb.auth.signOut(); this.channel?.unsubscribe(); this.channel = null; this.emit(EMPTY); }
+}
+export const store = supabase ? new SupabaseStore() : new LocalStore();
+export function useSnapshot() {
+    return useSyncExternalStore(store.subscribe, store.get);
+}
+export function useReady() {
+    return useSyncExternalStore(store.subscribe, store.ready);
+}

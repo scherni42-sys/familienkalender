@@ -223,7 +223,8 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .ev[data-ev] { cursor: pointer; }
 .ev[data-ev]:hover { filter: brightness(.97); }
 .dl { display: grid; gap: 8px; }
-.dl .r { display: grid; grid-template-columns: 92px 1fr; gap: 8px; font-size: 14px; align-items: baseline; }
+.dl .r { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; font-size: 14px; align-items: baseline; }
+.dl .r > div { overflow-wrap: anywhere; white-space: pre-line; max-height: 40vh; overflow-y: auto; }
 .dl .r > span:first-child { font-size: 12px; font-weight: 700; color: var(--muted); }
 .bring { display: flex; flex-wrap: wrap; gap: 4px; }
 .bring span { font-size: 12.5px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }

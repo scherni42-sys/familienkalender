@@ -104,7 +104,7 @@ object CalImport {
                 val b = c.getLong(1)
                 val e = c.getLong(2)
                 val title = (c.getString(3) ?: "").trim()
-                val desc = (c.getString(5) ?: "").trim()
+                val desc = plain(c.getString(5) ?: "")
                 val allDay = c.getInt(6) == 1
                 if (allDay) {
                     val d = Instant.ofEpochMilli(b).atZone(ZoneOffset.UTC).toLocalDate()
@@ -135,6 +135,22 @@ object CalImport {
             }
         }
         return events to bdays
+    }
+
+    // Outlook liefert Notizen oft als Word-HTML: in schlichten Text umwandeln
+    fun plain(raw: String): String {
+        if (!Regex("(?i)<(html|body|div|p|br|span|meta|table)\\b").containsMatchIn(raw)) return raw.trim()
+        val cleaned = raw
+            .replace(Regex("(?is)<head\\b.*?</head>"), " ")
+            .replace(Regex("(?is)<style\\b.*?</style>"), " ")
+            .replace(Regex("(?is)<script\\b.*?</script>"), " ")
+            .replace(Regex("(?s)<!--.*?-->"), " ")
+            .replace(Regex("(?s)<!\\[if.*?<!\\[endif\\]>"), " ")
+        val text = android.text.Html.fromHtml(cleaned, android.text.Html.FROM_HTML_MODE_COMPACT).toString()
+        return text.replace('\u00A0', ' ').replace('\uFFFC', ' ')
+            .lines().map { it.replace(Regex("[ \\t]+"), " ").trim() }
+            .filter { it.isNotEmpty() && !Regex("^_{5,}$").matches(it) }
+            .joinToString("\n").trim()
     }
 
     // „Geburtstag Oma“, „🎂 Geburtstag von Lena“, „Max Geburtstag“ → Oma, Lena, Max

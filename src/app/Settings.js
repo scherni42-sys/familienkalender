@@ -1,0 +1,133 @@
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { useState } from 'react';
+import { store, useSnapshot } from '../lib/store';
+import { BGS, ROLE, SWATCHES, upcoming, bdLabel } from '../lib/model';
+import { hm, inDays, MON } from '../lib/dates';
+import { Badge, cvar, Icon } from './ui';
+import { fail, toast } from './toast';
+import { micStart, setMicStart } from '../lib/micstart';
+import { SUPA } from '../lib/supabase';
+const MENU = [
+    ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Farben der Personen', 'palette'],
+    ['bg', 'Hintergrund', 'palette'], ['bdays', 'Geburtstage', 'cake'], ['displays', 'Displays', 'screen']
+];
+export function Settings() {
+    const snap = useSnapshot();
+    const [sub, setSub] = useState(null);
+    const me = snap.members.find(m => m.id === snap.me);
+    const s = snap.family.settings;
+    const isAdmin = me.role === 'admin';
+    const upd = (p, msg) => store.updateSettings(p).then(() => toast(msg), fail);
+    if (!sub) {
+        const next = upcoming(snap.birthdays)[0];
+        const info = {
+            family: `${snap.members.length} Mitglieder · Admin: ${snap.members.filter(m => m.role === 'admin').map(m => m.name).join(', ')}`,
+            basic: `Geburtstage ${s.bdLead ? `${s.bdLead} Tage vorher` : 'aus'} · Board ${s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tage`} · Fahrzeiten ${s.showTravel ? 'an' : 'aus'}`,
+            colors: 'Jede Person hat ihre eigene Farbe',
+            bg: 'Unifarbener Hintergrund für App und Display',
+            bdays: `${snap.birthdays.length} eingetragen${next ? ` · ${next.name} ${inDays(next.days)}` : ''}`,
+            displays: `${snap.displays.length || 'Kein'} Display${snap.displays.length === 1 ? '' : 's'} · Board ${s.boardMode === 'fixed' ? 'fest' : 'dynamisch'}`
+        };
+        return _jsxs(_Fragment, { children: [_jsxs("div", { className: "mem", children: [_jsx(Badge, { m: me, size: 30 }), _jsxs("div", { children: [_jsx("div", { className: "nm", children: me.name }), _jsxs("div", { className: "sub", children: [ROLE[me.role], " \u00B7 ", snap.family.name] })] }), _jsx("span", {}), store.demo && _jsxs("div", { className: "acts", children: [_jsx("span", { className: "badge-demo", children: "Demo-Modus" }), _jsxs("label", { className: "note", children: ["Handy von ", _jsx("select", { value: snap.me, onChange: e => store.switchUser?.(e.target.value), children: snap.members.filter(m => m.role !== 'child').map(m => _jsx("option", { value: m.id, children: m.name }, m.id)) })] })] })] }), MENU.map(([k, l, ic]) => _jsxs("button", { type: "button", className: "menu-item", onClick: () => setSub(k), children: [_jsx("span", { className: "mi-ic", children: _jsx(Icon, { name: ic }) }), _jsxs("span", { children: [_jsx("b", { children: l }), _jsx("small", { children: info[k] })] }), _jsx("span", { className: "chev", children: "\u203A" })] }, k)), me.role !== 'guest' && _jsx(MicStartRow, {}), _jsx("button", { type: "button", className: "small-btn danger", style: { justifySelf: 'start' }, onClick: () => { if (confirm(store.demo ? 'Alle Demo-Daten löschen?' : 'Auf diesem Handy abmelden? Zum Zurückkommen brauchst du einen neuen Einladungscode vom Admin.'))
+                        void store.reset(); }, children: store.demo ? 'Demo zurücksetzen' : 'Abmelden' }), _jsxs("span", { className: "note", children: ["Version vom ", __BUILD__] })] });
+    }
+    const label = MENU.find(([k]) => k === sub)[1];
+    const lock = !isAdmin && _jsxs("div", { className: "ai", children: [_jsx(Icon, { name: "lock" }), _jsx("div", { children: "\u00C4ndern kann nur der Admin." })] });
+    let content = null;
+    if (sub === 'family')
+        content = _jsx(Family, {});
+    if (sub === 'basic')
+        content = _jsxs(_Fragment, { children: [lock, _jsx(Sel, { isAdmin: isAdmin, icon: "cake", text: "Geburtstags-Erinnerung", value: s.bdLead, opts: [[0, 'aus'], [3, '3 Tage vorher'], [7, '7 Tage vorher'], [14, '14 Tage vorher'], [21, '21 Tage vorher'], [30, '30 Tage vorher']], onPick: v => upd({ bdLead: v }, v ? `Geburtstage erscheinen ab ${v} Tage vorher.` : 'Geburtstags-Erinnerung aus.') }), _jsx(Sel, { isAdmin: isAdmin, icon: "board", text: "Board-Nachrichten verschwinden nach", value: s.ttlHours, opts: [[12, '12 Std.'], [24, '1 Tag'], [72, '3 Tagen'], [168, '1 Woche']], onPick: v => upd({ ttlHours: v }, 'Gespeichert.') }), _jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: "car" }), " Fahrzeiten anzeigen"] }), isAdmin ? _jsx("input", { type: "checkbox", className: "sw", checked: s.showTravel, onChange: e => upd({ showTravel: e.target.checked }, e.target.checked ? 'Fahrzeiten werden angezeigt.' : 'Fahrzeiten ausgeblendet.') }) : _jsx("b", { children: s.showTravel ? 'ja' : 'nein' })] }), s.showTravel && _jsxs(_Fragment, { children: [_jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: "home" }), " Zuhause (Start f\u00FCr Fahrten)"] }), isAdmin ? _jsx("input", { defaultValue: s.home, placeholder: "Stra\u00DFe, Ort", onBlur: e => e.target.value.trim() !== s.home && upd({ home: e.target.value.trim() }, 'Zuhause-Adresse gespeichert.') }) : _jsx("b", { children: s.home || '–' })] }), _jsx(Sel, { isAdmin: isAdmin, icon: "clock", text: "Erinnerung an den Fahrer", value: s.remind, opts: [[0, 'aus'], [5, '5 Min. vor Abfahrt'], [10, '10 Min. vor Abfahrt'], [15, '15 Min. vor Abfahrt'], [20, '20 Min. vor Abfahrt'], [30, '30 Min. vor Abfahrt']], onPick: v => upd({ remind: v }, 'Gespeichert.') }), _jsx(Sel, { isAdmin: isAdmin, icon: "car", text: "Puffer vor Abfahrt", value: s.buffer, opts: [[0, 'keiner'], [5, '5 Min.'], [10, '10 Min.'], [15, '15 Min.']], onPick: v => upd({ buffer: v }, 'Gespeichert.') })] }), _jsx(Sel, { isAdmin: isAdmin, icon: "clock", text: "Vergangene Termine von heute", value: s.pastMode, opts: [['fade', 'blass zeigen'], ['hide', 'ausblenden']], onPick: v => upd({ pastMode: v }, 'Gespeichert.') }), _jsx(Sel, { isAdmin: isAdmin, icon: "week", text: "Display: Vorschau", value: s.ahead, opts: [1, 2, 3, 4, 5, 6, 7].map(v => [v, v === 1 ? 'nur morgen' : `${v} Tage`]), onPick: v => upd({ ahead: v }, 'Gespeichert.') }), _jsx(Sel, { isAdmin: isAdmin, icon: "clock", text: "Display: Vorschau ab", value: s.split, opts: [[0, 'immer zeigen'], ...[10, 11, 12, 13, 14, 15, 16, 17, 18].map(h => [h * 60, `${h}:00 Uhr`])], onPick: v => upd({ split: v }, 'Gespeichert.'), show: s.split ? `${hm(s.split)} Uhr` : 'immer' }), _jsx("span", { className: "note", children: "Vor dieser Uhrzeit zeigt das Display im Flur nur den heutigen Tag, gro\u00DF und gut lesbar." })] });
+    if (sub === 'colors')
+        content = _jsxs(_Fragment, { children: [_jsxs("p", { className: "note", children: ["Die Farbe erscheint als Balken und zarte T\u00F6nung bei allen Terminen der Person, in der App und auf dem Display. ", isAdmin ? 'Als Admin kannst du alle Farben ändern.' : 'Du kannst deine eigene Farbe ändern.'] }), snap.members.map(m => {
+                    const can = isAdmin || m.id === snap.me;
+                    const twin = snap.members.filter(o => o.id !== m.id && o.color.toLowerCase() === m.color.toLowerCase()).map(o => o.name);
+                    return _jsxs("div", { className: "colrow", children: [_jsxs("div", { className: "nm", children: [_jsx(Badge, { m: m }), " ", _jsx("b", { children: m.name }), twin.length > 0 && _jsxs("span", { className: "note", children: ["gleiche Farbe wie ", twin.join(', ')] })] }), can && _jsxs("div", { className: "sw", children: [SWATCHES.map(([h, l]) => _jsx("button", { type: "button", className: `swb${m.color.toLowerCase() === h ? ' on' : ''}`, style: cvar(h), "aria-label": l, title: l, onClick: () => store.updateMember(m.id, { color: h }).catch(fail) }, h)), _jsxs("label", { className: "swb own", title: "Eigene Farbe", style: cvar(m.color), children: [_jsx("input", { type: "color", value: m.color, onChange: e => store.updateMember(m.id, { color: e.target.value }).catch(fail), "aria-label": `Eigene Farbe für ${m.name}` }), "+"] })] })] }, m.id);
+                })] });
+    if (sub === 'bg')
+        content = _jsxs(_Fragment, { children: [_jsxs("div", { className: "colrow", children: [_jsxs("div", { className: "nm", children: [_jsx("b", { children: "App" }), _jsx("span", { className: "note", children: "nur auf deinem Handy" })] }), _jsx(BgPick, { cur: me.app_bg ?? '', pick: h => store.updateMember(me.id, { app_bg: h || null }).catch(fail) })] }), _jsxs("div", { className: "colrow", children: [_jsxs("div", { className: "nm", children: [_jsx("b", { children: "Display im Flur" }), _jsx("span", { className: "note", children: isAdmin ? 'gilt für alle' : 'ändern kann nur der Admin' })] }), isAdmin && _jsx(BgPick, { cur: s.wbg, pick: h => upd({ wbg: h }, 'Display-Hintergrund gespeichert.') })] }), _jsx("p", { className: "note", children: "Helle T\u00F6ne halten Termine und Schrift gut lesbar. Beim E-Ink-Display erscheint die Farbe als Grauton." })] });
+    if (sub === 'bdays')
+        content = _jsx(Bdays, {});
+    if (sub === 'displays')
+        content = _jsx(Displays, {});
+    return _jsxs(_Fragment, { children: [_jsx("button", { type: "button", className: "back", onClick: () => setSub(null), children: "\u2039 Einstellungen" }), _jsx("div", { className: "day-h", style: { marginTop: 0 }, children: _jsx("span", { style: { fontSize: 17, color: 'var(--ink)' }, children: label }) }), content] });
+}
+function Sel({ isAdmin, icon, text, value, opts, onPick, show }) {
+    return (_jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: icon }), " ", text] }), isAdmin
+                ? _jsx("select", { value: String(value), onChange: e => onPick((typeof value === 'number' ? Number(e.target.value) : e.target.value)), children: opts.map(([v, l]) => _jsx("option", { value: String(v), children: l }, String(v))) })
+                : _jsx("b", { children: show ?? opts.find(([v]) => v === value)?.[1] })] }));
+}
+function BgPick({ cur, pick }) {
+    return _jsxs("div", { className: "sw", children: [BGS.map(([h, l]) => _jsx("button", { type: "button", className: `swb bgs${cur === h ? ' on' : ''}`, style: cvar(h || '#ffffff'), "aria-label": l, title: l, onClick: () => pick(h), children: h ? '' : '–' }, l)), _jsxs("label", { className: "swb bgs own", title: "Eigene Farbe", style: cvar(cur || '#ffffff'), children: [_jsx("input", { type: "color", value: cur || '#ffffff', onChange: e => pick(e.target.value), "aria-label": "Eigene Hintergrundfarbe" }), "+"] })] });
+}
+function Family() {
+    const snap = useSnapshot();
+    const me = snap.members.find(m => m.id === snap.me);
+    const isAdmin = me.role === 'admin';
+    const [codes, setCodes] = useState({});
+    const [name, setName] = useState(''), [role, setRole] = useState('member');
+    const admins = snap.members.filter(m => m.role === 'admin').length;
+    const invite = async (id) => { try {
+        const c = await store.createInvite(id);
+        setCodes({ ...codes, [id]: c });
+    }
+    catch (e) {
+        fail(e);
+    } };
+    return _jsxs(_Fragment, { children: [!isAdmin && _jsxs("div", { className: "ai", children: [_jsx(Icon, { name: "lock" }), _jsx("div", { children: "Mitglieder hinzuf\u00FCgen und entfernen kann nur der Admin." })] }), snap.members.map(m => (_jsxs("div", { className: "mem", children: [_jsx(Badge, { m: m, size: 30 }), _jsxs("div", { children: [_jsxs("div", { className: "nm", children: [m.name, m.id === snap.me ? ' (du)' : ''] }), _jsxs("div", { className: "sub", children: [ROLE[m.role], m.role !== 'child' ? (m.linked ? ' · App verbunden' : ' · noch nicht verbunden') : ''] })] }), isAdmin && m.id !== snap.me ? _jsx("select", { "aria-label": `Rolle von ${m.name}`, value: m.role, onChange: e => {
+                            const v = e.target.value;
+                            if (m.role === 'admin' && v !== 'admin' && admins === 1) {
+                                toast('Mindestens ein Admin muss bleiben.');
+                                return;
+                            }
+                            store.updateMember(m.id, { role: v, adult: v === 'child' ? false : m.adult }).then(() => toast(`${m.name} ist jetzt: ${ROLE[v]}.`), fail);
+                        }, children: Object.entries(ROLE).map(([k, l]) => _jsx("option", { value: k, children: l }, k)) }) : _jsx("span", {}), isAdmin && m.id !== snap.me && _jsxs("div", { className: "acts", children: [m.role !== 'child' && !m.linked && _jsx("button", { type: "button", className: "small-btn", onClick: () => void invite(m.id), children: "Einladungscode" }), m.role !== 'child' && m.linked && _jsx("button", { type: "button", className: "small-btn", onClick: () => void invite(m.id), children: "Neues Handy verbinden" }), _jsx("button", { type: "button", className: "small-btn danger", onClick: () => { if (confirm(`${m.name} aus der Familie entfernen?`))
+                                    store.removeMember(m.id).then(() => toast(`${m.name} entfernt.`), fail); }, children: "Entfernen" }), codes[m.id] && _jsxs("div", { style: { width: '100%' }, children: [_jsx("div", { className: "codebox", children: codes[m.id] }), _jsxs("span", { className: "note", children: [m.name, " \u00F6ffnet die App, tippt \u201EIch habe einen Einladungscode\u201C und gibt den Code ein. G\u00FCltig 7 Tage."] })] })] })] }, m.id))), isAdmin && (_jsxs("form", { className: "addform", onSubmit: e => {
+                    e.preventDefault();
+                    if (!name.trim())
+                        return;
+                    const used = new Set(snap.members.map(m => m.color.toLowerCase()));
+                    const color = SWATCHES.find(([h]) => !used.has(h))?.[0] ?? SWATCHES[snap.members.length % SWATCHES.length][0];
+                    store.addMember({ name: name.trim(), role, color, adult: role !== 'child' }).then(() => { setName(''); toast(role === 'child' ? 'Hinzugefügt. Kinder ohne Handy sind sofort dabei.' : 'Hinzugefügt. Jetzt einen Einladungscode erzeugen.'); }, fail);
+                }, children: [_jsx("b", { children: "Mitglied hinzuf\u00FCgen" }), _jsxs("div", { className: "two", children: [_jsx("input", { value: name, onChange: e => setName(e.target.value), placeholder: "Name", required: true }), _jsx("select", { value: role, onChange: e => setRole(e.target.value), children: Object.entries(ROLE).filter(([k]) => k !== 'admin').map(([k, l]) => _jsx("option", { value: k, children: l }, k)) })] }), _jsx("button", { className: "btn", children: "Hinzuf\u00FCgen" }), _jsx("span", { className: "note", children: "Mitglieder und G\u00E4ste verbinden ihr Handy mit einem Einladungscode. Kinder ohne Smartphone sind sofort dabei; Eltern tragen f\u00FCr sie ein." })] }))] });
+}
+// Formular „Geburtstag eintragen“ (Einstellungen und Geburtstagsübersicht, auch aus dem Widget)
+export function BdayForm({ focus }) {
+    const snap = useSnapshot();
+    // Tag und Monat Pflicht, Jahr freiwillig: ohne Jahr kein „wird …“
+    const [n, setN] = useState(''), [rel, setRel] = useState(''), [day, setDay] = useState(''), [mon, setMon] = useState(''), [year, setYear] = useState(''), [priv, setPriv] = useState(false);
+    const y = Number(year);
+    return _jsxs("form", { className: "addform", onSubmit: e => {
+            e.preventDefault();
+            if (!n.trim() || !day || !mon)
+                return;
+            store.addBirthday({ name: n.trim(), rel: rel.trim(), day: Number(day), month: Number(mon), year: y > 1900 && y <= new Date().getFullYear() ? y : null, owner: priv ? snap.me : null }).then(() => { setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail);
+        }, children: [_jsx("b", { children: "Geburtstag eintragen" }), _jsxs("div", { className: "two", children: [_jsx("input", { value: n, onChange: e => setN(e.target.value), placeholder: "Name", required: true, autoFocus: focus }), _jsx("input", { value: rel, onChange: e => setRel(e.target.value), placeholder: "z. B. Patentante" })] }), _jsxs("div", { className: "bdate", children: [_jsxs("label", { className: "field", children: [_jsx("span", { children: "Tag" }), _jsxs("select", { value: day, onChange: e => setDay(e.target.value), required: true, children: [_jsx("option", { value: "", children: "\u2013" }), Array.from({ length: 31 }, (_, i) => _jsxs("option", { value: i + 1, children: [i + 1, "."] }, i))] })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Monat" }), _jsxs("select", { value: mon, onChange: e => setMon(e.target.value), required: true, children: [_jsx("option", { value: "", children: "\u2013" }), MON.map((m, i) => _jsx("option", { value: i + 1, children: m }, m))] })] }), _jsxs("label", { className: "field", children: [_jsx("span", { children: "Jahr (freiwillig)" }), _jsx("input", { type: "number", inputMode: "numeric", min: 1900, max: new Date().getFullYear(), value: year, onChange: e => setYear(e.target.value), placeholder: "unbekannt" })] })] }), _jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: "lock" }), " Privat: nur ich sehe ihn (Freunde, Kollegen \u2026)"] }), _jsx("input", { type: "checkbox", checked: priv, onChange: e => setPriv(e.target.checked) })] }), _jsx("button", { className: "btn", children: "Eintragen" })] });
+}
+function Bdays() {
+    const snap = useSnapshot();
+    const me = snap.members.find(m => m.id === snap.me);
+    const s = snap.family.settings;
+    return _jsxs(_Fragment, { children: [_jsx("div", { children: upcoming(snap.birthdays).map(b => _jsxs("div", { className: `bdrow${s.bdLead && b.days <= s.bdLead ? ' soon' : ''}`, children: [_jsxs("div", { children: [_jsxs("b", { children: [b.owner ? '🔒 ' : '', b.name] }), _jsxs("small", { children: [b.owner ? 'privat · ' : '', b.rel ? `${b.rel} · ` : '', bdLabel(b), b.age ? ` · wird ${b.age}` : ''] })] }), _jsxs("span", { className: "dd", children: [inDays(b.days), " ", me.role !== 'guest' && _jsx("button", { type: "button", className: "small-btn danger", "aria-label": `${b.name} entfernen`, onClick: () => store.removeBirthday(b.id).catch(fail), children: "\u00D7" })] })] }, b.id)) }), me.role !== 'guest' && _jsx(BdayForm, {})] });
+}
+function Displays() {
+    const snap = useSnapshot();
+    const me = snap.members.find(m => m.id === snap.me);
+    const s = snap.family.settings;
+    const isAdmin = me.role === 'admin';
+    const base = `${location.origin}${location.pathname}`;
+    // Persönlicher Code: Widget zeigt Familientermine und die eigenen privaten Termine
+    const widget = !store.demo && _jsxs("div", { className: "mem", children: [_jsx("span", { className: "b", style: cvar('var(--accent)'), children: "H" }), _jsxs("div", { children: [_jsx("div", { className: "nm", children: "Mein Handy-Widget" }), _jsx("div", { className: "sub", children: "Familientermine und meine privaten Termine" })] }), _jsx("span", {}), _jsx("div", { className: "acts", children: _jsx("button", { type: "button", className: "small-btn", onClick: () => store.widgetToken().then(t => navigator.clipboard?.writeText('FK1:' + btoa(JSON.stringify({ u: SUPA.url, k: SUPA.key, t, a: base })))).then(() => toast('Widget-Code kopiert. Jetzt in der Widget-App einfügen.'), fail), children: "Widget-Code f\u00FCr Android kopieren" }) })] });
+    if (!isAdmin)
+        return _jsxs(_Fragment, { children: [widget, _jsxs("div", { className: "ai", children: [_jsx(Icon, { name: "lock" }), _jsx("div", { children: "Displays verwaltet der Admin." })] })] });
+    return _jsxs(_Fragment, { children: [widget, _jsx("p", { className: "note", children: "Jedes Display ruft die Familienseite unter einer eigenen, geheimen Adresse auf. Diese Adresse im WYSCREEN als Webseite eintragen. Entfernen macht die Adresse sofort ung\u00FCltig." }), snap.displays.map(d => {
+                const url = `${base}#/display/${d.token}`;
+                return _jsxs("div", { className: "mem", children: [_jsx("span", { className: "b", style: cvar('var(--muted)'), children: "W" }), _jsxs("div", { children: [_jsx("div", { className: "nm", children: d.name }), _jsx("div", { className: "sub", children: "nur Familientermine" })] }), _jsx("span", {}), _jsxs("div", { className: "acts", style: { display: 'grid' }, children: [_jsx("div", { className: "urlbox", children: url }), _jsxs("span", { className: "note", children: ["Varianten: ", _jsx("code", { children: "?v=bigme" }), ", ", _jsx("code", { children: "?v=qm" }), ", ", _jsx("code", { children: "?v=color" }), ", ", _jsx("code", { children: "?v=eink" }), " vor dem # anh\u00E4ngen. ", _jsx("code", { children: "?r=5" }), " l\u00E4dt alle 5 Sekunden neu, beides zusammen mit ", _jsx("code", { children: "?v=qm&r=5" }), "."] }), _jsxs("div", { style: { display: 'flex', gap: 6, flexWrap: 'wrap' }, children: [_jsx("button", { type: "button", className: "small-btn", onClick: () => navigator.clipboard?.writeText(url).then(() => toast('Adresse kopiert.')), children: "Adresse kopieren" }), _jsx("a", { className: "small-btn", href: url, target: "_blank", rel: "noreferrer", children: "Ansehen" }), !store.demo && _jsx("button", { type: "button", className: "small-btn danger", onClick: () => { if (confirm('Display entfernen? Die Adresse funktioniert dann nicht mehr.'))
+                                                store.removeDisplay(d.id).catch(fail); }, children: "Entfernen" })] })] })] }, d.id);
+            }), !store.demo && _jsx("button", { type: "button", className: "small-btn", style: { justifySelf: 'start' }, onClick: () => store.addDisplay(`Display ${snap.displays.length + 1}`).then(() => toast('Neues Display angelegt.'), fail), children: "Weiteres Display anlegen" }), _jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: "board" }), " Board am Display"] }), _jsxs("select", { value: s.boardMode, onChange: e => store.updateSettings({ boardMode: e.target.value }).catch(fail), children: [_jsx("option", { value: "dynamic", children: "dynamisch" }), _jsx("option", { value: "fixed", children: "fest: rechtes Drittel" })] })] }), _jsx("p", { className: "note", children: "Dynamisch: Das Board bekommt den Platz neben den Terminen. Fest: Das rechte Drittel geh\u00F6rt immer dem Board." })] });
+}
+// Nur für dieses Handy: App öffnet direkt die Spracheingabe (praktisch mit der Samsung-Seitentaste)
+function MicStartRow() {
+    const [on, setOn] = useState(micStart());
+    return _jsxs(_Fragment, { children: [_jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: "mic" }), " Beim \u00D6ffnen sofort Spracheingabe"] }), _jsx("input", { type: "checkbox", className: "sw", checked: on, onChange: e => { setMicStart(e.target.checked); setOn(e.target.checked); toast(e.target.checked ? 'Die App startet jetzt direkt mit dem Mikrofon.' : 'Die App startet wieder normal.'); } })] }), _jsx("span", { className: "note", children: "Gilt nur f\u00FCr dieses Handy. Zusammen mit der Seitentaste ist das die schnellste Eingabe." })] });
+}
