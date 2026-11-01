@@ -13,6 +13,14 @@ class MicActivity : Activity() {
         super.onCreate(savedInstanceState)
         // Mit persönlichem Widget-Code: kleine Schnelleingabe der Widget-App, der Familienkalender bleibt zu
         val m = intent?.getStringExtra(EXTRA_MODE)
+        // Erster Start nach Installation oder Update („Öffnen“ im Installer): Einrichtung statt Mikrofon zeigen
+        val prefs = getSharedPreferences("familien-widget", MODE_PRIVATE)
+        if (m == null && prefs.getInt("launchedVersion", 0) != BuildConfig.VERSION_CODE) {
+            prefs.edit().putInt("launchedVersion", BuildConfig.VERSION_CODE).apply()
+            startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_UPDATED, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            finish()
+            return
+        }
         if (m != "photo" && Feed.cached(this)?.let { Feed.me(it) } != null) {
             startActivity(Intent(this, QuickActivity::class.java).putExtra(QuickActivity.EXTRA_MODE, m).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()

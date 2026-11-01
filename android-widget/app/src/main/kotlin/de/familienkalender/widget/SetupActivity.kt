@@ -16,6 +16,7 @@ import kotlin.concurrent.thread
 
 // Einrichtung: Widget-Code aus der Familienkalender-App einfügen, prüfen, speichern
 class SetupActivity : Activity() {
+    companion object { const val EXTRA_UPDATED = "updated" }
     private var widgetId = AppWidgetManager.INVALID_APPWIDGET_ID
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,7 +112,9 @@ class SetupActivity : Activity() {
         val saved = getSharedPreferences("familien-widget", MODE_PRIVATE).getString("code", null)
         if (saved != null) {
             code.setText(saved)
-            status.text = "Ein Code ist bereits gespeichert."
+            status.text = if (intent?.getBooleanExtra(EXTRA_UPDATED, false) == true)
+                "Version ${BuildConfig.VERSION_CODE} ist installiert. Alles bleibt eingerichtet, du kannst dieses Fenster schließen."
+            else "Ein Code ist bereits gespeichert."
         }
 
         findViewById<Button>(R.id.save).setOnClickListener {
