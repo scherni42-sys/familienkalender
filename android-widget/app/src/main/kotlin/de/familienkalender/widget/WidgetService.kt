@@ -49,7 +49,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
     }
 
     override fun getCount() = rows.size
-    override fun getViewTypeCount() = 5
+    override fun getViewTypeCount(): Int = 6
     override fun getItemId(position: Int) = position.toLong()
     override fun hasStableIds() = false
     override fun getLoadingView(): RemoteViews? = null
@@ -71,6 +71,11 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 setViewVisibility(R.id.a_take, if (r.canTake) View.VISIBLE else View.GONE)
                 for ((id, act) in listOf(R.id.a_like to "like", R.id.a_take to "take", R.id.a_done to "done"))
                     setOnClickFillInIntent(id, Intent().putExtra(OpenActivity.EXTRA_ACT, act).putExtra(OpenActivity.EXTRA_MSG, r.msg))
+            }
+            Kind.PHOTO -> RemoteViews(ctx.packageName, R.layout.photo).apply {
+                val bmp = Photos.thumb(ctx, r.text)
+                if (bmp != null) setImageViewBitmap(R.id.img, bmp) else setImageViewResource(R.id.img, R.drawable.btn_photo)
+                setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
             }
             Kind.REPLY -> RemoteViews(ctx.packageName, R.layout.reply).apply {
                 setTextViewText(R.id.who, r.time)
