@@ -139,7 +139,11 @@ object Feed {
             home(ctx, JSONObject(body)) to null
         } catch (e: Exception) {
             val old = cache(ctx).getString("feed", null)
-            (old?.let { home(ctx, JSONObject(it)) }) to "Offline: ${e.message ?: "keine Verbindung"}"
+            val at = cache(ctx).getLong("at", 0)
+            val stand = if (old != null && at > 0) ", Stand " + java.text.SimpleDateFormat("HH:mm", java.util.Locale.GERMANY).format(java.util.Date(at)) else ""
+            // Kein Netz (WLAN-Wechsel, Funkloch): kurz und verständlich statt Technik-Meldung
+            val msg = if (e is java.io.IOException) "Gerade kein Internet$stand" else "Offline: ${e.message ?: "keine Verbindung"}"
+            (old?.let { home(ctx, JSONObject(it)) }) to msg
         }
     }
 
