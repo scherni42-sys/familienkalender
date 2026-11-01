@@ -82,6 +82,21 @@ class SetupActivity : Activity() {
         radius.setOnFocusChangeListener { _, has -> if (!has) radius.text.toString().toIntOrNull()?.let { Geo.setRadius(this, it); showGeo() } }
         showGeo()
 
+        // Symbol für den kompletten Kalender (ohne Browser) auf den Startbildschirm
+        findViewById<Button>(R.id.pinapp).setOnClickListener {
+            val sm = getSystemService(android.content.pm.ShortcutManager::class.java)
+            if (sm == null || !sm.isRequestPinShortcutSupported) {
+                findViewById<TextView>(R.id.status).text = "Dein Startbildschirm erlaubt das nicht. Lange auf das FamTO-Symbol drücken → „Kalender öffnen“."
+                return@setOnClickListener
+            }
+            val info = android.content.pm.ShortcutInfo.Builder(this, "famto-app")
+                .setShortLabel("FamTO")
+                .setLongLabel("FamTO Kalender")
+                .setIcon(android.graphics.drawable.Icon.createWithResource(this, R.mipmap.ic_launcher))
+                .setIntent(Intent(this, AppActivity::class.java).setAction(Intent.ACTION_VIEW))
+                .build()
+            sm.requestPinShortcut(info, null)
+        }
         // Alles sofort neu laden: Familienkalender, Widgets, Erinnerungen, Handy-Kalender in beide Richtungen
         findViewById<Button>(R.id.syncnow).setOnClickListener {
             val st = findViewById<TextView>(R.id.status)

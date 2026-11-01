@@ -200,9 +200,7 @@ class QuickActivity : Activity() {
 
     // Ausweg: Eingabe im Familienkalender wie bisher
     private fun openApp() {
-        val app = Feed.config(this)?.app?.takeIf { it.isNotEmpty() } ?: return
-        val url = Uri.parse(app).buildUpon().appendQueryParameter("mic", if (preset) mode else "1").build()
-        try { startActivity(Intent(Intent.ACTION_VIEW, url)) } catch (e: Exception) {}
+        try { startActivity(Intent(this, AppActivity::class.java)) } catch (e: Exception) {}
         finish()
     }
 }

@@ -41,6 +41,13 @@
             android:layout_marginTop="12dp"
             android:text="Speichern" />
 
+        <Button
+            android:id="@+id/pinapp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="FamTO-Kalender auf den Startbildschirm legen" />
+
         <CheckBox
             android:id="@+id/remind"
             android:layout_width="match_parent"

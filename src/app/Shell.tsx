@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
+import { native } from '../lib/native';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
 import { bdOn, colorOf, depart, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
@@ -65,7 +66,7 @@ export function Shell() {
     }
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
-    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); { const v = q.get('mic'), preset = micPreset(v); setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset }); } }
+    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); { const v = q.get('mic'), preset = micPreset(v); if (v !== 'photo' && native()) native()!.mic(preset ?? ''); else setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset }); } }
     else if (micStart() && !o) setSheet({ kind: 'mic', auto: true, quick: true });
     // Falls Chrome die laufende App nur nach vorn holt: Startadresse über die Launch-Queue auswerten
     (window as unknown as { launchQueue?: { setConsumer: (f: (p: { targetURL?: string }) => void) => void } }).launchQueue
@@ -101,7 +102,7 @@ export function Shell() {
         <TabBtn on={tab === 'week'} icon="week" label="Kalender" go={() => setTab('week')} />
         {me.role === 'guest'
           ? <span />
-          : <button type="button" className="mic" aria-label="Termin oder Nachricht sprechen" onClick={() => setSheet({ kind: 'mic' })}><Icon name="mic" /></button>}
+          : <button type="button" className="mic" aria-label="Termin oder Nachricht sprechen" onClick={() => { const n = native(); if (n) n.mic(''); else setSheet({ kind: 'mic' }); }}><Icon name="mic" /></button>}
         <TabBtn on={tab === 'board'} icon="board" label="Board" go={() => setTab('board')} />
         <TabBtn on={tab === 'settings'} icon="gear" label="Einstellungen" go={() => setTab('settings')} />
       </nav>

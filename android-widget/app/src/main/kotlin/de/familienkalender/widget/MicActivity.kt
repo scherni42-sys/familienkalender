@@ -28,6 +28,12 @@ class MicActivity : Activity() {
             finish()
             return
         }
+        // Foto-Knopf im Widget: FamTO in der App mit der Foto-Aufnahme
+        if (m == "photo" && Feed.config(this) != null) {
+            startActivity(Intent(this, AppActivity::class.java).putExtra(AppActivity.EXTRA_MIC, "photo").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            finish()
+            return
+        }
         val app = Feed.config(this)?.app?.takeIf { it.isNotEmpty() }
         val target = if (app != null) Intent(Intent.ACTION_VIEW, Uri.parse(app).buildUpon().appendQueryParameter("mic", intent?.getStringExtra(EXTRA_MODE) ?: "1").build())
             else Intent(this, SetupActivity::class.java)

@@ -2,6 +2,16 @@
 <!-- Lange auf das Symbol drücken: Widget-Code ändern -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
+        android:shortcutId="app"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/open_app">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="de.familienkalender.widget"
+            android:targetClass="de.familienkalender.widget.AppActivity" />
+    </shortcut>
+    <shortcut
         android:shortcutId="setup"
         android:enabled="true"
         android:icon="@mipmap/ic_launcher"

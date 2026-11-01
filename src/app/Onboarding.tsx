@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { native } from '../lib/native';
 import { store } from '../lib/store';
 import { SWATCHES } from '../lib/model';
 import { cvar } from './ui';
@@ -12,6 +13,11 @@ export function Onboarding() {
     setBusy(true); setErr('');
     try { await f(); } catch (e) { setErr(e instanceof Error ? e.message : 'Das hat nicht geklappt.'); } finally { setBusy(false); }
   };
+  // In der Android-App: mit dem gespeicherten Widget-Code automatisch ins eigene Konto
+  useEffect(() => {
+    const c = native()?.code();
+    if (c && c.startsWith('FK1:') && !store.demo) void run(() => store.reclaim(c));
+  }, []);
   return (
     <main className="onb">
       <img className="logo" src="icon.svg" alt="" />

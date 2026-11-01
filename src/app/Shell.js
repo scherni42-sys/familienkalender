@@ -2,6 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { useEffect, useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
+import { native } from '../lib/native';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
 import { bdOn, colorOf, depart, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
 import { Badge, Badges, cvar, Icon } from './ui';
@@ -75,7 +76,10 @@ export function Shell() {
             history.replaceState(null, '', location.pathname + location.hash);
             {
                 const v = q.get('mic'), preset = micPreset(v);
-                setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset });
+                if (v !== 'photo' && native())
+                    native().mic(preset ?? '');
+                else
+                    setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset });
             }
         }
         else if (micStart() && !o)
@@ -96,7 +100,10 @@ export function Shell() {
                     }
                     catch { /* egal */ } }, children: l }, k)) })), _jsxs("div", { className: `ph-body${tab === 'today' ? ' today' : ''}`, children: [tab === 'today' && _jsx(TodayTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'board' && _jsx(Board, { focus: focusMsg }), tab === 'settings' && _jsx(Settings, {})] }), _jsxs("nav", { className: "tabs", "aria-label": "Bereiche", children: [_jsx(TabBtn, { on: tab === 'today', icon: "today", label: "Heute", go: () => setTab('today') }), _jsx(TabBtn, { on: tab === 'week', icon: "week", label: "Kalender", go: () => setTab('week') }), me.role === 'guest'
                         ? _jsx("span", {})
-                        : _jsx("button", { type: "button", className: "mic", "aria-label": "Termin oder Nachricht sprechen", onClick: () => setSheet({ kind: 'mic' }), children: _jsx(Icon, { name: "mic" }) }), _jsx(TabBtn, { on: tab === 'board', icon: "board", label: "Board", go: () => setTab('board') }), _jsx(TabBtn, { on: tab === 'settings', icon: "gear", label: "Einstellungen", go: () => setTab('settings') })] }), sheet?.kind === 'mic' && _jsx(MicSheet, { auto: sheet.auto, quick: sheet.quick, preset: sheet.preset, photoFirst: sheet.photo, close: () => setSheet(null), toDraft: (draft) => setSheet({ kind: 'edit', draft, fresh: true }), posted: () => { setSheet(null); setTab('board'); }, saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'edit' && _jsx(EventSheet, { draft: sheet.draft, fresh: sheet.fresh, close: () => setSheet(null), back: () => setSheet({ kind: 'mic' }), saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'detail' && _jsx(DetailSheet, { id: sheet.id, day: sheet.day, add: newOn, close: () => setSheet(null), edit: (draft) => setSheet({ kind: 'edit', draft, fresh: false }) }), sheet?.kind === 'bdays' && _jsx(BdaySheet, { adding: sheet.adding, close: () => setSheet(null) }), _jsx(PushBanner, { now: now }), toastMsg && _jsx("div", { className: "toast", role: "status", children: toastMsg })] }));
+                        : _jsx("button", { type: "button", className: "mic", "aria-label": "Termin oder Nachricht sprechen", onClick: () => { const n = native(); if (n)
+                                n.mic('');
+                            else
+                                setSheet({ kind: 'mic' }); }, children: _jsx(Icon, { name: "mic" }) }), _jsx(TabBtn, { on: tab === 'board', icon: "board", label: "Board", go: () => setTab('board') }), _jsx(TabBtn, { on: tab === 'settings', icon: "gear", label: "Einstellungen", go: () => setTab('settings') })] }), sheet?.kind === 'mic' && _jsx(MicSheet, { auto: sheet.auto, quick: sheet.quick, preset: sheet.preset, photoFirst: sheet.photo, close: () => setSheet(null), toDraft: (draft) => setSheet({ kind: 'edit', draft, fresh: true }), posted: () => { setSheet(null); setTab('board'); }, saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'edit' && _jsx(EventSheet, { draft: sheet.draft, fresh: sheet.fresh, close: () => setSheet(null), back: () => setSheet({ kind: 'mic' }), saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'detail' && _jsx(DetailSheet, { id: sheet.id, day: sheet.day, add: newOn, close: () => setSheet(null), edit: (draft) => setSheet({ kind: 'edit', draft, fresh: false }) }), sheet?.kind === 'bdays' && _jsx(BdaySheet, { adding: sheet.adding, close: () => setSheet(null) }), _jsx(PushBanner, { now: now }), toastMsg && _jsx("div", { className: "toast", role: "status", children: toastMsg })] }));
 }
 function TabBtn({ on, icon, label, go }) {
     return _jsxs("button", { type: "button", "aria-pressed": on, onClick: go, children: [_jsx(Icon, { name: icon }), label] });
