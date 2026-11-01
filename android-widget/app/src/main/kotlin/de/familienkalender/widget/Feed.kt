@@ -120,7 +120,7 @@ object Feed {
     fun load(ctx: Context, maxAgeMs: Long = 0): Pair<JSONObject?, String?> {
         val c = config(ctx) ?: return null to "Bitte die Widget-App öffnen und den Code eintragen."
         if (maxAgeMs > 0 && System.currentTimeMillis() - loadedAt(ctx) < maxAgeMs) {
-            cache(ctx).getString("feed", null)?.let { return JSONObject(it) to null }
+            cache(ctx).getString("feed", null)?.let { return home(ctx, JSONObject(it)) to null }
         }
         return try {
             val conn = URL("${c.url}/rest/v1/rpc/display_feed").openConnection() as HttpURLConnection
@@ -136,15 +136,28 @@ object Feed {
             if (code !in 200..299) throw Exception("Server meldet $code")
             if (body.trim() == "null") return null to "Dieses Display wurde entfernt. Bitte neuen Widget-Code eintragen."
             cache(ctx).edit().putString("feed", body).putLong("at", System.currentTimeMillis()).apply()
-            JSONObject(body) to null
+            home(ctx, JSONObject(body)) to null
         } catch (e: Exception) {
             val old = cache(ctx).getString("feed", null)
-            (old?.let { JSONObject(it) }) to "Offline: ${e.message ?: "keine Verbindung"}"
+            (old?.let { home(ctx, JSONObject(it)) }) to "Offline: ${e.message ?: "keine Verbindung"}"
         }
     }
 
     fun loadedAt(ctx: Context): Long = cache(ctx).getLong("at", 0)
-    fun cached(ctx: Context): JSONObject? = try { cache(ctx).getString("feed", null)?.let { JSONObject(it) } } catch (e: Exception) { null }
+    fun cached(ctx: Context): JSONObject? = try { cache(ctx).getString("feed", null)?.let { home(ctx, JSONObject(it)) } } catch (e: Exception) { null }
+
+    // Home-Modus: Termine aus beruflichen Handy-Kalendern (ext_id beginnt mit „w:“) ausblenden
+    fun homeMode(ctx: Context) = cache(ctx).getBoolean("home", false)
+    fun toggleHome(ctx: Context) = setHome(ctx, !homeMode(ctx))
+    fun setHome(ctx: Context, on: Boolean) = cache(ctx).edit().putBoolean("home", on).apply()
+    fun isWork(e: JSONObject) = e.optString("ext_id").startsWith("w:")
+    private fun home(ctx: Context, feed: JSONObject): JSONObject {
+        if (!homeMode(ctx)) return feed
+        val evs = feed.optJSONArray("events") ?: return feed
+        val keep = JSONArray()
+        for (i in 0 until evs.length()) evs.optJSONObject(i)?.let { if (!isWork(it)) keep.put(it) }
+        return feed.put("events", keep)
+    }
 
     // Eigene Person (nur mit persönlichem Widget-Code), sonst null
     fun me(feed: JSONObject): String? = feed.optString("me").takeIf { it.isNotEmpty() && it != "null" }

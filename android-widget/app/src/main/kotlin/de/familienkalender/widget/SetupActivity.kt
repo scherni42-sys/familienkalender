@@ -62,6 +62,25 @@ class SetupActivity : Activity() {
         }
         showCalendars()
 
+        // Automatischer Home-Modus per Standort
+        val geo = findViewById<CheckBox>(R.id.geo)
+        val radius = findViewById<EditText>(R.id.georadius)
+        geo.isChecked = Geo.enabled(this)
+        radius.setText(Geo.radius(this).toString())
+        geo.setOnCheckedChangeListener { _, on ->
+            Geo.setEnabled(this, on)
+            if (on && !Geo.hasFine(this)) requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 4)
+            else if (on && !Geo.hasBackground(this)) askBackground()
+            if (!on) { Feed.setHome(this, false); TodayWidget.refreshData(this) }
+            showGeo()
+        }
+        findViewById<Button>(R.id.geohere).setOnClickListener {
+            findViewById<TextView>(R.id.geostatus).text = "Suche Standort …"
+            Geo.setHereAsHome(this) { msg -> runOnUiThread { showGeo(); findViewById<TextView>(R.id.geostatus).text = msg + "\n" + Geo.status(this) } }
+        }
+        radius.setOnFocusChangeListener { _, has -> if (!has) radius.text.toString().toIntOrNull()?.let { Geo.setRadius(this, it); showGeo() } }
+        showGeo()
+
         val code = findViewById<EditText>(R.id.code)
         val status = findViewById<TextView>(R.id.status)
         val saved = getSharedPreferences("familien-widget", MODE_PRIVATE).getString("code", null)
@@ -105,6 +124,18 @@ class SetupActivity : Activity() {
         if (code == 2 && res.isNotEmpty() && res.all { it == PackageManager.PERMISSION_GRANTED })
             thread { Feed.load(this).first?.let { CalSync.sync(this, it) } }
         if (code == 3) showCalendars()
+        if (code == 4 && Geo.hasFine(this) && !Geo.hasBackground(this)) askBackground()
+        if (code == 4 || code == 5) { Geo.register(this); showGeo() }
+    }
+
+    // „Immer erlauben“ muss ab Android 11 separat angefragt werden (öffnet die Einstellungsseite)
+    private fun askBackground() {
+        if (Build.VERSION.SDK_INT >= 29) requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 5)
+    }
+
+    private fun showGeo() {
+        findViewById<android.view.View>(R.id.geobox).visibility = if (Geo.enabled(this)) android.view.View.VISIBLE else android.view.View.GONE
+        findViewById<TextView>(R.id.geostatus).text = Geo.status(this)
     }
 
     // Liste der Handy-Kalender zum Ankreuzen
@@ -116,16 +147,31 @@ class SetupActivity : Activity() {
         if (!CalImport.allowed(this)) { status.text = "Bitte den Zugriff auf den Kalender erlauben."; return }
         val cals = CalImport.calendars(this)
         val sel = CalImport.selected(this).toMutableSet()
+        CalImport.suggestWork(this, cals)
+        val work = CalImport.work(this).toMutableSet()
         for (c in cals) {
+            val row = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL }
             val cb = CheckBox(this)
             cb.text = if (c.account.isNotBlank() && c.account != c.name) "${c.name}  (${c.account})" else c.name
             cb.isChecked = c.id in sel
+            cb.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            val wb = CheckBox(this)
+            wb.text = "beruflich"
+            wb.isChecked = c.id in work
+            wb.isEnabled = cb.isChecked
             cb.setOnCheckedChangeListener { _, on ->
                 if (on) sel += c.id else sel -= c.id
+                wb.isEnabled = on
                 CalImport.setSelected(this, sel)
                 syncNow()
             }
-            box.addView(cb)
+            wb.setOnCheckedChangeListener { _, on ->
+                if (on) work += c.id else work -= c.id
+                CalImport.setWork(this, work)
+                syncNow()
+            }
+            row.addView(cb); row.addView(wb)
+            box.addView(row)
         }
         status.text = when {
             cals.isEmpty() -> "Keine Kalender auf dem Handy gefunden."
@@ -143,8 +189,14 @@ class SetupActivity : Activity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        findViewById<EditText>(R.id.georadius).text.toString().toIntOrNull()?.let { if (it != Geo.radius(this)) Geo.setRadius(this, it) }
+    }
+
     override fun onResume() {
         super.onResume()
+        if (Geo.enabled(this)) { Geo.register(this); showGeo() }
         // Code aus der Zwischenablage übernehmen, wenn das Feld leer ist
         val field = findViewById<EditText>(R.id.code)
         if (field.text.isNullOrBlank()) {

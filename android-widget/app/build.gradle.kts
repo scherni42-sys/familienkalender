@@ -40,3 +40,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+
+dependencies {
+    // Geofencing für den automatischen Home-Modus
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+}

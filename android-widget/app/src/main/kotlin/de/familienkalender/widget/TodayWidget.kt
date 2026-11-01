@@ -52,10 +52,11 @@ class TodayWidget : AppWidgetProvider() {
             BD_PREV -> { Feed.turnBdPage(ctx, -1); refreshData(ctx) }
             BD_NEXT -> { Feed.turnBdPage(ctx, 1); refreshData(ctx) }
             TOGGLE_WEEK -> { Feed.toggleWeek(ctx); refreshData(ctx) }
+            TOGGLE_HOME -> { Feed.toggleHome(ctx); refreshData(ctx); background(ctx) }
             WEEK_PREV -> { Feed.turnWeek(ctx, -1); refreshData(ctx) }
             WEEK_NEXT -> { Feed.turnWeek(ctx, 1); refreshData(ctx) }
             // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
-            Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx); background(ctx) }
+            Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx); background(ctx); Geo.register(ctx) }
         }
     }
 
@@ -66,6 +67,7 @@ class TodayWidget : AppWidgetProvider() {
         const val BD_PREV = "de.familienkalender.widget.BD_PREV"
         const val BD_NEXT = "de.familienkalender.widget.BD_NEXT"
         const val TOGGLE_WEEK = "de.familienkalender.widget.TOGGLE_WEEK"
+        const val TOGGLE_HOME = "de.familienkalender.widget.TOGGLE_HOME"
         const val WEEK_PREV = "de.familienkalender.widget.WEEK_PREV"
         const val WEEK_NEXT = "de.familienkalender.widget.WEEK_NEXT"
 
@@ -123,6 +125,7 @@ class TodayWidget : AppWidgetProvider() {
             v.setTextViewText(R.id.date, Feed.dateLabel(LocalDate.now()))
             bdButton(ctx, v)
             weekBar(ctx, v)
+            homeButton(ctx, v)
             for (id in ids) mgr.partiallyUpdateAppWidget(id, v)
             mgr.notifyAppWidgetViewDataChanged(ids, R.id.list)
         }
@@ -130,6 +133,13 @@ class TodayWidget : AppWidgetProvider() {
         // Gedrückte Torte hell hinterlegt, damit man sieht, dass die Geburtstage gezeigt werden
         private fun bdButton(ctx: Context, v: RemoteViews) =
             v.setInt(R.id.q_bdays, "setBackgroundResource", if (Feed.bdMode(ctx)) R.drawable.btn_bdays_on else R.drawable.btn_bdays)
+
+        // Home-Knopf nur zeigen, wenn berufliche Kalender übernommen werden; eingeschaltet grün hinterlegt
+        private fun homeButton(ctx: Context, v: RemoteViews) {
+            v.setViewVisibility(R.id.home, if (CalImport.hasWork(ctx) || Feed.homeMode(ctx) || Geo.enabled(ctx)) android.view.View.VISIBLE else android.view.View.GONE)
+            v.setInt(R.id.home, "setBackgroundResource", if (Feed.homeMode(ctx)) R.drawable.bar_on else 0)
+            v.setTextViewText(R.id.home, if (Feed.homeMode(ctx)) "🏠 Home" else "🏠")
+        }
 
         fun refreshAll(ctx: Context) {
             val mgr = AppWidgetManager.getInstance(ctx)
@@ -169,6 +179,8 @@ class TodayWidget : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.q_bdays, PendingIntent.getBroadcast(ctx, 21, bd, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             bdButton(ctx, v)
             v.setOnClickPendingIntent(R.id.weeklabel, broadcast(ctx, TOGGLE_WEEK, 24))
+            v.setOnClickPendingIntent(R.id.home, broadcast(ctx, TOGGLE_HOME, 27))
+            homeButton(ctx, v)
             v.setOnClickPendingIntent(R.id.weekprev, broadcast(ctx, WEEK_PREV, 25))
             v.setOnClickPendingIntent(R.id.weeknext, broadcast(ctx, WEEK_NEXT, 26))
             weekBar(ctx, v)

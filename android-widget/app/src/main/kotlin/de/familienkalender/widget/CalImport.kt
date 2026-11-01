@@ -26,7 +26,7 @@ object CalImport {
     private const val SEND_ANYWAY_MS = 6 * 3600_000L     // ohne Änderung trotzdem alle 6 Stunden abgleichen
     private val BDAY = Regex("geburtstag", RegexOption.IGNORE_CASE)
 
-    data class Cal(val id: Long, val name: String, val account: String)
+    data class Cal(val id: Long, val name: String, val account: String, val type: String)
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     fun enabled(ctx: Context) = prefs(ctx).getBoolean("calimport", false)
@@ -34,6 +34,15 @@ object CalImport {
     fun selected(ctx: Context): Set<Long> = prefs(ctx).getStringSet("impcals", emptySet())!!.mapNotNull { it.toLongOrNull() }.toSet()
     fun setSelected(ctx: Context, ids: Set<Long>) =
         prefs(ctx).edit().putStringSet("impcals", ids.map { it.toString() }.toSet()).putString("imphash", "").putLong("impread", 0).apply()
+    // Berufliche Kalender: im Home-Modus ausgeblendet. Outlook/Exchange sind anfangs vorgeschlagen.
+    fun work(ctx: Context): Set<Long> = prefs(ctx).getStringSet("impwork", emptySet())!!.mapNotNull { it.toLongOrNull() }.toSet()
+    fun setWork(ctx: Context, ids: Set<Long>) =
+        prefs(ctx).edit().putStringSet("impwork", ids.map { it.toString() }.toSet()).putBoolean("impworkinit", true).putString("imphash", "").putLong("impread", 0).apply()
+    fun hasWork(ctx: Context) = enabled(ctx) && work(ctx).any { it in selected(ctx) }
+    fun suggestWork(ctx: Context, cals: List<Cal>) {
+        if (prefs(ctx).getBoolean("impworkinit", false)) return
+        setWork(ctx, cals.filter { val t = (it.type + " " + it.account).lowercase(); "exchange" in t || "outlook" in t || "office" in t }.map { it.id }.toSet())
+    }
     fun lastResult(ctx: Context): String = prefs(ctx).getString("impresult", "") ?: ""
 
     fun allowed(ctx: Context) = ctx.checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED
@@ -47,7 +56,7 @@ object CalImport {
             "${Calendars.ACCOUNT_NAME}, ${Calendars.CALENDAR_DISPLAY_NAME}")?.use { c ->
             while (c.moveToNext()) {
                 if (c.getString(2) == OWN_ACCOUNT && c.getString(3) == CalendarContract.ACCOUNT_TYPE_LOCAL) continue
-                out += Cal(c.getLong(0), c.getString(1) ?: "Kalender", c.getString(2) ?: "")
+                out += Cal(c.getLong(0), c.getString(1) ?: "Kalender", c.getString(2) ?: "", c.getString(3) ?: "")
             }
         }
         return out
@@ -60,7 +69,7 @@ object CalImport {
         val now = System.currentTimeMillis()
         if (!force && now - p.getLong("impread", 0) < READ_EVERY_MS) return
         p.edit().putLong("impread", now).apply()
-        val (events, bdays) = read(ctx, selected(ctx))
+        val (events, bdays) = read(ctx, selected(ctx), work(ctx))
         val hash = (events.toString() + bdays.toString()).hashCode().toString()
         if (!force && p.getString("imphash", "") == hash && now - p.getLong("impsent", 0) < SEND_ANYWAY_MS) return
         val res = send(ctx, events, bdays) ?: return
@@ -73,7 +82,7 @@ object CalImport {
         prefs(ctx).edit().putString("imphash", "").putString("impresult", "").apply()
     }
 
-    private fun read(ctx: Context, cals: Set<Long>): Pair<JSONArray, JSONArray> {
+    private fun read(ctx: Context, cals: Set<Long>, work: Set<Long>): Pair<JSONArray, JSONArray> {
         val events = JSONArray()
         val bdays = JSONArray()
         if (cals.isEmpty()) return events to bdays
@@ -86,11 +95,12 @@ object CalImport {
         val ids = cals.joinToString(",")
         ctx.contentResolver.query(uri,
             arrayOf(Instances.EVENT_ID, Instances.BEGIN, Instances.END, Instances.TITLE, Instances.EVENT_LOCATION,
-                Instances.DESCRIPTION, Instances.ALL_DAY, Instances.STATUS),
+                Instances.DESCRIPTION, Instances.ALL_DAY, Instances.STATUS, Instances.CALENDAR_ID),
             "${Instances.CALENDAR_ID} IN ($ids)", null, Instances.BEGIN)?.use { c ->
             while (c.moveToNext()) {
                 if (!c.isNull(7) && c.getInt(7) == CalendarContract.Events.STATUS_CANCELED) continue
                 val evId = c.getLong(0)
+                val pre = if (c.getLong(8) in work) "w:" else ""
                 val b = c.getLong(1)
                 val e = c.getLong(2)
                 val title = (c.getString(3) ?: "").trim()
@@ -107,7 +117,7 @@ object CalImport {
                         continue
                     }
                     val last = Instant.ofEpochMilli(e).atZone(ZoneOffset.UTC).toLocalDate().minusDays(1).let { if (it.isBefore(d)) d else it }
-                    events.put(JSONObject().put("ext_id", "$evId:$b").put("title", title).put("date", d.toString())
+                    events.put(JSONObject().put("ext_id", "$pre$evId:$b").put("title", title).put("date", d.toString())
                         .put("end_date", last.toString()).put("all_day", true)
                         .put("place", c.getString(4) ?: "").put("notes", desc.take(500)))
                 } else {
@@ -117,7 +127,7 @@ object CalImport {
                     var endDate = en.toLocalDate()
                     // Ende genau um Mitternacht: als 24:00 des Vortags speichern
                     if (endMin == 0 && en.toLocalDate().isAfter(s.toLocalDate())) { endDate = endDate.minusDays(1); endMin = 1440 }
-                    events.put(JSONObject().put("ext_id", "$evId:$b").put("title", title).put("date", s.toLocalDate().toString())
+                    events.put(JSONObject().put("ext_id", "$pre$evId:$b").put("title", title).put("date", s.toLocalDate().toString())
                         .put("end_date", endDate.toString()).put("all_day", false)
                         .put("start_min", s.hour * 60 + s.minute).put("end_min", endMin)
                         .put("place", c.getString(4) ?: "").put("notes", desc.take(500)))

@@ -77,6 +77,7 @@ object CalSync {
         val want = LinkedHashMap<String, ContentValues>()
         for (i in 0 until evs.length()) {
             val e = evs.getJSONObject(i)
+            if (e.optString("ext_id").isNotEmpty() && e.optString("ext_id") != "null") continue  // stammt schon aus dem Handy-Kalender
             val date = try { LocalDate.parse(e.optString("date")) } catch (x: Exception) { continue }
             val end = try { LocalDate.parse(e.optString("end_date")) } catch (x: Exception) { date }
             val v = ContentValues()
