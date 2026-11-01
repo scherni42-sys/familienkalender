@@ -129,16 +129,42 @@
         android:gravity="bottom"
         android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/weekprev"
+        <FrameLayout
+            android:id="@+id/q_bdays"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@drawable/btn_arrow"
+            android:contentDescription="Geburtstage">
+
+            <ImageView
+                android:id="@+id/q_bdring"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ring_bd" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:includeFontPadding="false"
+                android:text="🎂"
+                android:textSize="18sp" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/weekprev"
+            android:layout_width="44dp"
+            android:layout_height="40dp"
             android:gravity="center"
             android:includeFontPadding="false"
             android:text="◀"
             android:textColor="#FFFFFF"
-            android:textSize="17sp"
+            android:textSize="26sp"
             android:visibility="invisible" />
 
         <!-- Jahreszahl über dem KW-Knopf, sobald die Woche im nächsten Jahr liegt -->
@@ -174,14 +200,13 @@
 
         <TextView
             android:id="@+id/weeknext"
-            android:layout_width="40dp"
+            android:layout_width="44dp"
             android:layout_height="40dp"
-            android:background="@drawable/btn_arrow"
             android:gravity="center"
             android:includeFontPadding="false"
             android:text="▶"
             android:textColor="#FFFFFF"
-            android:textSize="17sp"
+            android:textSize="26sp"
             android:visibility="invisible" />
 
         <TextView
@@ -189,35 +214,11 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
-        <FrameLayout
-            android:id="@+id/q_bdays"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="6dp"
-            android:contentDescription="Geburtstage">
-
-            <ImageView
-                android:id="@+id/q_bdring"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="fitCenter"
-                android:src="@drawable/ring_bd" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:includeFontPadding="false"
-                android:text="🎂"
-                android:textSize="18sp" />
-        </FrameLayout>
-
         <ImageView
             android:id="@+id/q_add"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:contentDescription="Neuer Eintrag"
+                        android:contentDescription="Neuer Eintrag"
             android:scaleType="fitCenter"
             android:src="@drawable/ring_add" />
     </LinearLayout>
