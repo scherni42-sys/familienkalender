@@ -100,6 +100,7 @@ class LocalStore extends Base {
             events: s.events.filter(e => e.vis === 'family' && e.end_date >= today() && e.date <= until), messages: s.messages, birthdays: s.birthdays };
     }
     switchUser(id) { this.patch(() => ({ me: id })); }
+    async reclaim(_code) { throw new Error('Im Demo-Modus nicht möglich.'); }
     async reset() { try {
         localStorage.removeItem(KEY);
     }
@@ -120,6 +121,19 @@ class SupabaseStore extends Base {
         if (error || !d2.user)
             throw new Error('Anmeldung fehlgeschlagen. Sind anonyme Anmeldungen in Supabase aktiviert?');
         return d2.user.id;
+    }
+    // Konto mit dem persönlichen Widget-Code (FK1:…) zurückholen
+    async reclaim(code) {
+        let t = '';
+        try {
+            t = JSON.parse(atob(code.trim().replace(/^FK1:/, '').trim())).t;
+        }
+        catch { /* unten */ }
+        if (!t)
+            throw new Error('Das ist kein gültiger Widget-Code. Er beginnt mit FK1:');
+        await this.user();
+        this.ok(await this.sb.rpc('reclaim_member', { p_token: t }));
+        await this.load();
     }
     ok(r) { if (r.error)
         throw new Error(r.error.message); return r.data; }

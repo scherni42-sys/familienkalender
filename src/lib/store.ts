@@ -18,6 +18,7 @@ export interface Store {
   init(): Promise<void>;
   createFamily(familyName: string, myName: string, color: string): Promise<void>;
   joinWithCode(code: string): Promise<void>;
+  reclaim(code: string): Promise<void>;
   loadExample(): Promise<void>;
   saveEvent(e: NewEvent, editId?: string): Promise<string>;
   deleteEvent(id: string): Promise<void>;
@@ -121,6 +122,7 @@ class LocalStore extends Base implements Store {
       events: s.events.filter(e => e.vis === 'family' && e.end_date >= today() && e.date <= until), messages: s.messages, birthdays: s.birthdays };
   }
   switchUser(id: string) { this.patch(() => ({ me: id })); }
+  async reclaim(_code: string) { throw new Error('Im Demo-Modus nicht möglich.'); }
   async reset() { try { localStorage.removeItem(KEY); } catch { /* egal */ } this.invites = {}; this.emit(EMPTY); }
 }
 
@@ -138,6 +140,15 @@ class SupabaseStore extends Base implements Store {
     const { data: d2, error } = await this.sb.auth.signInAnonymously();
     if (error || !d2.user) throw new Error('Anmeldung fehlgeschlagen. Sind anonyme Anmeldungen in Supabase aktiviert?');
     return d2.user.id;
+  }
+  // Konto mit dem persönlichen Widget-Code (FK1:…) zurückholen
+  async reclaim(code: string) {
+    let t = '';
+    try { t = JSON.parse(atob(code.trim().replace(/^FK1:/, '').trim())).t; } catch { /* unten */ }
+    if (!t) throw new Error('Das ist kein gültiger Widget-Code. Er beginnt mit FK1:');
+    await this.user();
+    this.ok(await this.sb.rpc('reclaim_member', { p_token: t }));
+    await this.load();
   }
   private ok<T>(r: { data: T; error: { message: string } | null }) { if (r.error) throw new Error(r.error.message); return r.data; }
 

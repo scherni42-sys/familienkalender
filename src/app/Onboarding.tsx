@@ -4,7 +4,7 @@ import { SWATCHES } from '../lib/model';
 import { cvar } from './ui';
 
 export function Onboarding() {
-  const [mode, setMode] = useState<'start' | 'create' | 'join'>('start');
+  const [mode, setMode] = useState<'start' | 'create' | 'join' | 'back'>('start');
   const [fam, setFam] = useState(''), [name, setName] = useState(''), [code, setCode] = useState('');
   const [color, setColor] = useState(SWATCHES[6][0]);
   const [busy, setBusy] = useState(false), [err, setErr] = useState('');
@@ -22,6 +22,7 @@ export function Onboarding() {
       {mode === 'start' && <>
         <button className="btn" onClick={() => setMode('create')}>Neue Familie anlegen</button>
         <button className="btn ghost" onClick={() => setMode('join')}>Ich habe einen Einladungscode</button>
+        {!store.demo && <button className="btn ghost" onClick={() => { setCode(''); setMode('back'); }}>Ich war schon dabei</button>}
         {store.demo && <button className="btn ghost" disabled={busy} onClick={() => run(() => store.loadExample())}>Beispielfamilie ansehen</button>}
       </>}
 
@@ -36,6 +37,16 @@ export function Onboarding() {
           </div></div>
           {err && <div className="err">{err}</div>}
           <div className="btn-row"><button type="button" className="btn ghost" onClick={() => setMode('start')}>Zurück</button><button className="btn" disabled={busy}>Anlegen</button></div>
+        </form>
+      )}
+
+      {mode === 'back' && (
+        <form className="card" onSubmit={e => { e.preventDefault(); void run(() => store.reclaim(code)); }}>
+          <h2>Zurück in mein Konto</h2>
+          <p className="note">Füge deinen persönlichen Widget-Code ein (beginnt mit FK1:). Du findest ihn in der FamTO-Widget-App unter „Widget einrichten“: ins Code-Feld tippen, alles markieren, kopieren. Oder ein anderes Familienmitglied lässt dich neu einladen.</p>
+          <label className="field"><span>Widget-Code</span><textarea required value={code} onChange={e => setCode(e.target.value)} placeholder="FK1:…" rows={3} /></label>
+          {err && <div className="err">{err}</div>}
+          <div className="btn-row"><button type="button" className="btn ghost" onClick={() => setMode('start')}>Zurück</button><button className="btn" disabled={busy}>Verbinden</button></div>
         </form>
       )}
 
