@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Fam-TO"
+            android:text="FamTO"
             android:textSize="26sp"
             android:textStyle="bold" />
 
@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="1. Öffne Fam-TO und gehe zu Einstellungen → Displays.\n2. Tippe auf „Widget-Code für Android kopieren“.\n3. Füge den Code hier ein und tippe auf Speichern.\n4. Lege das Widget über den Startbildschirm an: lange drücken → Widgets → Fam-TO.\n\nSpäter ändern: lange auf das Symbol „Fam-TO“ drücken → Widget einrichten."
+            android:text="1. Öffne FamTO und gehe zu Einstellungen → Displays.\n2. Tippe auf „Widget-Code für Android kopieren“.\n3. Füge den Code hier ein und tippe auf Speichern.\n4. Lege das Widget über den Startbildschirm an: lange drücken → Widgets → FamTO.\n\nSpäter ändern: lange auf das Symbol „FamTO“ drücken → Widget einrichten."
             android:textSize="15sp" />
 
         <EditText
@@ -54,7 +54,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Termine im Kalender des Handys anzeigen (Samsung-Kalender: eigener Kalender „Fam-TO“, nur lesen)"
+            android:text="Termine im Kalender des Handys anzeigen (Samsung-Kalender: eigener Kalender „FamTO“, nur lesen)"
             android:textSize="15sp" />
 
         <CheckBox
@@ -62,7 +62,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Meine Handy-Termine als private Termine in Fam-TO übernehmen (ganztägige mit „Geburtstag“ werden private Geburtstage)"
+            android:text="Meine Handy-Termine als private Termine in FamTO übernehmen (ganztägige mit „Geburtstag“ werden private Geburtstage)"
             android:textSize="15sp" />
 
         <LinearLayout

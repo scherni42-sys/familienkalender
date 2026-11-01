@@ -12,9 +12,9 @@ export default defineConfig({
             registerType: 'autoUpdate',
             includeAssets: ['icon.svg'],
             manifest: {
-                name: 'Fam-TO',
-                short_name: 'Fam-TO',
-                description: 'Fam-TO: gemeinsamer Familienkalender mit Spracheingabe und Flur-Display',
+                name: 'FamTO',
+                short_name: 'FamTO',
+                description: 'FamTO: gemeinsamer Familienkalender mit Spracheingabe und Flur-Display',
                 lang: 'de',
                 start_url: './',
                 scope: './',

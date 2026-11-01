@@ -16,7 +16,7 @@ export function PushBanner({ now }: { now: number }) {
   const color = snap.members.find(m => m.id === e.driver)?.color ?? '#7a8590';
   return (
     <div className="push" role="alert" style={cvar(color)}>
-      <div className="ph"><span className="app"><Icon name="today" /> Fam-TO</span><span>jetzt</span></div>
+      <div className="ph"><span className="app"><Icon name="today" /> FamTO</span><span>jetzt</span></div>
       <b><Icon name="car" /> In {dep - now} Min. losfahren ({hm(dep)})</b>
       <div>{e.title} um {hm(e.start_min)} · ca. {travel(e, s)} Min. Fahrt{e.bring.length ? ` · Mitbringen: ${e.bring.join(', ')}` : ''}</div>
       <div className="pa">

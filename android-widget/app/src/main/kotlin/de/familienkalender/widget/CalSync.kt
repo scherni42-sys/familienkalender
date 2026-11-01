@@ -43,7 +43,7 @@ object CalSync {
             put(Calendars.ACCOUNT_NAME, ACCOUNT)
             put(Calendars.ACCOUNT_TYPE, android.provider.CalendarContract.ACCOUNT_TYPE_LOCAL)
             put(Calendars.NAME, ACCOUNT)
-            put(Calendars.CALENDAR_DISPLAY_NAME, "Fam-TO")
+            put(Calendars.CALENDAR_DISPLAY_NAME, "FamTO")
             put(Calendars.CALENDAR_COLOR, 0xFF1D8657.toInt())
             put(Calendars.CALENDAR_ACCESS_LEVEL, Calendars.CAL_ACCESS_READ)
             put(Calendars.OWNER_ACCOUNT, ACCOUNT)

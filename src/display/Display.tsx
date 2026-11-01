@@ -38,7 +38,7 @@ export function Display({ token }: { token: string }) {
   const v = variant();
 
   useEffect(() => {
-    document.title = 'Fam-TO · Display';
+    document.title = 'FamTO · Display';
     const load = () => store.displayFeed(token).then(f => setFeed(f));
     void load();
     const t1 = setInterval(() => { setNow(nowMin()); setDay(today()); }, 20000);

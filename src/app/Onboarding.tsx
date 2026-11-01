@@ -15,7 +15,7 @@ export function Onboarding() {
   return (
     <main className="onb">
       <img className="logo" src="icon.svg" alt="" />
-      <h1>Fam-TO</h1>
+      <h1>FamTO</h1>
       <p>Termine per Sprache eintragen, privat oder für die Familie. Familientermine erscheinen auf dem Display im Flur.</p>
       {store.demo && <p><span className="badge-demo">Demo-Modus</span> Ohne Datenbank: Alles bleibt in diesem Browser.</p>}
 

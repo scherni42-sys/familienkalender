@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Fam-TO</string>
+    <string name="app_name">FamTO</string>
     <string name="setup_name">Widget einrichten</string>
-    <string name="widget_name">Fam-TO: Heute &amp; Board</string>
+    <string name="widget_name">FamTO: Heute &amp; Board</string>
     <string name="widget_desc">Heutige Familientermine und das Board</string>
-    <string name="next_name">Fam-TO: nächster Termin</string>
+    <string name="next_name">FamTO: nächster Termin</string>
     <string name="next_desc">Nächster Termin mit Countdown</string>
 </resources>
