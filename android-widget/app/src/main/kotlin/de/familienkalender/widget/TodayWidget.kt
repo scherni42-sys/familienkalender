@@ -166,14 +166,9 @@ class TodayWidget : AppWidgetProvider() {
             // Die ganze Kopfzeile aktualisiert (der Knopf allein ist schwer zu treffen); Einträge öffnen die App
             v.setOnClickPendingIntent(R.id.head, refreshIntent(ctx))
             v.setOnClickPendingIntent(R.id.root, refreshIntent(ctx))
-            // Schnellknöpfe unten: Familienkalender mit Aufnahme in der gewählten Art öffnen
-            listOf(R.id.q_private to "private", R.id.q_family to "family", R.id.q_board to "board").forEachIndexed { i, (vid, mode) ->
-                val mic = Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, mode).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                v.setOnClickPendingIntent(vid, PendingIntent.getActivity(ctx, 10 + i, mic, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
-            }
-            // Kamera: Familienkalender öffnet „Termin vom Foto“
-            val cam = Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, "photo").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            v.setOnClickPendingIntent(R.id.q_photo, PendingIntent.getActivity(ctx, 13, cam, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            // ＋: Schnelleingabe (Sprechen, Tippen, Foto; Privat/Familie/Board wählt man dort)
+            val add = Intent(ctx, MicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            v.setOnClickPendingIntent(R.id.q_add, PendingIntent.getActivity(ctx, 10, add, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             // Torte: schaltet die Liste auf Geburtstage um und wieder zurück
             val bd = Intent(ctx, TodayWidget::class.java).setAction(TOGGLE_BD)
             v.setOnClickPendingIntent(R.id.q_bdays, PendingIntent.getBroadcast(ctx, 21, bd, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
