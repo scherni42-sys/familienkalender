@@ -14,6 +14,7 @@ export interface Member {
 export interface CalEvent {
   id: string;
   owner: string;
+  ext_id?: string | null; // aus dem Handy-Kalender übernommen; „w:…“ = beruflicher Kalender
   title: string;
   date: string; // YYYY-MM-DD
   end_date: string;

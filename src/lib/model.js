@@ -26,7 +26,9 @@ export function whenText(e) {
 export const travel = (e, s) => (s.showTravel && e.driver && !e.all_day && e.travel_min ? e.travel_min : 0);
 export const depart = (e, s) => e.start_min - travel(e, s) - s.buffer;
 export function visibleOnDay(events, busy, d, me, filter) {
-    const ev = events.filter(e => onDay(e, d)).filter(e => filter === 'all' ? true : filter === 'family' ? e.vis === 'family' : e.owner === me || e.persons.includes(me ?? ''));
+    void me;
+    // home: wie der Home-Modus im Widget, Termine aus beruflichen Handy-Kalendern ausblenden
+    const ev = events.filter(e => onDay(e, d)).filter(e => filter === 'all' ? true : filter === 'family' ? e.vis === 'family' : !(e.ext_id ?? '').startsWith('w:'));
     // „X ist belegt“ der anderen wird in den Listen nicht mehr gezeigt; beim Eintragen warnt die Konfliktprüfung weiterhin
     void busy;
     void d;

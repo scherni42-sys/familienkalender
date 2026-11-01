@@ -15,7 +15,8 @@ import { DetailSheet, BdaySheet } from './DetailSheet';
 import { PushBanner } from './PushBanner';
 
 type Tab = 'today' | 'week' | 'board' | 'settings';
-type Filter = 'all' | 'family' | 'mine';
+type Filter = 'all' | 'family' | 'home';
+const savedFilter = (): Filter => { try { const v = localStorage.getItem('fk-filter'); return v === 'family' || v === 'home' ? v : 'all'; } catch { return 'all'; } };
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
@@ -31,7 +32,7 @@ export function useMinute() {
 export function Shell() {
   const snap = useSnapshot();
   const [tab, setTab] = useState<Tab>('today');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>(savedFilter);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [focusMsg, setFocusMsg] = useState<string | null>(null);
@@ -85,8 +86,8 @@ export function Shell() {
       </div>
       {(tab === 'today' || tab === 'week') && (
         <div className="seg filter" role="group" aria-label="Filter">
-          {([['all', 'Alle'], ['family', 'Familie'], ['mine', 'Nur ich']] as [Filter, string][]).map(([k, l]) =>
-            <button key={k} type="button" aria-pressed={filter === k} onClick={() => setFilter(k)}>{l}</button>)}
+          {([['all', 'Alle'], ['family', 'Familie'], ['home', '🏠 Home']] as [Filter, string][]).map(([k, l]) =>
+            <button key={k} type="button" aria-pressed={filter === k} onClick={() => { setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}>{l}</button>)}
         </div>
       )}
       <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
