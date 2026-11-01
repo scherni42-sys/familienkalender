@@ -104,10 +104,18 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
     setBusy(true);
     try {
       const img = await shrinkPhoto(file);
-      const parsed = await parseSpoken(latest.current.text.trim(), snap.me!, snap.members.filter(x => x.role !== 'guest'), img);
-      if (parsed.source !== 'ai') { toast(`Foto konnte nicht gelesen werden${parsed.why ? ` (${parsed.why})` : ''}.`); return; }
       const m = latest.current.mode;
-      toDraft(m === 'board' ? parsed : { ...parsed, vis: m, busy: m === 'private' && parsed.busy });
+      const typed = latest.current.text.trim();
+      // Board gewählt: Foto direkt ans Board hängen
+      if (m === 'board') { await store.postMessage(typed || '📷 Foto', img); toast('Foto hängt jetzt am Board.'); posted(); return; }
+      const parsed = await parseSpoken(typed, snap.me!, snap.members.filter(x => x.role !== 'guest'), img);
+      // Kein Termin auf dem Foto: anbieten, es ans Board zu hängen
+      if (parsed.source !== 'ai' || parsed.found === false) {
+        const why = parsed.source !== 'ai' ? `Das Foto konnte nicht gelesen werden${parsed.why ? ` (${parsed.why})` : ''}.` : 'Auf dem Foto steht kein Termin.';
+        if (window.confirm(`${why}\n\nSoll das Foto stattdessen ans Board?`)) { await store.postMessage(typed || '📷 Foto', img); toast('Foto hängt jetzt am Board.'); posted(); }
+        return;
+      }
+      toDraft({ ...parsed, vis: m, busy: m === 'private' && parsed.busy });
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
 

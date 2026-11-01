@@ -14,7 +14,7 @@ export async function shrinkPhoto(file: File): Promise<{ type: string; data: str
 }
 
 // KI-Erkennung über die Edge Function „parse-event“ (Text oder Foto); ohne Verbindung die einfache Erkennung auf dem Handy
-export async function parseSpoken(text: string, me: string, members: Member[], image?: { type: string; data: string }): Promise<Draft & { source: 'ai' | 'local'; why?: string }> {
+export async function parseSpoken(text: string, me: string, members: Member[], image?: { type: string; data: string }): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean }> {
   const local = parseLocal(text, me, members);
   if (!supabase) return { ...local, source: 'local' };
   try {
@@ -47,7 +47,8 @@ export async function parseSpoken(text: string, me: string, members: Member[], i
       discreet: !!e.discreet,
       reason: e.reason || local.reason,
       timeFound: !allDay,
-      source: 'ai'
+      source: 'ai',
+      found: e.found !== false
     };
   } catch (err) {
     // Grund mitgeben, damit die Bestätigung zeigt, warum die KI nicht geholfen hat

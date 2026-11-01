@@ -47,7 +47,8 @@ export async function parseSpoken(text, me, members, image) {
             discreet: !!e.discreet,
             reason: e.reason || local.reason,
             timeFound: !allDay,
-            source: 'ai'
+            source: 'ai',
+            found: e.found !== false
         };
     }
     catch (err) {

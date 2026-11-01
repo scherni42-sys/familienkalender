@@ -73,7 +73,8 @@ export function Board({ focus }: { focus?: string | null }) {
           setSending(true);
           store.postMessage(v, photo ?? undefined).then(() => { setText(''); setPhoto(null); toast('Hängt jetzt am Board.'); }, fail).finally(() => setSending(false));
         }}>
-          <label className="cam-btn" aria-label="Foto ans Board hängen" title="Foto"><Icon name="camera" /><input type="file" accept="image/*" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} /></label>
+          <label className="cam-btn" aria-label="Foto aufnehmen" title="Kamera"><Icon name="camera" /><input type="file" accept="image/*" capture="environment" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} /></label>
+          <label className="cam-btn" aria-label="Bild aus der Galerie" title="Galerie"><Icon name="image" /><input type="file" accept="image/*" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} /></label>
           <input value={text} onChange={e => setText(e.target.value)} placeholder={photo ? 'Text zum Foto (freiwillig)' : 'Nachricht an die Familie'} maxLength={500} />
           <button disabled={sending}>{sending ? '…' : 'Boarding'}</button>
         </form>

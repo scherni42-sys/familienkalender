@@ -14,8 +14,9 @@ const cors = {
 const schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['title', 'date', 'end_date', 'all_day', 'start_min', 'end_min', 'persons', 'driver', 'vis', 'reason', 'place', 'addr', 'bring', 'discreet'],
+  required: ['found', 'title', 'date', 'end_date', 'all_day', 'start_min', 'end_min', 'persons', 'driver', 'vis', 'reason', 'place', 'addr', 'bring', 'discreet'],
   properties: {
+    found: { type: 'boolean', description: 'false, wenn Text oder Foto gar keinen Termin enthält (z. B. Einkaufszettel, Notiz, Foto ohne Datum)' },
     title: { type: 'string', description: 'Kurzer Titel, z. B. „Fußballtraining“' },
     date: { type: 'string', description: 'Datum YYYY-MM-DD' },
     end_date: { type: 'string', description: 'Letzter Tag YYYY-MM-DD, bei eintägigen Terminen gleich date' },
@@ -71,7 +72,8 @@ Regeln: „ich/mich/mein“ meint die sprechende Person. Mama, Papa, Oma usw. or
 Wochentage meinen das nächste kommende Datum. Ohne Uhrzeit ist der Termin ganztägig.
 vis ist „family“, wenn andere Mitglieder betroffen sind oder jemand anderes fährt, sonst „private“; bei „privat“ im Satz immer „private“.
 Wer fährt, bringt oder abholt, ist driver und gehört nicht zu persons, außer er nimmt selbst teil.
-Ein Datum ohne Jahr meint das nächste kommende Datum. Bei einem Foto liest du den Termin aus Handschrift, Brief, Einladung oder Screenshot; stehen mehrere Termine darauf, nimm den ersten.`,
+Ein Datum ohne Jahr meint das nächste kommende Datum. Bei einem Foto liest du den Termin aus Handschrift, Brief, Einladung oder Screenshot; stehen mehrere Termine darauf, nimm den ersten.
+Steht nirgends ein Termin (kein Datum, kein Wochentag, keine Uhrzeit, kein Anlass), setze found auf false und fülle die übrigen Felder nur grob.`,
       messages: [{
         role: 'user',
         content: img
