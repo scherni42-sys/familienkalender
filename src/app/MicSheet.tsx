@@ -131,7 +131,7 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
         <button type="button" className="board" aria-pressed={mode === 'board'} onClick={() => setMode('board')}><Icon name="board" />Board<small>Nachricht</small></button>
       </div>
       <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button>
-        {!store.demo && <label className={`photo${busy ? ' busy' : ''}`} aria-label="Termin vom Foto"><Icon name="camera" /><span>Foto</span>
+        {!store.demo && !photoFirst && <label className={`photo${busy ? ' busy' : ''}`} aria-label="Termin vom Foto"><Icon name="camera" /><span>Foto</span>
           <input type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>}</div>
       <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : busy ? 'Einen Moment, Claude liest …' : 'Tippe aufs Mikrofon und sprich, schreib den Satz oder fotografiere einen Zettel.'}</p>
       <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen'} maxLength={500} />
