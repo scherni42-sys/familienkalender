@@ -44,4 +44,6 @@ android {
 dependencies {
     // Geofencing für den automatischen Home-Modus
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Kamera-Foto aus der App an die Web-App übergeben
+    implementation("androidx.core:core:1.13.1")
 }

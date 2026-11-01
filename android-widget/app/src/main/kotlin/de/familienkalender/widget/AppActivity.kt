@@ -26,6 +26,20 @@ class AppActivity : Activity() {
 
     private lateinit var web: WebView
     private var upload: ValueCallback<Array<Uri>>? = null
+    private var shot: Uri? = null
+
+    // „Foto aufnehmen“ öffnet direkt die Kamera, sonst Galerie/Dateien
+    private fun chooser(params: WebChromeClient.FileChooserParams): Intent {
+        if (!params.isCaptureEnabled) return params.createIntent()
+        val dir = java.io.File(cacheDir, "cam").apply { mkdirs() }
+        dir.listFiles()?.forEach { it.delete() }
+        val f = java.io.File(dir, "foto-${System.currentTimeMillis()}.jpg")
+        val u = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.files", f)
+        shot = u
+        return Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+            .putExtra(android.provider.MediaStore.EXTRA_OUTPUT, u)
+            .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
 
     private fun base(): Uri = Uri.parse(Feed.config(this)?.app?.takeIf { it.isNotEmpty() } ?: DEFAULT_APP)
 
@@ -64,7 +78,11 @@ class AppActivity : Activity() {
             override fun onShowFileChooser(view: WebView, cb: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 upload?.onReceiveValue(null)
                 upload = cb
-                return try { startActivityForResult(params.createIntent(), FILES); true } catch (e: Exception) { upload = null; false }
+                shot = null
+                return try { startActivityForResult(chooser(params), FILES); true } catch (e: Exception) {
+                    // Keine Kamera-App: auf die normale Auswahl ausweichen
+                    try { shot = null; startActivityForResult(params.createIntent(), FILES); true } catch (e2: Exception) { upload = null; false }
+                }
             }
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
         }
@@ -81,7 +99,9 @@ class AppActivity : Activity() {
     @Deprecated("Activity API")
     override fun onActivityResult(code: Int, result: Int, data: Intent?) {
         if (code == FILES) {
-            upload?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data))
+            val cam = shot
+            shot = null
+            upload?.onReceiveValue(if (cam != null) (if (result == RESULT_OK) arrayOf(cam) else null) else WebChromeClient.FileChooserParams.parseResult(result, data))
             upload = null
             return
         }
