@@ -76,6 +76,10 @@ button { cursor: pointer; }
 .ev.private { background: transparent; border: 1px dashed var(--line); border-left: 4px solid var(--line); }
 .ev.busy { background: transparent; border: 1px dashed var(--line); border-left: 4px solid var(--line); color: var(--muted); }
 .ev.past { opacity: .55; }
+.ev { position: relative; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.ev.armed { box-shadow: 0 0 0 2px #d9534f; }
+.ev-del { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 52px; height: 52px; border-radius: 14px; border: 0; background: #d9534f; color: #fff; display: grid; place-items: center; z-index: 2; }
+.ev-del .ico { width: 26px; height: 26px; }
 .ev.isnew, .msg.isnew { box-shadow: 0 0 0 2px var(--accent); }
 .ev time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
 .ev time.ad { font-size: 11.5px; line-height: 1.25; color: var(--muted); }

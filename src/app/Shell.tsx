@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSnapshot } from '../lib/store';
+import { store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
 import { bdOn, colorOf, depart, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
 import type { Draft } from '../lib/parse';
 import { Badge, Badges, cvar, Icon } from './ui';
-import { useToast } from './toast';
+import { fail, toast, useToast } from './toast';
 import { Board } from './Board';
 import { Settings } from './Settings';
 import { MicSheet } from './MicSheet';
@@ -129,9 +129,27 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
     : <span className="vis-tag private"><Icon name="lock" /> Privat</span>;
   const tr = travel(e, s), dep = depart(e, s);
   const soon = tr && isToday && dep > now && dep - now <= 30;
+  // Lange drücken: Papierkorb erscheint, ein Tipp darauf löscht sofort
+  const [armed, setArmed] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const longed = useRef(false);
+  const mayDelete = e.owner === snap.me || e.vis === 'family';
+  const press = () => { longed.current = false; window.clearTimeout(timer.current); if (mayDelete) timer.current = window.setTimeout(() => { longed.current = true; setArmed(true); navigator.vibrate?.(20); }, 550); };
+  const release = () => window.clearTimeout(timer.current);
+  const del = async (ev: React.MouseEvent) => {
+    ev.stopPropagation();
+    try {
+      await store.deleteEvent(e.id);
+      toast(e.ext_id ? 'Gelöscht. Im Handy-Kalender bleibt er, beim nächsten Abgleich kommt er wieder.' : 'Termin gelöscht.');
+    } catch (x) { fail(x); setArmed(false); }
+  };
   return (
-    <div className={`ev${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))}
-      data-ev role="button" tabIndex={0} onClick={() => open(e.id)} onKeyDown={k => { if (k.key === 'Enter') open(e.id); }} aria-label={`${e.title}, Details öffnen`}>
+    <div className={`ev${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))}
+      data-ev role="button" tabIndex={0}
+      onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (mayDelete) x.preventDefault(); }}
+      onClick={() => { if (longed.current) { longed.current = false; return; } if (armed) { setArmed(false); return; } open(e.id); }}
+      onKeyDown={k => { if (k.key === 'Enter') open(e.id); if (k.key === 'Delete' && mayDelete) setArmed(true); }} aria-label={`${e.title}, Details öffnen, lange drücken zum Löschen`}>
+      {armed && <button type="button" className="ev-del" onClick={del} aria-label={`${e.title} löschen`}><Icon name="trash" /></button>}
       <Time e={e} d={d} />
       <div style={{ minWidth: 0 }}>
         <div className="t"><span>{e.title}</span></div>
