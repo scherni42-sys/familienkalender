@@ -45,7 +45,7 @@ export function Board({ focus }: { focus?: string | null }) {
         {m.taker && <div className="note"><b>Übernimmt: {nameOf(snap.members, m.taker)}</b></div>}
         {m.replies.length > 0 && <div className="replies">{m.replies.map(r => <div key={r.id} className="rp"><Badge m={member(r.from_member)} /><span>{r.text}</span></div>)}</div>}
         {canAct && <div className="quick">
-          {['👍', 'Mach ich', 'Nein'].map(q => <button key={q} type="button" className="chip" onClick={() => void quick(m.id, q)}>{q}</button>)}
+          {(m.image ? ['👍'] : ['👍', 'Mach ich', 'Nein']).map(q => <button key={q} type="button" className="chip" onClick={() => void quick(m.id, q)}>{q}</button>)}
           <button type="button" className="chip" onClick={() => { setReplyTo(replyTo === m.id ? null : m.id); setReply(''); }}>Antworten</button>
         </div>}
         <div className="macts">

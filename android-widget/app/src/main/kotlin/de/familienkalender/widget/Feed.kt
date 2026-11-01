@@ -296,7 +296,7 @@ object Feed {
                 out += Row(Kind.REPLY, r.optString("text"), time = "↳ ${name[who] ?: ""}:", color = color[who] ?: Color.GRAY, open = open)
             }
             // Knöpfe direkt im Widget, nur mit persönlichem Code (der Server weiß dann, wer drückt)
-            if (me(feed) != null) out += Row(Kind.ACTIONS, "", msg = m.optString("id"), canTake = taker == null)
+            if (me(feed) != null) out += Row(Kind.ACTIONS, "", msg = m.optString("id"), canTake = taker == null && m.optString("image").let { it.isEmpty() || it == "null" })
         }
         return out
     }
