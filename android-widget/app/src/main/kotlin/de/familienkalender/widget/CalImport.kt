@@ -104,6 +104,8 @@ object CalImport {
                 val b = c.getLong(1)
                 val e = c.getLong(2)
                 val title = (c.getString(3) ?: "").trim()
+                // Abgesagte Besprechungen (Outlook lässt sie mit „Abgesagt:“ stehen) nicht übernehmen
+                if (Regex("(?i)^(abgesagt|canceled|cancelled)\\s*:").containsMatchIn(title)) continue
                 val desc = notes(c.getString(5) ?: "")
                 val allDay = c.getInt(6) == 1
                 if (allDay) {

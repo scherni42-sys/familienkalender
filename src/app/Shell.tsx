@@ -125,7 +125,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
   const isToday = d === today();
   const past = isToday && !e.all_day && e.end_min <= now;
   const tag = e.vis === 'family' ? <span className="vis-tag family"><Icon name="home" /> Familie</span>
-    : e.vis === 'busy' ? <span className="vis-tag busy"><Icon name="lock" /> Privat, Familie sieht „belegt“</span>
+    : e.vis === 'busy' ? <span className="vis-tag busy"><Icon name="lock" /> Privat{e.ext_id ? ' · aus Handy-Kalender' : ''}</span>
     : <span className="vis-tag private"><Icon name="lock" /> Privat</span>;
   const tr = travel(e, s), dep = depart(e, s);
   const soon = tr && isToday && dep > now && dep - now <= 30;

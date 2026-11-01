@@ -29,7 +29,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
   const others = d.persons.filter(id => id !== snap.me);
   const visText = d.vis === 'family'
     ? 'Alle in der Familie sehen den Termin, und er erscheint auf dem Display im Flur.'
-    : d.busy ? 'Nur du siehst die Details. Die Familie sieht „belegt“, das Display zeigt nichts.' : 'Nur du siehst diesen Termin. Er erscheint nicht auf dem Display.';
+    : d.busy ? 'Nur du siehst den Termin. Trägt jemand etwas zur selben Zeit ein, warnt die App: „belegt“.' : 'Nur du siehst diesen Termin. Er erscheint nicht auf dem Display.';
 
   const save = async () => {
     if (!d.title.trim()) { toast('Bitte einen Titel eingeben.'); return; }
@@ -59,7 +59,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
         <button type="button" className="private" aria-pressed={d.vis === 'private'} onClick={() => set({ vis: 'private' })}><Icon name="lock" />Privat<small>nur ich</small></button>
         <button type="button" className="family" aria-pressed={d.vis === 'family'} onClick={() => set({ vis: 'family' })}><Icon name="home" />Familie<small>alle + Display</small></button>
       </div>
-      {d.vis === 'private' && <label className="busyopt"><input type="checkbox" checked={d.busy} onChange={e => set({ busy: e.target.checked })} /> Familie sieht „belegt“ (ohne Details)</label>}
+      {d.vis === 'private' && <label className="busyopt"><input type="checkbox" checked={d.busy} onChange={e => set({ busy: e.target.checked })} /> Familie bei Überschneidung warnen („belegt“)</label>}
       <p>{visText}</p>
       {d.vis === 'private' && others.length > 0 && <div className="warnbox">Achtung: {others.map(id => nameOf(snap.members, id)).join(', ')} sieht diesen privaten Termin nicht.</div>}
 

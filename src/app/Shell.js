@@ -107,7 +107,7 @@ export function EvCard({ e, d, snap, now, open, flash }) {
     const isToday = d === today();
     const past = isToday && !e.all_day && e.end_min <= now;
     const tag = e.vis === 'family' ? _jsxs("span", { className: "vis-tag family", children: [_jsx(Icon, { name: "home" }), " Familie"] })
-        : e.vis === 'busy' ? _jsxs("span", { className: "vis-tag busy", children: [_jsx(Icon, { name: "lock" }), " Privat, Familie sieht \u201Ebelegt\u201C"] })
+        : e.vis === 'busy' ? _jsxs("span", { className: "vis-tag busy", children: [_jsx(Icon, { name: "lock" }), " Privat", e.ext_id ? ' · aus Handy-Kalender' : ''] })
             : _jsxs("span", { className: "vis-tag private", children: [_jsx(Icon, { name: "lock" }), " Privat"] });
     const tr = travel(e, s), dep = depart(e, s);
     const soon = tr && isToday && dep > now && dep - now <= 30;
