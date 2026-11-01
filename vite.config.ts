@@ -13,9 +13,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg'],
       manifest: {
-        name: 'Familienkalender',
-        short_name: 'Familie',
-        description: 'Gemeinsamer Familienkalender mit Spracheingabe und Flur-Display',
+        name: 'Fam-TO',
+        short_name: 'Fam-TO',
+        description: 'Fam-TO: gemeinsamer Familienkalender mit Spracheingabe und Flur-Display',
         lang: 'de',
         start_url: './',
         scope: './',

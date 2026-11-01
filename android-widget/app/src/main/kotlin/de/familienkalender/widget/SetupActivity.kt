@@ -53,7 +53,7 @@ class SetupActivity : Activity() {
         imp.setOnCheckedChangeListener { _, on ->
             if (on && Feed.cached(this)?.let { Feed.me(it) } == null) {
                 imp.isChecked = false
-                findViewById<TextView>(R.id.impstatus).text = "Dafür brauchst du deinen persönlichen Code: in der Familienkalender-App unter Einstellungen → „Mein Handy-Widget“ kopieren und oben speichern."
+                findViewById<TextView>(R.id.impstatus).text = "Dafür brauchst du deinen persönlichen Code: in Fam-TO unter Einstellungen → „Mein Handy-Widget“ kopieren und oben speichern."
                 return@setOnCheckedChangeListener
             }
             CalImport.setEnabled(this, on)
