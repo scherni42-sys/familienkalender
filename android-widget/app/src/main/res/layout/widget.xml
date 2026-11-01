@@ -120,33 +120,33 @@
             android:textSize="14sp" />
     </FrameLayout>
 
-    <!-- Wochenvorschau: Knopf in der Mitte schaltet um, große Pfeile links/rechts blättern (nur wenn an) -->
+    <!-- Unten: Wochenvorschau (KW mit Pfeilen), Geburtstage umschalten und ＋ für die Schnelleingabe -->
     <LinearLayout
-        android:id="@+id/weekbar"
+        android:id="@+id/quick"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:gravity="center"
+        android:gravity="bottom"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/weekprev"
-            android:layout_width="56dp"
-            android:layout_height="44dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="@drawable/btn_arrow"
             android:gravity="center"
             android:includeFontPadding="false"
             android:text="◀"
             android:textColor="#FFFFFF"
-            android:textSize="20sp"
+            android:textSize="17sp"
             android:visibility="invisible" />
 
         <!-- Jahreszahl über dem KW-Knopf, sobald die Woche im nächsten Jahr liegt -->
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="18dp"
-            android:layout_marginEnd="18dp"
+            android:layout_marginStart="6dp"
+            android:layout_marginEnd="6dp"
             android:gravity="center_horizontal"
             android:orientation="vertical">
 
@@ -161,37 +161,28 @@
 
             <TextView
                 android:id="@+id/weeklabel"
-                android:layout_width="96dp"
-                android:layout_height="44dp"
+                android:layout_width="84dp"
+                android:layout_height="40dp"
                 android:background="@drawable/bar_off"
                 android:gravity="center"
                 android:maxLines="1"
                 android:text="📅 KW"
                 android:textColor="@color/fg"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
         <TextView
             android:id="@+id/weeknext"
-            android:layout_width="56dp"
-            android:layout_height="44dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="@drawable/btn_arrow"
             android:gravity="center"
             android:includeFontPadding="false"
             android:text="▶"
             android:textColor="#FFFFFF"
-            android:textSize="20sp"
+            android:textSize="17sp"
             android:visibility="invisible" />
-    </LinearLayout>
-
-    <!-- Unten: Geburtstage umschalten und ＋ für die Schnelleingabe -->
-    <LinearLayout
-        android:id="@+id/quick"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:orientation="horizontal">
 
         <TextView
             android:layout_width="0dp"
@@ -201,7 +192,7 @@
         <TextView
             android:id="@+id/q_bdays"
             android:layout_width="40dp"
-            android:layout_height="36dp"
+            android:layout_height="40dp"
             android:layout_marginStart="6dp"
             android:background="@drawable/btn_bdays"
             android:contentDescription="Geburtstage"
@@ -211,8 +202,8 @@
 
         <TextView
             android:id="@+id/q_add"
-            android:layout_width="56dp"
-            android:layout_height="36dp"
+            android:layout_width="52dp"
+            android:layout_height="40dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/btn_family"
             android:contentDescription="Neuer Eintrag"
