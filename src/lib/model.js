@@ -27,8 +27,10 @@ export const travel = (e, s) => (s.showTravel && e.driver && !e.all_day && e.tra
 export const depart = (e, s) => e.start_min - travel(e, s) - s.buffer;
 export function visibleOnDay(events, busy, d, me, filter) {
     const ev = events.filter(e => onDay(e, d)).filter(e => filter === 'all' ? true : filter === 'family' ? e.vis === 'family' : e.owner === me || e.persons.includes(me ?? ''));
-    const bs = filter === 'mine' ? [] : busy.filter(b => onDay(b, d) && b.owner !== me);
-    return { ev: ev.sort(byTime), busy: bs };
+    // „X ist belegt“ der anderen wird in den Listen nicht mehr gezeigt; beim Eintragen warnt die Konfliktprüfung weiterhin
+    void busy;
+    void d;
+    return { ev: ev.sort(byTime), busy: [] };
 }
 export function upcoming(birthdays) {
     const t = today(), y = fromIso(t).getFullYear();

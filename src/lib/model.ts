@@ -35,8 +35,9 @@ export const depart = (e: CalEvent, s: Settings) => e.start_min - travel(e, s) -
 export function visibleOnDay(events: CalEvent[], busy: BusySlot[], d: string, me: string | null, filter: 'all' | 'family' | 'mine') {
   const ev = events.filter(e => onDay(e, d)).filter(e =>
     filter === 'all' ? true : filter === 'family' ? e.vis === 'family' : e.owner === me || e.persons.includes(me ?? ''));
-  const bs = filter === 'mine' ? [] : busy.filter(b => onDay(b, d) && b.owner !== me);
-  return { ev: ev.sort(byTime), busy: bs };
+  // „X ist belegt“ der anderen wird in den Listen nicht mehr gezeigt; beim Eintragen warnt die Konfliktprüfung weiterhin
+  void busy; void d;
+  return { ev: ev.sort(byTime), busy: [] as BusySlot[] };
 }
 
 export function upcoming(birthdays: Birthday[]) {
