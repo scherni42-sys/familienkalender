@@ -7,6 +7,9 @@ import { Badges, cvar, Icon, Sheet } from './ui';
 import type { ReactNode } from 'react';
 import { BdayForm } from './Settings';
 
+// Links in Notizen anklickbar machen (z. B. Teams-Besprechung)
+const linkify = (t: string) => t.split(/(https?:\/\/[^\s<>"]+)/g).map((p, i) =>
+  i % 2 ? <a key={i} href={p} target="_blank" rel="noopener noreferrer">{/teams\.(microsoft|live)\.com/.test(p) ? 'Teams-Besprechung öffnen' : p}</a> : p);
 const Row = ({ k, children }: { k: string; children: ReactNode }) => <div className="r"><span>{k}</span><div>{children}</div></div>;
 
 export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: string; add?: (date: string) => void; close: () => void; edit: (d: Draft) => void }) {
@@ -37,7 +40,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           {e.addr && <a className="btn ghost sm" href={maps} target="_blank" rel="noreferrer">Route öffnen</a>}
         </div></Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}
-        {e.notes && <Row k="Notiz">{e.notes}</Row>}
+        {e.notes && <Row k="Notiz">{linkify(e.notes)}</Row>}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>
         <Row k="Angelegt von">{nameOf(snap.members, e.owner)}</Row>
       </div>

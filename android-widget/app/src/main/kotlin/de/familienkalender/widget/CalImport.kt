@@ -104,7 +104,7 @@ object CalImport {
                 val b = c.getLong(1)
                 val e = c.getLong(2)
                 val title = (c.getString(3) ?: "").trim()
-                val desc = plain(c.getString(5) ?: "")
+                val desc = notes(c.getString(5) ?: "")
                 val allDay = c.getInt(6) == 1
                 if (allDay) {
                     val d = Instant.ofEpochMilli(b).atZone(ZoneOffset.UTC).toLocalDate()
@@ -138,6 +138,15 @@ object CalImport {
     }
 
     // Outlook liefert Notizen oft als Word-HTML: in schlichten Text umwandeln
+    private val MEET = Regex("(?i)https://(teams\\.microsoft\\.com/(l/meetup-join|meet)/|teams\\.live\\.com/meet/|[\\w.-]*zoom\\.us/j/|meet\\.google\\.com/|[\\w.-]*webex\\.com/)[^\\s\"'<>]+")
+
+    // Link zur Online-Besprechung (Teams, Zoom, Meet, Webex) nach vorn holen, damit er nicht abgeschnitten wird
+    fun notes(raw: String): String {
+        val link = MEET.find(raw.replace("&amp;", "&"))?.value
+        val text = plain(raw)
+        return if (link == null) text else ("Online-Besprechung: $link\n" + text.replace(link, "").trim()).trim()
+    }
+
     fun plain(raw: String): String {
         if (!Regex("(?i)<(html|body|div|p|br|span|meta|table)\\b").containsMatchIn(raw)) return raw.trim()
         val cleaned = raw
