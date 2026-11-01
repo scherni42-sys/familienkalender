@@ -166,7 +166,7 @@
                 android:background="@drawable/bar_off"
                 android:gravity="center"
                 android:maxLines="1"
-                android:text="📅 KW"
+                android:text="KW"
                 android:textColor="@color/fg"
                 android:textSize="15sp"
                 android:textStyle="bold" />
@@ -202,15 +202,16 @@
 
         <TextView
             android:id="@+id/q_add"
-            android:layout_width="52dp"
+            android:layout_width="40dp"
             android:layout_height="40dp"
             android:layout_marginStart="8dp"
-            android:background="@drawable/btn_family"
+            android:background="@drawable/btn_add"
+            android:includeFontPadding="false"
             android:contentDescription="Neuer Eintrag"
             android:gravity="center"
             android:text="+"
-            android:textColor="#FFFFFF"
-            android:textSize="24sp"
+            android:textColor="#34A86E"
+            android:textSize="26sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

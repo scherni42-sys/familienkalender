@@ -76,10 +76,10 @@ class TodayWidget : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Wochenvorschau-Knopf: aus = „📅 KW“, an = grün „KW 45“ mit großen Pfeilen links und rechts
+        // Wochenvorschau-Knopf: aus = „KW“, an = grün „KW 45“ mit großen Pfeilen links und rechts
         fun weekBar(ctx: Context, v: RemoteViews) {
             val on = Feed.weekMode(ctx)
-            v.setTextViewText(R.id.weeklabel, if (on) "KW ${Feed.weekNumber(ctx)}" else "📅 KW")
+            v.setTextViewText(R.id.weeklabel, if (on) "KW ${Feed.weekNumber(ctx)}" else "KW")
             v.setInt(R.id.weeklabel, "setBackgroundResource", if (on) R.drawable.bar_on else R.drawable.bar_off)
             v.setTextColor(R.id.weeklabel, if (on) 0xFFFFFFFF.toInt() else ctx.getColor(R.color.fg))
             val year = if (on) Feed.weekYear(ctx) else null
