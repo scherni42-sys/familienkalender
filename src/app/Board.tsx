@@ -3,6 +3,8 @@ import { store, useSnapshot } from '../lib/store';
 import { leftTxt, liveMsgs, nameOf, whenM } from '../lib/model';
 import { Badge, Icon } from './ui';
 import { fail, toast } from './toast';
+import { shrinkPhoto } from '../lib/ai';
+import { boardImg } from '../lib/supabase';
 
 export function Board({ focus }: { focus?: string | null }) {
   const snap = useSnapshot();
@@ -12,6 +14,8 @@ export function Board({ focus }: { focus?: string | null }) {
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null), [editTxt, setEditTxt] = useState('');
   const [text, setText] = useState(''), [reply, setReply] = useState('');
+  const [photo, setPhoto] = useState<{ type: string; data: string } | null>(null), [sending, setSending] = useState(false);
+  const pick = async (f?: File) => { if (!f) return; try { setPhoto(await shrinkPhoto(f)); } catch { toast('Das Foto ließ sich nicht öffnen.'); } };
   const msgs = liveMsgs(snap.messages, s);
   const member = (id: string) => snap.members.find(m => m.id === id);
   // Aus dem Widget angetippte Nachricht ins Bild holen
@@ -36,7 +40,8 @@ export function Board({ focus }: { focus?: string | null }) {
             <input autoFocus value={editTxt} onChange={e => setEditTxt(e.target.value)} maxLength={500} aria-label="Nachricht bearbeiten" />
             <button>Speichern</button>
           </form>
-        ) : <div>{m.text}</div>}
+        ) : <div>{m.image && m.text === '📷 Foto' ? null : m.text}</div>}
+        {m.image && <a href={boardImg(m.image)} target="_blank" rel="noreferrer" className="msg-img"><img src={boardImg(m.image)} alt={m.text} loading="lazy" /></a>}
         {m.taker && <div className="note"><b>Übernimmt: {nameOf(snap.members, m.taker)}</b></div>}
         {m.replies.length > 0 && <div className="replies">{m.replies.map(r => <div key={r.id} className="rp"><Badge m={member(r.from_member)} /><span>{r.text}</span></div>)}</div>}
         {canAct && <div className="quick">
@@ -61,10 +66,18 @@ export function Board({ focus }: { focus?: string | null }) {
       </div>
     ))}
     {canAct && (
-      <form className="compose" onSubmit={e => { e.preventDefault(); const v = text.trim(); if (!v) return; store.postMessage(v).then(() => { setText(''); toast('Hängt jetzt am Board.'); }, fail); }}>
-        <input value={text} onChange={e => setText(e.target.value)} placeholder="Nachricht an die Familie" maxLength={500} />
-        <button>Boarding</button>
-      </form>
+      <>
+        {photo && <div className="photo-prev"><img src={`data:${photo.type};base64,${photo.data}`} alt="Foto für das Board" /><button type="button" className="small-btn" onClick={() => setPhoto(null)}>Foto entfernen</button></div>}
+        <form className="compose" onSubmit={e => {
+          e.preventDefault(); const v = text.trim() || (photo ? '📷 Foto' : ''); if (!v || sending) return;
+          setSending(true);
+          store.postMessage(v, photo ?? undefined).then(() => { setText(''); setPhoto(null); toast('Hängt jetzt am Board.'); }, fail).finally(() => setSending(false));
+        }}>
+          <label className="cam-btn" aria-label="Foto ans Board hängen" title="Foto"><Icon name="camera" /><input type="file" accept="image/*" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} /></label>
+          <input value={text} onChange={e => setText(e.target.value)} placeholder={photo ? 'Text zum Foto (freiwillig)' : 'Nachricht an die Familie'} maxLength={500} />
+          <button disabled={sending}>{sending ? '…' : 'Boarding'}</button>
+        </form>
+      </>
     )}
   </>;
 }

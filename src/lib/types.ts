@@ -54,6 +54,7 @@ export interface Message {
   done: boolean;
   taker: string | null;
   via: string | null;
+  image?: string | null; // Foto am Board: Pfad im Speicher (oder data:-URL in der Demo)
   replies: Reply[];
 }
 

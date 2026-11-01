@@ -1,3 +1,4 @@
+import { boardImg } from '../lib/supabase';
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import './display.css';
 import { store } from '../lib/store';
@@ -107,7 +108,7 @@ export function Display({ token }: { token: string }) {
     const n = fitN;
     const shown = msgs.slice(0, n);
     const head = <h3>Board{msgs.length > n && <span className="w-more">+{msgs.length - n} weitere</span>}</h3>;
-    const body = shown.length ? shown.map(m => <div key={m.id} className="w-msg">{sb(m.from_member)}<span>{m.text}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span>
+    const body = shown.length ? shown.map(m => <div key={m.id} className="w-msg">{sb(m.from_member)}<span>{m.text}{m.image && <img className="w-img" src={boardImg(m.image)} alt="" />}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span>
       {m.pinned ? <small className="pinned" title="angeheftet"><Icon name="pin" /></small> : <small>{whenM(m)}</small>}</div>) : <div className="w-empty">Keine Nachrichten</div>;
     return <div className="w-sec">{head}<div className="w-msgs">{body}</div></div>;
   };
@@ -210,7 +211,7 @@ function Mini({ feed, day, now }: { feed: DisplayFeed; day: string; now: number 
       {msgs.length === 0 && <div className="mini-empty">Keine Nachrichten</div>}
       {msgs.map(m => (
         <div key={m.id} className="mini-msg" style={cvar(color(m.from_member))}>
-          {m.pinned && <Icon name="pin" />}<span>{m.text}</span><small>{nm(m.from_member)}</small>
+          {m.pinned && <Icon name="pin" />}<span>{m.text}{m.image && <img className="w-img" src={boardImg(m.image)} alt="" />}</span><small>{nm(m.from_member)}</small>
         </div>
       ))}
     </div>

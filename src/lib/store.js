@@ -71,8 +71,9 @@ class LocalStore extends Base {
     }
     async deleteEvent(id) { this.patch(s => ({ events: s.events.filter(x => x.id !== id) })); }
     async deleteMessage(id) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
-    async postMessage(text) {
-        this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, replies: [] }] }));
+    async postMessage(text, image) {
+        const img = image ? `data:${image.type};base64,${image.data}` : null;
+        this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, image: img, replies: [] }] }));
     }
     async reply(id, text) {
         this.patch(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, replies: [...m.replies, { id: uid(), from_member: s.me, text, created_at: new Date().toISOString() }] } : m) }));
@@ -204,8 +205,25 @@ class SupabaseStore extends Base {
         return row.id;
     }
     async deleteEvent(id) { this.ok(await this.sb.from('events').delete().eq('id', id)); await this.refresh(); }
-    async deleteMessage(id) { this.ok(await this.sb.from('messages').delete().eq('id', id)); await this.refresh(); }
-    async postMessage(text) { this.ok(await this.sb.from('messages').insert({ family_id: this.familyId, from_member: this.snap.me, text })); await this.refresh(); }
+    async deleteMessage(id) {
+        const img = this.snap.messages.find(m => m.id === id)?.image;
+        this.ok(await this.sb.from('messages').delete().eq('id', id));
+        if (img && !/^(data:|https?:)/.test(img))
+            await this.sb.storage.from('board').remove([img]);
+        await this.refresh();
+    }
+    async postMessage(text, image) {
+        let path = null;
+        if (image) {
+            const bytes = Uint8Array.from(atob(image.data), c => c.charCodeAt(0));
+            path = `${this.familyId}/${crypto.randomUUID()}.jpg`;
+            const up = await this.sb.storage.from('board').upload(path, new Blob([bytes], { type: image.type }), { contentType: image.type });
+            if (up.error)
+                throw new Error('Foto ließ sich nicht hochladen: ' + up.error.message);
+        }
+        this.ok(await this.sb.from('messages').insert({ family_id: this.familyId, from_member: this.snap.me, text, ...(path ? { image: path } : {}) }));
+        await this.refresh();
+    }
     async reply(id, text) { this.ok(await this.sb.from('replies').insert({ family_id: this.familyId, message_id: id, from_member: this.snap.me, text })); await this.refresh(); }
     async setMessage(id, patch) {
         // Lösen setzt die Uhr neu: die Nachricht bleibt danach noch die eingestellte Zeit stehen

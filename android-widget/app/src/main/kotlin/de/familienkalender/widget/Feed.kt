@@ -282,7 +282,7 @@ object Feed {
         for (m in live) {
             val from = m.optString("from_member")
             val open = "msg:" + m.optString("id")
-            out += Row(Kind.MESSAGE, m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = open)
+            out += Row(Kind.MESSAGE, (if (m.optString("image").let { it.isNotEmpty() && it != "null" } && !m.optString("text").startsWith("📷")) "📷 " else "") + m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = open)
             // Reaktionen darunter: wer übernimmt, dann die letzten Antworten
             val taker = m.optString("taker").takeIf { it.isNotEmpty() && it != "null" }
             if (taker != null) out += Row(Kind.REPLY, "übernimmt das", time = "✓ ${name[taker] ?: ""}", color = color[taker] ?: Color.GRAY, open = open)

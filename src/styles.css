@@ -291,3 +291,10 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .photobig.busy { opacity: .6; pointer-events: none; }
 
 .btn-row .del-btn { flex: 0 0 auto; color: #d9534f; padding-left: 14px; padding-right: 14px; }
+
+.msg-img { display: block; margin-top: 6px; }
+.msg-img img { max-width: 100%; max-height: 260px; border-radius: 10px; display: block; }
+.photo-prev { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.photo-prev img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
+.cam-btn { display: grid; place-items: center; width: 42px; flex: 0 0 auto; border-radius: 10px; background: var(--surface-2); cursor: pointer; }
+.w-img { display: block; max-height: 120px; max-width: 160px; border-radius: 8px; margin-top: 4px; }
