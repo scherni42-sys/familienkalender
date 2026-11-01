@@ -15,8 +15,10 @@ class MicActivity : Activity() {
         val m = intent?.getStringExtra(EXTRA_MODE)
         // Erster Start nach Installation oder Update („Öffnen“ im Installer): Einrichtung statt Mikrofon zeigen
         val prefs = getSharedPreferences("familien-widget", MODE_PRIVATE)
-        if (m == null && prefs.getInt("launchedVersion", 0) != BuildConfig.VERSION_CODE) {
-            prefs.edit().putInt("launchedVersion", BuildConfig.VERSION_CODE).apply()
+        // Zeitpunkt der letzten Installation (ändert sich auch, wenn dieselbe Version erneut installiert wird)
+        val installed = try { packageManager.getPackageInfo(packageName, 0).lastUpdateTime } catch (e: Exception) { 0L }
+        if (m == null && prefs.getLong("seenInstall", 0L) != installed) {
+            prefs.edit().putLong("seenInstall", installed).apply()
             startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_UPDATED, true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()
             return
