@@ -81,6 +81,31 @@ class SetupActivity : Activity() {
         radius.setOnFocusChangeListener { _, has -> if (!has) radius.text.toString().toIntOrNull()?.let { Geo.setRadius(this, it); showGeo() } }
         showGeo()
 
+        // Alles sofort neu laden: Familienkalender, Widgets, Erinnerungen, Handy-Kalender in beide Richtungen
+        findViewById<Button>(R.id.syncnow).setOnClickListener {
+            val st = findViewById<TextView>(R.id.status)
+            st.text = "Gleiche ab …"
+            thread {
+                CalImport.maybeSync(this, force = true)
+                getSharedPreferences("familien-widget", MODE_PRIVATE).edit().putString("calhash", "").apply()
+                val (feed, err) = Feed.load(this)
+                if (feed != null) { Reminders.process(this, feed); NextWidget.updateAll(this, feed); CalSync.sync(this, feed) }
+                runOnUiThread {
+                    TodayWidget.refreshData(this)
+                    showCalendars()
+                    st.text = if (feed == null) (err ?: "Keine Verbindung.") else
+                        "Abgeglichen um " + java.time.LocalTime.now().let { "%d:%02d".format(it.hour, it.minute) } +
+                            CalImport.lastResult(this).takeIf { CalImport.enabled(this) && it.isNotEmpty() }?.let { "\n$it" }.orEmpty()
+                }
+            }
+        }
+        // Neueste Widget-App herunterladen (installiert sich über die alte)
+        val upd = findViewById<Button>(R.id.update)
+        upd.text = "Neue Version laden (jetzt v${BuildConfig.VERSION_CODE})"
+        upd.setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/scherni42-sys/familienkalender/releases/download/widget-latest/familien-widget.apk")))
+        }
+
         val code = findViewById<EditText>(R.id.code)
         val status = findViewById<TextView>(R.id.status)
         val saved = getSharedPreferences("familien-widget", MODE_PRIVATE).getString("code", null)
