@@ -6,6 +6,7 @@ import type { CalEvent, DisplayFeed, Member } from '../lib/types';
 import { addDays, fromIso, hm, inDays, longDate, MON, nowMin, today, WD, WDS } from '../lib/dates';
 import { bdOn, byTime, dayOfN, depart, liveMsgs, onDay, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
+import { DisplayInput } from './DisplayInput';
 
 type Variant = 'bigme' | 'qm' | 'color' | 'eink' | 'mini';
 const variant = (): Variant => {
@@ -25,6 +26,8 @@ export function Display({ token }: { token: string }) {
   const [day, setDay] = useState(today());
   const [detail, setDetail] = useState<CalEvent | null>(null);
   const [bdOpen, setBdOpen] = useState(false);
+  const [input, setInput] = useState<'event' | 'board' | null>(null);
+  const [note, setNote] = useState('');
   // Pinnwand zeigt so viele Nachrichten, wie in die Spalte passen; der Rest wird als „+N weitere“ gezählt
   const [fitN, setFitN] = useState(99);
   useLayoutEffect(() => { setFitN(99); }, [feed]);
@@ -169,7 +172,10 @@ export function Display({ token }: { token: string }) {
         <div><div className="clock">{eink ? '' : hm(now)}</div><div className="sub">{feed.family.name}</div></div></div>
       {next}
       {main}
-      <div className="w-foot"><span>Termin antippen für Details</span><span>Nur Familientermine{morning ? ' · Tagesansicht' : ''}</span></div>
+      <div className="w-foot">{feed.touch && !eink ? <span className="w-add"><button type="button" className="w-addbtn" onClick={() => setInput('event')}>＋ Termin</button><button type="button" className="w-addbtn board" onClick={() => setInput('board')}>✎ Board</button></span> : <span>Termin antippen für Details</span>}<span>Nur Familientermine{morning ? ' · Tagesansicht' : ''}</span></div>
+      {input && <DisplayInput token={token} feed={feed} mode={input} close={() => setInput(null)}
+        saved={m => { setInput(null); setNote(m); setTimeout(() => setNote(''), 4000); void store.displayFeed(token).then(f => setFeed(f)); }} />}
+      {note && <div className="w-toast">{note}</div>}
       {detail && <div className="w-ov" onClick={e => { if (e.target === e.currentTarget) setDetail(null); }}><div className="w-card" style={cvar(color(detail.persons[0]))} role="dialog" aria-label="Termindetails">
         <h4>{detail.title}</h4>
         <div className="r"><span>Wann</span><div>{whenText(detail)}</div></div>

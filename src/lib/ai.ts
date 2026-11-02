@@ -24,12 +24,12 @@ export async function squarePhoto(file: File): Promise<{ type: string; data: str
 }
 
 // KI-Erkennung über die Edge Function „parse-event“ (Text oder Foto); ohne Verbindung die einfache Erkennung auf dem Handy
-export async function parseSpoken(text: string, me: string, members: Member[], image?: { type: string; data: string }): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean }> {
+export async function parseSpoken(text: string, me: string, members: Pick<Member, 'id' | 'name' | 'role'>[], image?: { type: string; data: string }, display?: string): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean }> {
   const local = parseLocal(text, me, members);
   if (!supabase) return { ...local, source: 'local' };
   try {
     const call = supabase.functions.invoke('parse-event', {
-      body: { text, today: today(), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), image }
+      body: { text, today: today(), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), image, ...(display ? { display_token: display } : {}) }
     });
     const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error(`keine Antwort nach ${image ? 45 : 25} s`)), image ? 45000 : 25000));
     const { data, error } = await Promise.race([call, timeout]);

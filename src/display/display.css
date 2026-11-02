@@ -190,3 +190,26 @@ body:has(.wys.full) { overflow: hidden; }
 .mini-ev.past { opacity: .45; }
 .mini-msg svg { width: 13px; height: 13px; flex: none; align-self: center; }
 .mini-empty { color: var(--mut); font-size: 13px; padding: 2px 0 4px; }
+/* Eingabe am Touch-Display */
+.w-foot .w-add { display: flex; gap: 1cqw; }
+.w-addbtn { font: inherit; font-weight: 700; font-size: 1.5cqw; padding: .8cqw 2cqw; border-radius: 99px; border: .2cqw solid var(--accent, #1d8657); background: var(--accent, #1d8657); color: #fff; cursor: pointer; }
+.w-addbtn.board { background: transparent; color: var(--screen-ink); }
+.w-in { width: min(70cqw, 900px); max-height: 90vh; overflow: auto; }
+.w-in-lbl { font-weight: 700; margin: .6cqw 0; color: var(--screen-muted); }
+.w-who { display: flex; flex-wrap: wrap; gap: 1.2cqw; margin-bottom: 1.4cqw; }
+.w-in .w-p { display: grid; justify-items: center; gap: .4cqw; background: none; border: .25cqw solid transparent; border-radius: 1cqw; padding: .6cqw; font: inherit; color: inherit; cursor: pointer; }
+.w-in .w-p .b { width: 5cqw; height: 5cqw; font-size: 2.4cqw; }
+.w-in .w-p small { font-size: 1.2cqw; }
+.w-in .w-p.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.w-in-row { display: flex; gap: 1.2cqw; align-items: stretch; }
+.w-in-row textarea { flex: 1; min-height: 9cqw; font: inherit; font-size: 1.6cqw; padding: 1cqw; border-radius: 1cqw; border: .15cqw solid var(--screen-line); background: var(--screen); color: var(--screen-ink); }
+.w-in .w-mic { width: 9cqw; border-radius: 50%; aspect-ratio: 1; border: none; background: var(--accent, #1d8657); color: #fff; cursor: pointer; display: grid; place-items: center; }
+.w-in .w-mic .ico { width: 4cqw; height: 4cqw; }
+.w-in .w-mic.rec { background: #c0392b; animation: wpulse 1s infinite; }
+@keyframes wpulse { 50% { opacity: .6; } }
+.w-in-err { color: #c0392b; margin-top: .8cqw; }
+.w-in-btns { display: flex; gap: 1.2cqw; justify-content: flex-end; margin-top: 1.6cqw; }
+.w-in .w-btn { font: inherit; font-weight: 700; font-size: 1.5cqw; padding: 1cqw 2.4cqw; border-radius: 99px; border: none; background: var(--accent, #1d8657); color: #fff; cursor: pointer; }
+.w-in .w-btn.ghost { background: transparent; color: var(--screen-ink); border: .15cqw solid var(--screen-line); }
+.w-in .w-btn:disabled { opacity: .5; }
+.w-toast { position: absolute; left: 50%; bottom: 7cqw; transform: translateX(-50%); background: #1d8657; color: #fff; padding: 1cqw 2cqw; border-radius: 99px; font-weight: 700; font-size: 1.4cqw; z-index: 30; }

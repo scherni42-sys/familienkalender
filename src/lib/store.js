@@ -98,14 +98,19 @@ class LocalStore extends Base {
     async widgetToken() { return 'demo'; }
     async addDisplay(name) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
     async removeDisplay(id) { this.patch(s => ({ displays: s.displays.filter(d => d.id !== id) })); }
+    async setDisplayTouch(id, touch) { this.patch(s => ({ displays: s.displays.map(d => d.id === id ? { ...d, touch } : d) })); }
     async displayFeed() {
         const s = this.snap;
         if (!s.family)
             return null;
         const until = addDays(today(), 8);
-        return { family: { name: s.family.name, settings: s.family.settings }, members: s.members.map(({ id, name, color }) => ({ id, name, color })),
+        return { touch: s.displays.some(d => d.touch), family: { name: s.family.name, settings: s.family.settings }, members: s.members.map(({ id, name, color, avatar, role }) => ({ id, name, color, avatar, role })),
             events: s.events.filter(e => e.vis === 'family' && e.end_date >= today() && e.date <= until), messages: s.messages, birthdays: s.birthdays };
     }
+    async displayPost(_t, member, text) {
+        this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: member, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: 'Display', image: null, replies: [] }] }));
+    }
+    async displaySaveEvent(_t, member, ev) { this.patch(s => ({ events: [...s.events, { ...ev, id: uid(), owner: member, vis: 'family' }] })); }
     switchUser(id) { this.patch(() => ({ me: id })); }
     async reclaim(_code) { throw new Error('Im Demo-Modus nicht möglich.'); }
     async reset() { try {
@@ -173,7 +178,7 @@ class SupabaseStore extends Base {
             this.sb.from('messages').select('*').eq('family_id', fam).order('created_at'),
             this.sb.from('replies').select('*').eq('family_id', fam).order('created_at'),
             this.sb.from('birthdays').select('*').eq('family_id', fam),
-            this.sb.from('displays').select('id, name, token').eq('family_id', fam)
+            this.sb.from('displays').select('*').eq('family_id', fam)
         ]);
         const family = this.ok(f);
         const replies = (this.ok(rep) ?? []);
@@ -319,6 +324,7 @@ class SupabaseStore extends Base {
     async widgetToken() { return this.ok(await this.sb.rpc('my_widget_token', { fam: this.familyId })); }
     async addDisplay(name) { this.ok(await this.sb.from('displays').insert({ family_id: this.familyId, name })); await this.refresh(); }
     async removeDisplay(id) { this.ok(await this.sb.from('displays').delete().eq('id', id)); await this.refresh(); }
+    async setDisplayTouch(id, touch) { this.ok(await this.sb.from('displays').update({ touch }).eq('id', id)); await this.refresh(); }
     async displayFeed(token) {
         const { data, error } = await this.sb.rpc('display_feed', { p_token: token });
         if (error || !data)
@@ -326,6 +332,8 @@ class SupabaseStore extends Base {
         const f = data;
         return { ...f, family: { ...f.family, settings: { ...DEFAULT_SETTINGS, ...f.family.settings } } };
     }
+    async displayPost(token, member, text) { this.ok(await this.sb.rpc('display_post', { p_token: token, p_member: member, p_text: text })); }
+    async displaySaveEvent(token, member, ev) { this.ok(await this.sb.rpc('display_save_event', { p_token: token, p_member: member, p: ev })); }
     async reset() { await this.sb.auth.signOut(); this.channel?.unsubscribe(); this.channel = null; this.emit(EMPTY); }
 }
 export const store = supabase ? new SupabaseStore() : new LocalStore();

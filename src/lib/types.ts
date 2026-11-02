@@ -61,7 +61,7 @@ export interface Message {
 
 export interface Birthday { id: string; name: string; rel: string; day: number; month: number; year: number | null; owner?: string | null; ext_id?: string | null }
 
-export interface DisplayDevice { id: string; name: string; token: string }
+export interface DisplayDevice { id: string; name: string; token: string; touch?: boolean }
 
 export interface Settings {
   bdLead: number;
@@ -97,8 +97,9 @@ export type NewEvent = Omit<CalEvent, 'id' | 'owner'>;
 
 // Was die Display-Seite bekommt: nur Familientermine, nie private Details
 export interface DisplayFeed {
+  touch?: boolean;
   family: { name: string; settings: Settings };
-  members: Pick<Member, 'id' | 'name' | 'color'>[];
+  members: (Pick<Member, 'id' | 'name' | 'color'> & { avatar?: string | null; role?: Member['role'] })[];
   events: CalEvent[];
   messages: Message[];
   birthdays: Birthday[];

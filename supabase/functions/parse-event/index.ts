@@ -38,10 +38,15 @@ Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const body = await req.json();
-    const { text = '', today, me, members, image, widget_token } = body;
-    // Zugang: angemeldet in der App, oder aus der Widget-App mit persönlichem Widget-Code
+    const { text = '', today, me, members, image, widget_token, display_token } = body;
+    // Zugang: angemeldet in der App, aus der Widget-App mit persönlichem Widget-Code oder vom Touch-Display
     let ok = false;
-    if (typeof widget_token === 'string' && widget_token) {
+    if (typeof display_token === 'string' && display_token) {
+      // Touch-Display mit eingeschalteter Eingabe
+      const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
+      const { data, error } = await sb.rpc('display_family', { p_token: display_token });
+      ok = !error && !!data;
+    } else if (typeof widget_token === 'string' && widget_token) {
       const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!);
       const { error } = await sb.rpc('widget_member', { p_token: widget_token });
       ok = !error;

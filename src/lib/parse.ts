@@ -34,7 +34,7 @@ const TITLES: [RegExp, string][] = [
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Einfache, regelbasierte Erkennung. Läuft auf dem Handy, wenn die KI nicht erreichbar ist.
-export function parseLocal(text: string, me: string, members: Member[]): Draft {
+export function parseLocal(text: string, me: string, members: Pick<Member, 'id' | 'name' | 'role'>[]): Draft {
   const base = today();
   let t = text.toLowerCase();
   let date = base, dateFound = false;

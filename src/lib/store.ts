@@ -39,7 +39,11 @@ export interface Store {
   addDisplay(name: string): Promise<void>;
   widgetToken(): Promise<string>;
   removeDisplay(id: string): Promise<void>;
+  setDisplayTouch(id: string, touch: boolean): Promise<void>;
   displayFeed(token: string): Promise<DisplayFeed | null>;
+  // Eingabe am Display: Person tippt ihren Avatar an, Display-Code erlaubt das Speichern
+  displayPost(token: string, member: string, text: string): Promise<void>;
+  displaySaveEvent(token: string, member: string, ev: NewEvent): Promise<void>;
   // nur Demo: zwischen den Familienmitgliedern umschalten
   switchUser?(id: string): void;
   reset(): Promise<void>;
@@ -124,13 +128,18 @@ class LocalStore extends Base implements Store {
   async widgetToken() { return 'demo'; }
   async addDisplay(name: string) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
   async removeDisplay(id: string) { this.patch(s => ({ displays: s.displays.filter(d => d.id !== id) })); }
+  async setDisplayTouch(id: string, touch: boolean) { this.patch(s => ({ displays: s.displays.map(d => d.id === id ? { ...d, touch } : d) })); }
   async displayFeed(): Promise<DisplayFeed | null> {
     const s = this.snap;
     if (!s.family) return null;
     const until = addDays(today(), 8);
-    return { family: { name: s.family.name, settings: s.family.settings }, members: s.members.map(({ id, name, color }) => ({ id, name, color })),
+    return { touch: s.displays.some(d => d.touch), family: { name: s.family.name, settings: s.family.settings }, members: s.members.map(({ id, name, color, avatar, role }) => ({ id, name, color, avatar, role })),
       events: s.events.filter(e => e.vis === 'family' && e.end_date >= today() && e.date <= until), messages: s.messages, birthdays: s.birthdays };
   }
+  async displayPost(_t: string, member: string, text: string) {
+    this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: member, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: 'Display', image: null, replies: [] }] }));
+  }
+  async displaySaveEvent(_t: string, member: string, ev: NewEvent) { this.patch(s => ({ events: [...s.events, { ...ev, id: uid(), owner: member, vis: 'family' } as CalEvent] })); }
   switchUser(id: string) { this.patch(() => ({ me: id })); }
   async reclaim(_code: string) { throw new Error('Im Demo-Modus nicht möglich.'); }
   async reset() { try { localStorage.removeItem(KEY); } catch { /* egal */ } this.invites = {}; this.emit(EMPTY); }
@@ -182,7 +191,7 @@ class SupabaseStore extends Base implements Store {
       this.sb.from('messages').select('*').eq('family_id', fam).order('created_at'),
       this.sb.from('replies').select('*').eq('family_id', fam).order('created_at'),
       this.sb.from('birthdays').select('*').eq('family_id', fam),
-      this.sb.from('displays').select('id, name, token').eq('family_id', fam)
+      this.sb.from('displays').select('*').eq('family_id', fam)
     ]);
     const family = this.ok(f) as { id: string; name: string; settings: Partial<Settings> };
     const replies = (this.ok(rep) ?? []) as { id: string; message_id: string; from_member: string; text: string; created_at: string }[];
@@ -308,12 +317,15 @@ class SupabaseStore extends Base implements Store {
   async widgetToken() { return this.ok(await this.sb.rpc('my_widget_token', { fam: this.familyId })) as string; }
   async addDisplay(name: string) { this.ok(await this.sb.from('displays').insert({ family_id: this.familyId, name })); await this.refresh(); }
   async removeDisplay(id: string) { this.ok(await this.sb.from('displays').delete().eq('id', id)); await this.refresh(); }
+  async setDisplayTouch(id: string, touch: boolean) { this.ok(await this.sb.from('displays').update({ touch }).eq('id', id)); await this.refresh(); }
   async displayFeed(token: string) {
     const { data, error } = await this.sb.rpc('display_feed', { p_token: token });
     if (error || !data) return null;
     const f = data as DisplayFeed;
     return { ...f, family: { ...f.family, settings: { ...DEFAULT_SETTINGS, ...f.family.settings } } };
   }
+  async displayPost(token: string, member: string, text: string) { this.ok(await this.sb.rpc('display_post', { p_token: token, p_member: member, p_text: text })); }
+  async displaySaveEvent(token: string, member: string, ev: NewEvent) { this.ok(await this.sb.rpc('display_save_event', { p_token: token, p_member: member, p: ev })); }
   async reset() { await this.sb.auth.signOut(); this.channel?.unsubscribe(); this.channel = null; this.emit(EMPTY); }
 }
 

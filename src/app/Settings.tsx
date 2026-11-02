@@ -219,8 +219,9 @@ function Displays() {
     <p className="note">Jedes Display ruft die Familienseite unter einer eigenen, geheimen Adresse auf. Diese Adresse im WYSCREEN als Webseite eintragen. Entfernen macht die Adresse sofort ungültig.</p>
     {snap.displays.map(d => {
       const url = `${base}#/display/${d.token}`;
-      return <div key={d.id} className="mem"><span className="b" style={cvar('var(--muted)')}>W</span><div><div className="nm">{d.name}</div><div className="sub">nur Familientermine</div></div><span />
+      return <div key={d.id} className="mem"><span className="b" style={cvar('var(--muted)')}>W</span><div><div className="nm">{d.name}</div><div className="sub">nur Familientermine{d.touch ? ' · mit Eingabe' : ''}</div></div><span />
         <div className="acts" style={{ display: 'grid' }}>
+          <label className="setrow"><span>👆 Touch-Display: Termine und Board-Nachrichten direkt am Display eingeben</span><input type="checkbox" checked={!!d.touch} onChange={e => store.setDisplayTouch(d.id, e.target.checked).then(() => toast(e.target.checked ? 'Eingabe am Display eingeschaltet.' : 'Eingabe am Display ausgeschaltet.'), fail)} /></label>
           <div className="urlbox">{url}</div>
           <span className="note">Varianten: <code>?v=bigme</code>, <code>?v=qm</code>, <code>?v=color</code>, <code>?v=eink</code> vor dem # anhängen. <code>?r=5</code> lädt alle 5 Sekunden neu, beides zusammen mit <code>?v=qm&amp;r=5</code>.</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
