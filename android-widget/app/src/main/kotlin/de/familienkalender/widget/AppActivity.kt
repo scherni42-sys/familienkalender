@@ -99,6 +99,7 @@ class AppActivity : Activity() {
             }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(target(intent))
+        askSoon(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -110,6 +111,14 @@ class AppActivity : Activity() {
             return
         }
         if (intent.hasExtra(EXTRA_OPEN) || mic != null) web.loadUrl(target(intent))
+        askSoon(intent)
+    }
+
+    // Zaubertaste im Widget: Mikrofon sicher starten, auch wenn die Seite noch lädt
+    private fun askSoon(i: Intent?) {
+        if (i?.getStringExtra(EXTRA_OPEN) != "ask") return
+        val before = listens
+        web.postDelayed({ if (listens == before && !pendingListen) startListen() }, 2500)
     }
 
     private var geoAsk: Pair<String, GeolocationPermissions.Callback>? = null
@@ -124,6 +133,7 @@ class AppActivity : Activity() {
     @Deprecated("Activity API")
     override fun onActivityResult(code: Int, result: Int, data: Intent?) {
         if (code == SPEECH) {
+            listening = false
             val text = if (result == RESULT_OK) data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() ?: "" else ""
             web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-speech',{detail:" + org.json.JSONObject.quote(text) + "}))", null)
             return
@@ -143,8 +153,12 @@ class AppActivity : Activity() {
         if (web.canGoBack()) web.goBack() else @Suppress("DEPRECATION") super.onBackPressed()
     }
 
+    override fun onPause() { super.onPause(); resumed = false }
+
     override fun onResume() {
         super.onResume()
+        resumed = true
+        if (pendingListen) web.postDelayed({ startListen() }, 300)
         // Nach einer Eingabe in der Schnelleingabe sofort den neuen Stand zeigen
         web.evaluateJavascript("window.dispatchEvent(new Event('famto-resume'))", null)
     }
@@ -176,18 +190,34 @@ class AppActivity : Activity() {
             }
         }
         // Spracheingabe im Eingabefenster: Spracherkennung des Handys, Ergebnis kommt als Ereignis „famto-speech“ zurück
-        @JavascriptInterface fun listen() {
-            runOnUiThread {
+        @JavascriptInterface fun listen() { runOnUiThread { startListen() } }
+        @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java)) } }
+    }
+
+    // Spracherkennung starten: nur einmal gleichzeitig und erst, wenn die App wirklich vorne ist
+    // (aus dem Widget heraus läuft der Start sonst ins Leere)
+    private var listening = false
+    private var pendingListen = false
+    private var resumed = false
+    private var listens = 0
+    private fun startListen() {
+        if (listening) return
+        if (!resumed) { pendingListen = true; return }
+        pendingListen = false
+        listening = true
+        listens++
+        run {
+            run {
                 val i = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                     .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                     .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
                     .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Termin oder Nachricht sprechen")
                 try { @Suppress("DEPRECATION") startActivityForResult(i, SPEECH) } catch (e: Exception) {
+                    listening = false
                     web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-speech',{detail:''}))", null)
                     android.widget.Toast.makeText(this@AppActivity, "Keine Spracherkennung auf diesem Handy gefunden", android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         }
-        @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java)) } }
     }
 }
