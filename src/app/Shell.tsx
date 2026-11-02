@@ -96,7 +96,6 @@ export function Shell() {
       <div className="ph-head">
         <div><small>{snap.family!.name}</small><strong>{titles[tab]}</strong></div>
         <span className="head-r">
-          {me.role !== 'guest' && <button type="button" className="magic" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
           {cake && <button type="button" className="cake" onClick={() => setSheet({ kind: 'bdays' })} aria-label={`Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`}>{cake.days === 0 ? 'Heute' : cake.days}<Icon name="cake" /></button>}
           <span className="me"><Badge m={me} /></span>
         </span>
@@ -113,6 +112,7 @@ export function Shell() {
         {tab === 'board' && <Board focus={focusMsg} reply={replyMsg} />}
         {tab === 'settings' && <Settings />}
       </div>
+      {me.role !== 'guest' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
       <nav className="tabs" aria-label="Bereiche">
         <TabBtn on={tab === 'today'} icon="today" label="Heute" go={() => setTab('today')} />
         <TabBtn on={tab === 'week'} icon="week" label="Kalender" go={() => setTab('week')} />

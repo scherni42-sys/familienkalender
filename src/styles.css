@@ -353,3 +353,5 @@ a.addr { text-decoration: underline; text-decoration-color: color-mix(in srgb, c
 .ask-ev .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .ask-ev .t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ask-edit { flex: none; font-size: 13px; font-weight: 600; color: #8a5cf6; padding: 4px 6px; }
+/* Zaubertaste unten rechts, über „Einstellungen“ */
+.magic.fab { position: absolute; z-index: 5; width: 48px; height: 48px; font-size: 22px; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); right: calc((min(100vw, 560px) - 90px) / 8 + 10px - 24px); box-shadow: 0 4px 12px rgba(0,0,0,.18); background: color-mix(in srgb, #ffc83d 30%, var(--surface)); }
