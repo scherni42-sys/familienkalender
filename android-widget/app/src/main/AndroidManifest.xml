@@ -28,6 +28,7 @@
         <activity
             android:name=".SetupActivity"
             android:exported="true"
+            android:taskAffinity="de.familienkalender.widget.setup"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />

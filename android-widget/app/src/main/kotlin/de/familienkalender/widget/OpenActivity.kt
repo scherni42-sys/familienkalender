@@ -25,9 +25,9 @@ class OpenActivity : Activity() {
         }
         // Angetippter Eintrag: FamTO in der App öffnet direkt diesen Termin bzw. diese Nachricht
         val open = intent?.getStringExtra(EXTRA_OPEN)?.takeIf { it.isNotEmpty() }
-        val target = if (Feed.config(this) != null) Intent(this, AppActivity::class.java).putExtra(AppActivity.EXTRA_OPEN, open ?: "")
-            else Intent(this, SetupActivity::class.java)
-        try { startActivity(target) } catch (e: Exception) { startActivity(Intent(this, SetupActivity::class.java)) }
+        val target = if (Feed.config(this) != null) Intent(this, AppActivity::class.java).putExtra(AppActivity.EXTRA_OPEN, open ?: "").addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            else Intent(this, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try { startActivity(target) } catch (e: Exception) { startActivity(Intent(this, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         finish()
     }
 }

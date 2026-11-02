@@ -69,6 +69,11 @@ class AppActivity : Activity() {
         web.addJavascriptInterface(Bridge(), "FamTO")
         val host = base().host
         web.webViewClient = object : WebViewClient() {
+            // Absturz der Browser-Engine (z. B. wenig Speicher): Seite neu laden statt die ganze App zu beenden
+            override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                recreate()
+                return true
+            }
             // Fremde Seiten (Karten, Teams, Fotos) im passenden Programm öffnen, FamTO selbst bleibt hier
             override fun shouldOverrideUrlLoading(view: WebView, req: WebResourceRequest): Boolean {
                 val u = req.url
@@ -191,7 +196,7 @@ class AppActivity : Activity() {
         }
         // Spracheingabe im Eingabefenster: Spracherkennung des Handys, Ergebnis kommt als Ereignis „famto-speech“ zurück
         @JavascriptInterface fun listen() { runOnUiThread { startListen() } }
-        @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java)) } }
+        @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
     }
 
     // Spracherkennung starten: nur einmal gleichzeitig und erst, wenn die App wirklich vorne ist
