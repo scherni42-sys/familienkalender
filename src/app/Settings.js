@@ -10,7 +10,7 @@ import { SUPA } from '../lib/supabase';
 import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
 const MENU = [
-    ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Farben der Personen', 'palette'],
+    ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Mitglieder', 'palette'],
     ['bg', 'Hintergrund', 'palette'], ['bdays', 'Geburtstage', 'cake'], ['displays', 'Displays', 'screen']
 ];
 export function Settings() {
@@ -26,7 +26,7 @@ export function Settings() {
         const info = {
             family: `${snap.members.length} Mitglieder · Admin: ${snap.members.filter(m => m.role === 'admin').map(m => m.name).join(', ')}`,
             basic: `Geburtstage ${s.bdLead ? `${s.bdLead} Tage vorher` : 'aus'} · Board ${s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tage`} · Fahrzeiten ${s.showTravel ? 'an' : 'aus'}`,
-            colors: 'Jede Person hat ihre eigene Farbe',
+            colors: 'Farbe und Avatar jeder Person',
             bg: 'Unifarbener Hintergrund für App und Display',
             bdays: `${snap.birthdays.length} eingetragen${next ? ` · ${next.name} ${inDays(next.days)}` : ''}`,
             displays: `${snap.displays.length || 'Kein'} Display${snap.displays.length === 1 ? '' : 's'} · Board ${s.boardMode === 'fixed' ? 'fest' : 'dynamisch'}`
