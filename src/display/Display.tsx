@@ -82,7 +82,7 @@ export function Display({ token }: { token: string }) {
   const row = (e: CalEvent, past: boolean, noGo = false) => (
     <div key={e.id} className={`w-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>
       <time>{hm(e.start_min)}</time>
-      <div><div className="tt">{e.title}</div>{e.driver && <div className="dr"><Icon name="car" /> {nm(e.driver)} {etaMin(e) !== null ? <>ist unterwegs · <b>an {hm(etaMin(e)!)}</b></> : <>fährt{travel(e, s) && !noGo ? <> · <b>los {hm(depart(e, s))}</b></> : null}</>}{e.place ? ` · ${e.place}` : ''}</div>}</div>
+      <div><div className="tt">{e.title}</div>{e.driver && <div className="dr"><Icon name="car" /> {nm(e.driver)} {etaMin(e) !== null ? <>fährt · <b>Ankunft {hm(etaMin(e)!)}</b></> : <>fährt{travel(e, s) && !noGo ? <> · <b>los {hm(depart(e, s))}</b></> : null}</>}{e.place ? ` · ${e.place}` : ''}</div>}</div>
       <span className="wb">{e.persons.map(sb)}</span>
     </div>
   );
@@ -98,7 +98,7 @@ export function Display({ token }: { token: string }) {
       const eta = etaMin(e);
       if (eta !== null && e.start_min + 30 > now) {
         out.push(<div key={`go${e.id}`} className="w-go soon" style={cvar(color(e.driver))}><time>{hm(eta)}</time>
-          <div className="w-go-bar" style={{ ['--p' as string]: '100%' }}><Icon name="car" /><span>{nm(e.driver)} ist unterwegs · Ankunft ca. {hm(eta)}</span></div></div>);
+          <div className="w-go-bar" style={{ ['--p' as string]: '100%' }}><Icon name="car" /><span>{nm(e.driver)} fährt · Ankunft ca. {hm(eta)}</span></div></div>);
       } else if (travel(e, s) && e.start_min > now) {
         const dep = depart(e, s), gone = dep <= now;
         out.push(<div key={`go${e.id}`} className={`w-go${gone ? ' gone' : dep - now <= 30 ? ' soon' : ''}`} style={cvar(color(e.driver))}><time>{hm(dep)}</time>
@@ -135,7 +135,7 @@ export function Display({ token }: { token: string }) {
   const onWay = today0.find(e => etaMin(e) !== null && e.start_min + 30 > now);
   const goNext = today0.find(e => etaMin(e) === null && travel(e, s) && depart(e, s) > now && depart(e, s) - now <= 45);
   const nx = today0.find(e => !e.all_day && e.start_min > now);
-  if (onWay) next = <div className="w-next go"><Icon name="car" /><div><strong>{nm(onWay.driver)} ist unterwegs:</strong> Ankunft ca. {hm(etaMin(onWay)!)} · {onWay.title}{onWay.persons.length ? ` · ${onWay.persons.map(nm).join(', ')}` : ''}</div></div>;
+  if (onWay) next = <div className="w-next go"><Icon name="car" /><div><strong>{nm(onWay.driver)} fährt:</strong> {onWay.title} · Ankunft ca. {hm(etaMin(onWay)!)}</div></div>;
   else if (goNext) next = <div className="w-next go"><Icon name="car" /><div><strong>{eink ? `Um ${hm(depart(goNext, s))}` : `In ${depart(goNext, s) - now} Min.`} losfahren:</strong> {nm(goNext.driver)} fährt{goNext.persons.length ? ` ${goNext.persons.map(nm).join(', ')}` : ''} · {goNext.title} · {travel(goNext, s)} Min. Fahrt</div></div>;
   else if (nx && nx.start_min - now <= 90) next = <div className="w-next"><Icon name="clock" /><div><strong>{eink ? `Um ${hm(nx.start_min)}` : `In ${nx.start_min - now} Min.`}:</strong> {nx.persons.length ? `${nx.persons.map(nm).join(', ')} · ` : ''}{nx.title}{nx.driver ? <> · <strong>{nm(nx.driver)} fährt</strong></> : null}</div></div>;
 
@@ -187,7 +187,7 @@ export function Display({ token }: { token: string }) {
         <h4>{detail.title}</h4>
         <div className="r"><span>Wann</span><div>{whenText(detail)}</div></div>
         {detail.persons.length > 0 && <div className="r"><span>Wer</span><div><span className="wb">{detail.persons.map(sb)}</span> {detail.persons.map(nm).join(', ')}</div></div>}
-        {detail.driver && <div className="r"><span>Fahrdienst</span><div>{nm(detail.driver)} {etaMin(detail) !== null ? `ist unterwegs · Ankunft ca. ${hm(etaMin(detail)!)}` : `fährt${travel(detail, s) ? ` · los um ${hm(depart(detail, s))}` : ''}`}</div></div>}
+        {detail.driver && <div className="r"><span>Fahrdienst</span><div>{nm(detail.driver)} {etaMin(detail) !== null ? `fährt · Ankunft ca. ${hm(etaMin(detail)!)}` : `fährt${travel(detail, s) ? ` · los um ${hm(depart(detail, s))}` : ''}`}</div></div>}
         {(detail.place || detail.addr) && <div className="r"><span>Ort</span><div>{detail.place}{detail.place && detail.addr ? <br /> : null}{detail.addr && <small style={{ color: 'var(--screen-muted)' }}>{detail.addr}</small>}</div></div>}
         {detail.bring.length > 0 && <div className="r"><span>Mitbringen</span><div>{detail.bring.join(', ')}</div></div>}
         {detail.notes && <div className="r"><span>Notiz</span><div>{detail.notes}</div></div>}
@@ -213,7 +213,7 @@ export function Display({ token }: { token: string }) {
       if (d === day && hidePast(e)) return null;
       return <div key={e.id + d} className={`t-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>
         <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
-        <div className="tt"><b>{e.title}</b>{e.driver ? <small> · {nm(e.driver)} {etaMin(e) !== null ? `ist unterwegs · an ${hm(etaMin(e)!)}` : `fährt${travel(e, s) && d === day && !past ? ` · los ${hm(depart(e, s))}` : ''}`}</small> : e.place ? <small> · {e.place}</small> : null}</div>
+        <div className="tt"><b>{e.title}</b>{e.driver ? <small> · {nm(e.driver)} {etaMin(e) !== null ? `fährt · Ankunft ${hm(etaMin(e)!)}` : `fährt${travel(e, s) && d === day && !past ? ` · los ${hm(depart(e, s))}` : ''}`}</small> : e.place ? <small> · {e.place}</small> : null}</div>
         <span className="wb">{e.persons.map(sb)}</span></div>;
     };
     const days = Array.from({ length: n }, (_, i) => addDays(start, i)).map(d => {
