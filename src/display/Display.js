@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useState } from 'react';
 import './display.css';
 import { store } from '../lib/store';
 import { addDays, fromIso, hm, inDays, isoWeek, longDate, mondayOf, MON, nowMin, today, WD, WDS } from '../lib/dates';
-import { bdOn, byTime, dayOfN, depart, etaMin, liveMsgs, onDay, travel, upcoming, whenM, whenText } from '../lib/model';
+import { bdOn, byTime, dayOfN, depart, etaDriver, etaMin, leg2, liveMsgs, onDay, target, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
 import { DisplayInput } from './DisplayInput';
 import { DisplayEdit } from './DisplayEdit';
@@ -90,12 +90,17 @@ export function Display({ token }) {
                 placed = true;
             }
             const eta = etaMin(e);
-            if (eta !== null && e.start_min + 30 > now) {
-                out.push(_jsxs("div", { className: "w-go soon", style: cvar(color(e.driver)), children: [_jsx("time", { children: hm(eta) }), _jsxs("div", { className: "w-go-bar", style: { ['--p']: '100%' }, children: [_jsx(Icon, { name: "car" }), _jsxs("span", { children: [nm(e.driver), " f\u00E4hrt \u00B7 Ankunft"] })] })] }, `go${e.id}`));
+            const l2 = leg2(e, s);
+            if (eta !== null && e.end_min + 30 > now) {
+                out.push(_jsxs("div", { className: "w-go soon", style: cvar(color(etaDriver(e))), children: [_jsx("time", { children: hm(eta) }), _jsxs("div", { className: "w-go-bar", style: { ['--p']: '100%' }, children: [_jsx(Icon, { name: "car" }), _jsxs("span", { children: [nm(etaDriver(e)), " f\u00E4hrt \u00B7 Ankunft"] })] })] }, `go${e.id}`));
             }
-            else if (travel(e, s) && e.start_min > now) {
+            else if (l2 && e.start_min <= now && l2.at > now) {
+                const gone = l2.leave <= now;
+                out.push(_jsxs("div", { className: `w-go${gone ? ' gone' : l2.leave - now <= 30 ? ' soon' : ''}`, style: cvar(color(l2.who)), children: [_jsx("time", { children: hm(l2.leave) }), _jsxs("div", { className: "w-go-bar", style: { ['--p']: '100%' }, children: [_jsx(Icon, { name: "car" }), _jsxs("span", { children: [nm(l2.who), " holt ab \u00B7 ", travel(e, s), " Min."] })] })] }, `go2${e.id}`));
+            }
+            else if (travel(e, s) && target(e) > now) {
                 const dep = depart(e, s), gone = dep <= now;
-                out.push(_jsxs("div", { className: `w-go${gone ? ' gone' : dep - now <= 30 ? ' soon' : ''}`, style: cvar(color(e.driver)), children: [_jsx("time", { children: hm(dep) }), _jsxs("div", { className: "w-go-bar", style: { ['--p']: `${Math.round(100 * travel(e, s) / (travel(e, s) + s.buffer))}%` }, children: [_jsx(Icon, { name: "car" }), _jsxs("span", { children: [nm(e.driver), " ", gone ? 'ist unterwegs' : 'fährt los', " \u00B7 ", travel(e, s), " Min."] })] })] }, `go${e.id}`));
+                out.push(_jsxs("div", { className: `w-go${gone ? ' gone' : dep - now <= 30 ? ' soon' : ''}`, style: cvar(color(e.driver)), children: [_jsx("time", { children: hm(dep) }), _jsxs("div", { className: "w-go-bar", style: { ['--p']: `${Math.round(100 * travel(e, s) / (travel(e, s) + s.buffer))}%` }, children: [_jsx(Icon, { name: "car" }), _jsxs("span", { children: [nm(e.driver), " ", gone ? 'ist unterwegs' : e.trip === 'ab' ? 'holt ab' : 'fährt los', " \u00B7 ", travel(e, s), " Min."] })] })] }, `go${e.id}`));
             }
             out.push(row(e, past, true));
         }
@@ -125,11 +130,11 @@ export function Display({ token }) {
     // Hinweis oben: nächste Abfahrt oder nächster Termin
     let next = _jsx("div", {});
     const today0 = list(day);
-    const onWay = today0.find(e => etaMin(e) !== null && e.start_min + 30 > now);
+    const onWay = today0.find(e => etaMin(e) !== null && e.end_min + 30 > now);
     const goNext = today0.find(e => etaMin(e) === null && travel(e, s) && depart(e, s) > now && depart(e, s) - now <= 45);
     const nx = today0.find(e => !e.all_day && e.start_min > now);
     if (onWay)
-        next = _jsxs("div", { className: "w-next go", children: [_jsx(Icon, { name: "car" }), _jsxs("div", { children: [_jsxs("strong", { children: [nm(onWay.driver), " f\u00E4hrt:"] }), " ", onWay.title, " \u00B7 Ankunft ca. ", hm(etaMin(onWay))] })] });
+        next = _jsxs("div", { className: "w-next go", children: [_jsx(Icon, { name: "car" }), _jsxs("div", { children: [_jsxs("strong", { children: [nm(etaDriver(onWay)), " f\u00E4hrt:"] }), " ", onWay.title, " \u00B7 Ankunft ca. ", hm(etaMin(onWay))] })] });
     else if (goNext)
         next = _jsxs("div", { className: "w-next go", children: [_jsx(Icon, { name: "car" }), _jsxs("div", { children: [_jsxs("strong", { children: [eink ? `Um ${hm(depart(goNext, s))}` : `In ${depart(goNext, s) - now} Min.`, " losfahren:"] }), " ", nm(goNext.driver), " f\u00E4hrt", goNext.persons.length ? ` ${goNext.persons.map(nm).join(', ')}` : '', " \u00B7 ", goNext.title, " \u00B7 ", travel(goNext, s), " Min. Fahrt"] })] });
     else if (nx && nx.start_min - now <= 90)

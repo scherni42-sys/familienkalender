@@ -71,7 +71,14 @@ class LocalStore extends Base {
         return id;
     }
     async deleteEvent(id) { this.patch(s => ({ events: s.events.filter(x => x.id !== id) })); }
-    async setEta(id, eta, driver) { this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta, ...(driver ? { driver } : {}) } : x) })); }
+    async setEta(id, eta, driver) {
+        this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta, eta_by: eta ? (driver ?? s.me) : null, arrived_at: eta ? null : x.eta ? new Date().toISOString() : x.arrived_at ?? null, ...(driver ? { driver } : {}) } : x) }));
+    }
+    async driverAnswer(id, ok) {
+        this.patch(s => ({ events: s.events.map(x => x.id !== id ? x : x.driver === s.me
+                ? (ok ? { ...x, driver_ok: true } : { ...x, driver: null, driver_ok: null, declined_by: s.me, eta: null })
+                : (ok ? { ...x, driver2_ok: true } : { ...x, driver2: null, driver2_ok: null, declined_by: s.me })) }));
+    }
     async deleteMessage(id) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
     async postMessage(text, image) {
         const img = image ? `data:${image.type};base64,${image.data}` : null;
@@ -123,6 +130,8 @@ class LocalStore extends Base {
     catch { /* egal */ } this.invites = {}; this.emit(EMPTY); }
 }
 /* ---------- Supabase ---------- */
+// Datenbank ohne die neuen Fahrdienst-Spalten: ohne sie speichern
+const old = (x) => { const { trip: _t, driver2: _d, ...rest } = x; return rest; };
 class SupabaseStore extends Base {
     demo = false;
     sb = supabase;
@@ -229,16 +238,32 @@ class SupabaseStore extends Base {
             // Anderer Fahrer: laufende Fahrt (Ankunftszeit) des bisherigen Fahrers endet
             const was = this.snap.events.find(x => x.id === editId);
             const patch = was && (was.driver ?? null) !== (e.driver ?? null) ? { ...e, eta: null } : e;
-            this.ok(await this.sb.from('events').update(patch).eq('id', editId));
+            let r = await this.sb.from('events').update(patch).eq('id', editId);
+            if (r.error?.code === 'PGRST204')
+                r = await this.sb.from('events').update(old(patch)).eq('id', editId);
+            this.ok(r);
             await this.refresh();
             return editId;
         }
-        const row = this.ok(await this.sb.from('events').insert({ ...e, family_id: this.familyId, owner: this.snap.me }).select('id').single());
+        const ins = (x) => this.sb.from('events').insert({ ...x, family_id: this.familyId, owner: this.snap.me }).select('id').single();
+        let r = await ins(e);
+        if (r.error?.code === 'PGRST204')
+            r = await ins(old(e));
+        const row = this.ok(r);
         await this.refresh();
         return row.id;
     }
     async deleteEvent(id) { this.ok(await this.sb.from('events').delete().eq('id', id)); await this.refresh(); }
-    async setEta(id, eta, driver) { this.ok(await this.sb.from('events').update(driver ? { eta, driver } : { eta }).eq('id', id)); await this.refresh(); }
+    async setEta(id, eta, driver) {
+        const base = driver ? { eta, driver } : { eta };
+        const was = this.snap.events.find(x => x.id === id);
+        // Mit Fahrer und „angekommen“-Zeit; ohne die neuen Spalten (ältere Datenbank) nur die Ankunftszeit
+        const r = await this.sb.from('events').update({ ...base, eta_by: eta ? (driver ?? this.snap.me) : null, ...(eta ? { arrived_at: null } : was?.eta ? { arrived_at: new Date().toISOString() } : {}) }).eq('id', id);
+        if (r.error)
+            this.ok(await this.sb.from('events').update(base).eq('id', id));
+        await this.refresh();
+    }
+    async driverAnswer(id, ok) { this.ok(await this.sb.rpc('driver_answer', { p_event: id, p_ok: ok })); await this.refresh(); }
     async deleteMessage(id) {
         const img = this.snap.messages.find(m => m.id === id)?.image;
         this.ok(await this.sb.from('messages').delete().eq('id', id));

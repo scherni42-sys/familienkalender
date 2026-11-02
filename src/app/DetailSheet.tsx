@@ -3,7 +3,7 @@ import type { Draft } from '../lib/parse';
 import { fail, toast } from './toast';
 import { hm, nowMin, today } from '../lib/dates';
 import { travelTime } from '../lib/ai';
-import { bdLabel, depart, etaMin, nameOf, travel, upcoming, visLabel, whenText } from '../lib/model';
+import { bdLabel, depart, etaDriver, etaMin, isDriver, leg2, nameOf, target, travel, upcoming, visLabel, whenText } from '../lib/model';
 import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -21,7 +21,8 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const [here, setHere] = useState<{ minutes: number; km: number } | null>(null);
   const [busy, setBusy] = useState(false);
   // Fahrer öffnet den Termin am selben Tag: Fahrzeit vom aktuellen Standort automatisch berechnen
-  const auto = !!e && !!e.addr && e.driver === snap.me && !e.all_day && e.date === today() && e.start_min > nowMin() && etaMin(e) === null;
+  const myTarget = e ? (e.driver === snap.me ? target(e) : e.end_min) : 0;
+  const auto = !!e && !!e.addr && isDriver(e, snap.me) && !e.all_day && e.date === today() && myTarget > nowMin() && etaMin(e) === null;
   useEffect(() => {
     if (!auto || !e || !navigator.geolocation) return;
     let live = true; setBusy(true);
@@ -36,11 +37,15 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const tr = travel(e, s), dep = depart(e, s);
   const toDraft = (): Draft => ({
     id: e.id, title: e.title, date: e.date, end_date: e.end_date, all_day: e.all_day, start_min: e.start_min, end_min: e.end_min,
-    persons: [...e.persons], driver: e.driver, vis: e.vis === 'family' ? 'family' : 'private', busy: e.vis === 'busy', place: e.place, addr: e.addr,
+    persons: [...e.persons], driver: e.driver, trip: e.trip, driver2: e.driver2 ?? null, vis: e.vis === 'family' ? 'family' : 'private', busy: e.vis === 'busy', place: e.place, addr: e.addr,
     travel_min: e.travel_min, notes: e.notes, bring: [...e.bring], discreet: e.discreet, reason: '', suggested: e.vis === 'family' ? 'family' : 'private', timeFound: !e.all_day
   });
   const nav = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(e.addr)}`;
-  const iDrive = e.driver === snap.me;
+  const iDrive = isDriver(e, snap.me);
+  const l2 = leg2(e, s);
+  const nm = (id?: string | null) => nameOf(snap.members, id ?? null);
+  const askMe = (e.driver === snap.me && e.driver_ok == null && !!e.driver_by && e.driver_by !== snap.me) || (e.driver2 === snap.me && e.driver2_ok == null && !!e.driver_by && e.driver_by !== snap.me);
+  const okMark = (ok?: boolean | null) => ok ? ' ✓' : ok === null && e.driver_by ? ' (wartet auf Zusage)' : '';
   const eta = etaMin(e);
   // Navigation starten: Google Maps öffnen; fährt man selbst, sieht die Familie „unterwegs“ mit Ankunftszeit
   const startNav = () => {
@@ -68,20 +73,29 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
       <div className="dl">
         <Row k="Wann">{whenText(e)}</Row>
         <Row k="Wer">{e.persons.length ? <><Badges ids={e.persons} members={snap.members} /> {e.persons.map(p => nameOf(snap.members, p)).join(', ')}</> : 'Niemand bestimmtes'}</Row>
-        {e.driver && <Row k="Fahrdienst">{nameOf(snap.members, e.driver)} fährt</Row>}
+        {(e.driver || e.declined_by) && <Row k="Fahrdienst">
+          {e.driver ? <>{nm(e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt hin' : 'fährt'}{okMark(e.driver_ok)}</> : null}
+          {e.trip === 'beides' && e.driver2 ? <><br />{nm(e.driver2)} holt ab{okMark(e.driver2_ok)}</> : null}
+          {e.declined_by && <div className="note">{nm(e.declined_by)} kann nicht fahren{e.driver ? '' : '. Bitte jemand anderen eintragen.'}</div>}
+          {askMe && <div className="nav-row one" style={{ marginTop: 6 }}>
+            <button type="button" className="btn sm" onClick={() => store.driverAnswer(e.id, true).then(() => toast('Danke, die Familie weiß Bescheid.'), fail)}>Okay, mach ich</button>
+            <button type="button" className="btn ghost sm" onClick={() => store.driverAnswer(e.id, false).then(() => toast('Abgesagt. Wer dich eingetragen hat, bekommt Bescheid.'), fail)}>Kann nicht</button>
+          </div>}
+        </Row>}
         {(e.place || e.addr) && <Row k="Ort">{e.place}{e.addr && <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a>}</Row>}
         {tr > 0 && <Row k="Fahrt"><div className="route" style={cvar(snap.members.find(m => m.id === e.driver)?.color ?? '#7a8590')}>
-          {eta !== null ? <div className="rt-times"><span><b>{nameOf(snap.members, e.driver)} fährt</b></span><span>Ankunft ca. <b>{hm(eta)}</b></span></div> : <>
+          {eta !== null ? <div className="rt-times"><span><b>{nm(etaDriver(e))} fährt</b></span><span>Ankunft ca. <b>{hm(eta)}</b></span></div> : <>
           <div className="rt-bar"><span className="rt-drive" style={{ flex: tr }}><Icon name="car" /> {tr} Min.</span>{s.buffer > 0 && <span className="rt-buf" style={{ flex: Math.max(s.buffer, 4) }}>{s.buffer}</span>}</div>
-          <div className="rt-times"><span><b>{hm(dep)}</b> losfahren</span><span><b>{hm(e.start_min)}</b> Beginn</span></div></>}
+          <div className="rt-times"><span><b>{hm(dep)}</b> {e.trip === 'ab' ? 'zum Abholen los' : 'losfahren'}</span><span><b>{hm(target(e))}</b> {e.trip === 'ab' ? 'Ende' : 'Beginn'}</span></div>
+          {l2 && <div className="rt-times"><span><b>{hm(l2.leave)}</b> {nm(l2.who)} zum Abholen los</span><span><b>{hm(l2.at)}</b> Ende</span></div>}</>}
         </div></Row>}
         {e.addr && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">
-          {busy && eta === null ? <span className="note">Fahrzeit vom Standort wird berechnet …</span> : here && eta === null ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}
+          {busy && eta === null ? <span className="note">Fahrzeit vom Standort wird berechnet …</span> : here && eta === null ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km · los spätestens <b>{hm(myTarget - here.minutes - s.buffer)}</b></> : null}
           <div className="nav-row one" style={{ marginTop: (here || busy) && eta === null ? 6 : 0 }}>
             <button type="button" className={`btn sm nav-btn${iDrive && eta !== null ? " nav-on" : ""}`} onClick={startNav}><Icon name="car" /> {iDrive && eta !== null ? 'Navigation läuft' : 'Navigation starten'}</button>
             {iDrive && eta !== null && <button type="button" className="btn ghost sm" onClick={() => store.setEta(e.id, null).catch(fail)}>Angekommen</button>}
           </div>
-          {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nameOf(snap.members, e.driver)} fährt · Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
+          {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nm(etaDriver(e))} fährt · Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}
         {e.notes && <Row k="Notiz">{linkify(e.notes)}</Row>}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>

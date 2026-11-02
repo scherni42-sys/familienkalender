@@ -8,7 +8,7 @@ export function seed(): Snapshot {
   const ago = (min: number) => new Date(Date.now() - min * 60000).toISOString();
   const ev = (id: string, o: Partial<Snapshot['events'][number]>) => ({
     id, owner: 'jan', title: '', date: t, end_date: o.date ?? t, all_day: false, start_min: 0, end_min: 0, persons: [], driver: null,
-    vis: 'family' as const, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, ...o
+    vis: 'family' as const, trip: 'hin' as const, driver2: null, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, ...o
   });
   return {
     family: { id: 'demo', name: 'Familie Beispiel', settings: { ...DEFAULT_SETTINGS, home: 'Beispielweg 7, 24105 Kiel' } },

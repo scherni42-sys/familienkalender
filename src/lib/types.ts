@@ -12,6 +12,8 @@ export interface Member {
   avatar?: string | null;
 }
 
+export type Trip = 'hin' | 'ab' | 'beides';
+
 export interface CalEvent {
   id: string;
   owner: string;
@@ -29,6 +31,14 @@ export interface CalEvent {
   addr: string;
   travel_min: number | null;
   eta?: string | null; // Fahrer ist unterwegs: voraussichtliche Ankunft
+  eta_by?: string | null; // wer gerade fährt (Hinfahrt oder Abholung)
+  arrived_at?: string | null; // „Angekommen“ gemeldet
+  trip?: Trip; // hin: zum Beginn bringen · ab: zum Ende abholen · beides: driver bringt, driver2 holt ab
+  driver2?: string | null;
+  driver_by?: string | null; // wer den Fahrer eingetragen hat
+  driver_ok?: boolean | null; // Fahrer hat zugesagt
+  driver2_ok?: boolean | null;
+  declined_by?: string | null; // wer abgesagt hat („Kann nicht“)
   notes: string;
   bring: string[];
   discreet: boolean;

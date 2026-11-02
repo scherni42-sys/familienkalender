@@ -94,8 +94,24 @@ export function parseLocal(text, me, members) {
         driver = NAMES[m[1]];
     if (/ich (bringe|fahre|hole)/.test(t))
         driver = me;
+    // Abholen zum Ende, Hinbringen zum Beginn, oder beides („bringt … und holt … ab“)
+    let trip;
+    let driver2 = null;
+    const bring = /\b(bring\w*|hinfahr\w*|fährt)\b/.test(t), pick = /\b(abhol\w*|holt\b.*\bab\b|hole\b.*\bab\b)/.test(t);
+    if (pick && bring && /\bund\b/.test(t)) {
+        trip = 'beides';
+        const m2 = t.match(/([\wäöüß]+)\s+holt/);
+        driver2 = m2 && NAMES[m2[1]] ? NAMES[m2[1]] : /ich hole/.test(t) ? me : driver;
+        const m1 = t.match(/([\wäöüß]+)\s+(bringt|fährt)/);
+        if (m1 && NAMES[m1[1]])
+            driver = NAMES[m1[1]];
+    }
+    else if (pick)
+        trip = 'ab';
     if (driver && persons.has(driver) && persons.size > 1 && !/mit allen/.test(t))
         persons.delete(driver);
+    if (driver2 && persons.has(driver2) && persons.size > 1 && !/mit allen/.test(t))
+        persons.delete(driver2);
     if (!persons.size)
         persons.add(me);
     let title = TITLES.find(([re]) => re.test(t))?.[1] ?? '';
@@ -137,7 +153,7 @@ export function parseLocal(text, me, members) {
         end = date;
     return {
         title, date, end_date: allDay ? end : date, all_day: allDay, start_min: allDay ? 0 : s, end_min: allDay ? 1440 : Math.min(s + 60, 1439),
-        persons: [...persons], driver, vis, busy: vis === 'private', place, addr: '', travel_min: null, notes: '', bring: [], discreet,
+        persons: [...persons], driver, ...(trip ? { trip, driver2 } : {}), vis, busy: vis === 'private', place, addr: '', travel_min: null, notes: '', bring: [], discreet,
         reason, suggested: vis, timeFound
     };
 }

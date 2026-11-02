@@ -30,7 +30,16 @@ export function whenText(e: Span) {
 
 // Fahrzeit: aus dem Termin; Abfahrt = Beginn − Fahrzeit − Puffer
 export const travel = (e: CalEvent, s: Settings) => (s.showTravel && e.driver && !e.all_day && e.travel_min ? e.travel_min : 0);
-export const depart = (e: CalEvent, s: Settings) => e.start_min - travel(e, s) - s.buffer;
+// Ziel der (ersten) Fahrt: Beginn beim Hinbringen, Ende beim Abholen
+export const target = (e: CalEvent) => (e.trip === 'ab' ? e.end_min : e.start_min);
+export const depart = (e: CalEvent, s: Settings) => target(e) - travel(e, s) - s.buffer;
+// Zweite Fahrt bei „beides“: driver2 holt zum Ende ab
+export const leg2 = (e: CalEvent, s: Settings) => (e.trip === 'beides' && e.driver2 && s.showTravel && !e.all_day && e.travel_min
+  ? { who: e.driver2, leave: e.end_min - e.travel_min - s.buffer, at: e.end_min } : null);
+// Wer gerade fährt (Ankunftszeit gesetzt)
+export const etaDriver = (e: CalEvent) => e.eta_by ?? e.driver;
+export const isDriver = (e: CalEvent, me: string | null) => !!me && (e.driver === me || e.driver2 === me);
+export const tripWord = (e: CalEvent) => (e.trip === 'ab' ? 'holt ab' : 'bringt');
 
 export function visibleOnDay(events: CalEvent[], busy: BusySlot[], d: string, me: string | null, filter: 'all' | 'family' | 'home') {
   void me;

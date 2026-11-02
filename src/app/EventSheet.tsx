@@ -18,7 +18,9 @@ export const toNewEvent = (d: Draft, bringTxt = d.bring.join(', ')): NewEvent =>
   all_day: d.all_day, start_min: d.all_day ? 0 : d.start_min, end_min: d.all_day ? 1440 : d.end_min,
   persons: d.persons, driver: d.driver, vis: d.vis === 'family' ? 'family' : d.busy ? 'busy' : 'private',
   place: d.place.trim(), addr: d.addr.trim().replace(/^,\s*/, ''), travel_min: d.driver && d.travel_min ? d.travel_min : null,
-  notes: d.notes.trim(), bring: bringTxt.split(',').map(x => x.trim()).filter(Boolean), discreet: d.vis === 'family' && d.discreet
+  notes: d.notes.trim(), bring: bringTxt.split(',').map(x => x.trim()).filter(Boolean), discreet: d.vis === 'family' && d.discreet,
+  // Hin/Abholen nur mitschicken, wenn gewählt (ältere Datenbank ohne diese Spalten bleibt so verwendbar)
+  ...(d.trip ? { trip: d.driver ? d.trip : 'hin', driver2: d.driver && d.trip === 'beides' ? d.driver2 ?? null : null } : {})
 });
 
 export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft; fresh: boolean; close: () => void; back: () => void; saved: (id: string) => void }) {
@@ -63,7 +65,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       // Fahrer und Adresse: Fahrzeit von zu Hause neu berechnen, wenn sie fehlt, der Fahrer wechselt oder die Adresse neu ist (für die Abfahrts-Erinnerung)
       let dd = d;
       const to = d.addr.replace(/^,\s*/, '').trim();
-      if (d.driver && to && (!d.travel_min || d.driver !== draft.driver || to !== draft.addr.replace(/^,\s*/, '').trim()) && !d.all_day && s.home) {
+      if (d.driver && to && (!d.travel_min || d.driver !== draft.driver || (d.driver2 ?? null) !== (draft.driver2 ?? null) || to !== draft.addr.replace(/^,\s*/, '').trim()) && !d.all_day && s.home) {
         const r = await Promise.race([travelTime(s.home, to), new Promise<null>(res => setTimeout(() => res(null), 8000))]).catch(() => null);
         if (r) dd = { ...d, travel_min: r.minutes };
       }
@@ -112,12 +114,22 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
           onClick={() => set({ persons: d.persons.includes(m.id) ? d.persons.filter(x => x !== m.id) : [...d.persons, m.id] })}><Badge m={m} />{m.name}</button>)}</div>
         {d.persons.length === 0 && <span className="note">Niemand ausgewählt: Der Termin steht ohne Namen im Kalender, z. B. für Handwerker oder Müllabfuhr.</span>}
       </div>
-      <label className="field"><span>Wer fährt?</span>
+      <label className="field"><span>{d.trip === 'beides' ? 'Wer bringt hin?' : d.trip === 'ab' ? 'Wer holt ab?' : 'Wer fährt?'}</span>
         <select value={d.driver ?? ''} onChange={e => set({ driver: e.target.value || null })}>
           <option value="">Niemand nötig</option>
           {drivers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </label>
+      {d.driver && <div className="field"><span>Fahrt</span>
+        <div className="seg trip">{([['hin', 'Hinbringen'], ['ab', 'Abholen'], ['beides', 'Beides']] as const).map(([k, l]) =>
+          <button key={k} type="button" aria-pressed={(d.trip ?? 'hin') === k} onClick={() => set({ trip: k, driver2: k === 'beides' ? d.driver2 ?? d.driver : null })}>{l}</button>)}</div>
+      </div>}
+      {d.driver && d.trip === 'beides' && <label className="field"><span>Wer holt ab?</span>
+        <select value={d.driver2 ?? ''} onChange={e => set({ driver2: e.target.value || null })}>
+          <option value="">Niemand nötig</option>
+          {drivers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      </label>}
       <label className="field"><span>Name des Ortes</span><input value={d.place} onChange={e => { set({ place: e.target.value }); setTyped(true); }} placeholder="z. B. Mediamarkt Kiel Citti-Park" autoComplete="off" /></label>
       {(hits || looking) && <div className="place-hits">
         {looking === 'osm' && !hits && <div className="note">Suche …</div>}
@@ -137,7 +149,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
               onClick={() => { if (!s.home) { toast('Bitte zuerst unter Einstellungen → Allgemein die Zuhause-Adresse eintragen.'); return; } setCalc(true);
                 travelTime(s.home, d.addr.replace(/^,\s*/, '')).then(r => { set({ travel_min: r.minutes }); toast(`${r.minutes} Min. Fahrt (${String(r.km).replace('.', ',')} km) von zu Hause.`); }, fail).finally(() => setCalc(false)); }}>
               {calc ? 'Rechne …' : 'Fahrzeit berechnen'}</button>}<br />
-            {d.travel_min ? <>Los um <b>{hm(d.start_min - d.travel_min - s.buffer)}</b>{s.buffer ? ` (mit ${s.buffer} Min. Puffer)` : ''}</> : 'Mit Fahrzeit zeigt die App, wann es losgeht.'}</div>
+            {d.travel_min ? <>{d.trip === 'ab' ? 'Zum Abholen los um' : 'Los um'} <b>{hm((d.trip === 'ab' ? d.end_min : d.start_min) - d.travel_min - s.buffer)}</b>{d.trip === 'beides' && d.driver2 ? <>, zum Abholen um <b>{hm(d.end_min - d.travel_min - s.buffer)}</b></> : null}{s.buffer ? ` (mit ${s.buffer} Min. Puffer)` : ''}</> : 'Mit Fahrzeit zeigt die App, wann es losgeht.'}</div>
         </div>
       )}
       <label className="field"><span>Mitbringen (mit Komma trennen)</span><input value={bringTxt} onChange={e => setBringTxt(e.target.value)} placeholder="z. B. Trinkflasche, Schienbeinschoner" /></label>

@@ -5,7 +5,7 @@ import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
-import { bdOn, colorOf, depart, etaMin, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
+import { bdOn, colorOf, depart, etaDriver, etaMin, leg2, nameOf, target, travel, upcoming, visibleOnDay } from '../lib/model';
 import type { Draft } from '../lib/parse';
 import { Badge, Badges, cvar, Icon } from './ui';
 import { fail, toast, useToast } from './toast';
@@ -143,7 +143,9 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
     : <span className="vis-tag private"><Icon name="lock" /> Privat</span>;
   const tr = travel(e, s), dep = depart(e, s);
   const soon = tr && isToday && dep > now && dep - now <= 30;
-  const eta = e.driver ? etaMin(e) : null;
+  const eta = e.driver || e.driver2 ? etaMin(e) : null;
+  const l2 = leg2(e, s);
+  const soon2 = !!l2 && isToday && l2.leave > now && l2.leave - now <= 30;
   // Lange drücken: Papierkorb erscheint, ein Tipp darauf löscht sofort
   const [armed, setArmed] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -171,14 +173,17 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
         <div className="meta">
           {e.persons.length > 0 && <Badges ids={e.persons} members={snap.members} />}
           {tag}
-          {e.driver && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} fährt</span>}
+          {e.driver && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}</span>}
+          {e.trip === 'beides' && e.driver2 && <span><Icon name="car" /> {nameOf(snap.members, e.driver2)} holt ab</span>}
           {e.place && <span className="pl">{e.place}</span>}
         </div>
         {eta !== null ? (
-          <div className="go"><Icon name="car" /><b>{nameOf(snap.members, e.driver)} fährt · Ankunft ca. {hm(eta)}</b></div>
-        ) : tr > 0 && !(isToday && e.start_min <= now) && (
-          <div className={`go${soon ? ' soon' : ''}`}><Icon name="car" /><b>{soon ? `In ${dep - now} Min. losfahren` : `Los um ${hm(dep)}`}</b><span>ca. {tr} Min. Fahrt{s.buffer ? ` + ${s.buffer} Min. Puffer` : ''}</span></div>
-        )}
+          <div className="go"><Icon name="car" /><b>{nameOf(snap.members, etaDriver(e))} fährt · Ankunft ca. {hm(eta)}</b></div>
+        ) : tr > 0 && !(isToday && target(e) <= now) ? (
+          <div className={`go${soon ? ' soon' : ''}`}><Icon name="car" /><b>{soon ? `In ${dep - now} Min. ${e.trip === 'ab' ? 'zum Abholen ' : ''}losfahren` : `${e.trip === 'ab' ? 'Zum Abholen los' : 'Los'} um ${hm(dep)}`}</b><span>ca. {tr} Min. Fahrt{s.buffer ? ` + ${s.buffer} Min. Puffer` : ''}</span></div>
+        ) : l2 && !(isToday && l2.at <= now) ? (
+          <div className={`go${soon2 ? ' soon' : ''}`}><Icon name="car" /><b>{nameOf(snap.members, l2.who)}: {soon2 ? `in ${l2.leave - now} Min. zum Abholen los` : `zum Abholen los um ${hm(l2.leave)}`}</b><span>ca. {tr} Min. Fahrt</span></div>
+        ) : null}
       </div>
     </div>
   );

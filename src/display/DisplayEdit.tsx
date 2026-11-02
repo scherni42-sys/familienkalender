@@ -10,7 +10,7 @@ import { joinAddr, splitAddr } from '../app/EventSheet';
 export function DisplayEdit({ token, feed, ev, close, saved }: { token: string; feed: DisplayFeed; ev: CalEvent; close: () => void; saved: (msg: string) => void }) {
   const people = feed.members.filter(m => m.role !== 'guest');
   const [who, setWho] = useState<string | null>(null);
-  const [d, setD] = useState({ title: ev.title, date: ev.date, all_day: ev.all_day, start: hm(ev.start_min), end: hm(ev.end_min), persons: [...ev.persons], driver: ev.driver ?? '', place: ev.place, addr: ev.addr, notes: ev.notes });
+  const [d, setD] = useState({ title: ev.title, date: ev.date, all_day: ev.all_day, start: hm(ev.start_min), end: hm(ev.end_min), persons: [...ev.persons], driver: ev.driver ?? '', trip: ev.trip ?? 'hin', driver2: ev.driver2 ?? '', place: ev.place, addr: ev.addr, notes: ev.notes });
   const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [del, setDel] = useState(false);
   const set = (p: Partial<typeof d>) => setD(x => ({ ...x, ...p }));
   const [street, town] = splitAddr(d.addr);
@@ -27,7 +27,7 @@ export function DisplayEdit({ token, feed, ev, close, saved }: { token: string; 
     const addr = d.addr.replace(/^,\s*/, '').trim();
     void run(() => store.displayUpdateEvent(token, who!, ev.id, {
       title: d.title.trim(), date: d.date, end_date: ev.end_date > d.date && ev.date === d.date ? ev.end_date : d.date, all_day: d.all_day,
-      start_min: d.all_day ? 0 : s, end_min: d.all_day ? 1440 : e, persons: d.persons, driver: d.driver || null,
+      start_min: d.all_day ? 0 : s, end_min: d.all_day ? 1440 : e, persons: d.persons, driver: d.driver || null, ...(ev.trip !== undefined ? { trip: d.driver ? d.trip : 'hin', driver2: d.driver && d.trip === 'beides' ? d.driver2 || null : null } : {}),
       place: d.place.trim(), addr, travel_min: addr === ev.addr ? ev.travel_min : null, notes: d.notes.trim()
     }), `Gespeichert: ${d.title.trim()}`);
   };
@@ -52,8 +52,12 @@ export function DisplayEdit({ token, feed, ev, close, saved }: { token: string; 
         <div className="w-in-lbl">Wer ist dabei?</div>
         <div className="w-tog">{people.map(m => <button key={m.id} type="button" style={cvar(m.color)} aria-pressed={d.persons.includes(m.id)}
           onClick={() => set({ persons: d.persons.includes(m.id) ? d.persons.filter(x => x !== m.id) : [...d.persons, m.id] })}>{m.name}</button>)}</div>
-        <label className="w-f"><span>Wer fährt?</span><select value={d.driver} onChange={e => set({ driver: e.target.value })}>
+        <label className="w-f"><span>{d.trip === 'ab' ? 'Wer holt ab?' : d.trip === 'beides' ? 'Wer bringt hin?' : 'Wer fährt?'}</span><select value={d.driver} onChange={e => set({ driver: e.target.value })}>
           <option value="">Niemand nötig</option>{people.filter(m => m.role !== 'child').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+        {d.driver && ev.trip !== undefined && <div className="w-tog">{([['hin', 'Hinbringen'], ['ab', 'Abholen'], ['beides', 'Beides']] as const).map(([k, l]) =>
+          <button key={k} type="button" aria-pressed={d.trip === k} onClick={() => set({ trip: k, driver2: k === 'beides' ? d.driver2 || d.driver : '' })}>{l}</button>)}</div>}
+        {d.driver && d.trip === 'beides' && <label className="w-f"><span>Wer holt ab?</span><select value={d.driver2} onChange={e => set({ driver2: e.target.value })}>
+          <option value="">Niemand nötig</option>{people.filter(m => m.role !== 'child').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>}
         <label className="w-f"><span>Name des Ortes</span><input value={d.place} onChange={e => set({ place: e.target.value })} /></label>
         <div className="w-f2">
           <label className="w-f"><span>Straße und Hausnummer</span><input value={street} onChange={e => set({ addr: joinAddr(e.target.value, town) })} /></label>

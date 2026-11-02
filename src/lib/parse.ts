@@ -1,4 +1,4 @@
-import type { Member, Vis } from './types';
+import type { Member, Trip, Vis } from './types';
 import { addDays, diffDays, fromIso, iso, MON, today, WD } from './dates';
 
 export interface Draft {
@@ -13,6 +13,8 @@ export interface Draft {
   end_min: number;
   persons: string[];
   driver: string | null;
+  trip?: Trip;
+  driver2?: string | null;
   vis: Exclude<Vis, 'busy'>;
   busy: boolean;
   place: string;
@@ -88,7 +90,19 @@ export function parseLocal(text: string, me: string, members: Pick<Member, 'id' 
   m = t.match(/([\wäöüß]+)\s+(fährt|bringt|holt)/);
   if (m && NAMES[m[1]]) driver = NAMES[m[1]];
   if (/ich (bringe|fahre|hole)/.test(t)) driver = me;
+  // Abholen zum Ende, Hinbringen zum Beginn, oder beides („bringt … und holt … ab“)
+  let trip: Trip | undefined;
+  let driver2: string | null = null;
+  const bring = /\b(bring\w*|hinfahr\w*|fährt)\b/.test(t), pick = /\b(abhol\w*|holt\b.*\bab\b|hole\b.*\bab\b)/.test(t);
+  if (pick && bring && /\bund\b/.test(t)) {
+    trip = 'beides';
+    const m2 = t.match(/([\wäöüß]+)\s+holt/);
+    driver2 = m2 && NAMES[m2[1]] ? NAMES[m2[1]] : /ich hole/.test(t) ? me : driver;
+    const m1 = t.match(/([\wäöüß]+)\s+(bringt|fährt)/);
+    if (m1 && NAMES[m1[1]]) driver = NAMES[m1[1]];
+  } else if (pick) trip = 'ab';
   if (driver && persons.has(driver) && persons.size > 1 && !/mit allen/.test(t)) persons.delete(driver);
+  if (driver2 && persons.has(driver2) && persons.size > 1 && !/mit allen/.test(t)) persons.delete(driver2);
   if (!persons.size) persons.add(me);
 
   let title = TITLES.find(([re]) => re.test(t))?.[1] ?? '';
@@ -119,7 +133,7 @@ export function parseLocal(text: string, me: string, members: Pick<Member, 'id' 
   if (diffDays(date, end) < 0) end = date;
   return {
     title, date, end_date: allDay ? end : date, all_day: allDay, start_min: allDay ? 0 : s, end_min: allDay ? 1440 : Math.min(s + 60, 1439),
-    persons: [...persons], driver, vis, busy: vis === 'private', place, addr: '', travel_min: null, notes: '', bring: [], discreet,
+    persons: [...persons], driver, ...(trip ? { trip, driver2 } : {}), vis, busy: vis === 'private', place, addr: '', travel_min: null, notes: '', bring: [], discreet,
     reason, suggested: vis, timeFound
   };
 }

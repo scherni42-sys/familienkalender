@@ -4,7 +4,7 @@ import './display.css';
 import { store } from '../lib/store';
 import type { CalEvent, DisplayFeed, Member } from '../lib/types';
 import { addDays, fromIso, hm, inDays, isoWeek, longDate, mondayOf, MON, nowMin, today, WD, WDS } from '../lib/dates';
-import { bdOn, byTime, dayOfN, depart, etaMin, liveMsgs, onDay, travel, upcoming, whenM, whenText } from '../lib/model';
+import { bdOn, byTime, dayOfN, depart, etaDriver, etaMin, leg2, liveMsgs, onDay, target, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
 import { DisplayInput } from './DisplayInput';
 import { DisplayEdit } from './DisplayEdit';
@@ -96,13 +96,18 @@ export function Display({ token }: { token: string }) {
       const past = e.end_min <= now;
       if (!past && !placed) { out.push(<div key="now" className="nowline">Jetzt {eink ? '' : hm(now)}</div>); placed = true; }
       const eta = etaMin(e);
-      if (eta !== null && e.start_min + 30 > now) {
-        out.push(<div key={`go${e.id}`} className="w-go soon" style={cvar(color(e.driver))}><time>{hm(eta)}</time>
-          <div className="w-go-bar" style={{ ['--p' as string]: '100%' }}><Icon name="car" /><span>{nm(e.driver)} fährt · Ankunft</span></div></div>);
-      } else if (travel(e, s) && e.start_min > now) {
+      const l2 = leg2(e, s);
+      if (eta !== null && e.end_min + 30 > now) {
+        out.push(<div key={`go${e.id}`} className="w-go soon" style={cvar(color(etaDriver(e)))}><time>{hm(eta)}</time>
+          <div className="w-go-bar" style={{ ['--p' as string]: '100%' }}><Icon name="car" /><span>{nm(etaDriver(e))} fährt · Ankunft</span></div></div>);
+      } else if (l2 && e.start_min <= now && l2.at > now) {
+        const gone = l2.leave <= now;
+        out.push(<div key={`go2${e.id}`} className={`w-go${gone ? ' gone' : l2.leave - now <= 30 ? ' soon' : ''}`} style={cvar(color(l2.who))}><time>{hm(l2.leave)}</time>
+          <div className="w-go-bar" style={{ ['--p' as string]: '100%' }}><Icon name="car" /><span>{nm(l2.who)} holt ab · {travel(e, s)} Min.</span></div></div>);
+      } else if (travel(e, s) && target(e) > now) {
         const dep = depart(e, s), gone = dep <= now;
         out.push(<div key={`go${e.id}`} className={`w-go${gone ? ' gone' : dep - now <= 30 ? ' soon' : ''}`} style={cvar(color(e.driver))}><time>{hm(dep)}</time>
-          <div className="w-go-bar" style={{ ['--p' as string]: `${Math.round(100 * travel(e, s) / (travel(e, s) + s.buffer))}%` }}><Icon name="car" /><span>{nm(e.driver)} {gone ? 'ist unterwegs' : 'fährt los'} · {travel(e, s)} Min.</span></div></div>);
+          <div className="w-go-bar" style={{ ['--p' as string]: `${Math.round(100 * travel(e, s) / (travel(e, s) + s.buffer))}%` }}><Icon name="car" /><span>{nm(e.driver)} {gone ? 'ist unterwegs' : e.trip === 'ab' ? 'holt ab' : 'fährt los'} · {travel(e, s)} Min.</span></div></div>);
       }
       out.push(row(e, past, true));
     }
@@ -132,10 +137,10 @@ export function Display({ token }: { token: string }) {
   // Hinweis oben: nächste Abfahrt oder nächster Termin
   let next: ReactNode = <div />;
   const today0 = list(day);
-  const onWay = today0.find(e => etaMin(e) !== null && e.start_min + 30 > now);
+  const onWay = today0.find(e => etaMin(e) !== null && e.end_min + 30 > now);
   const goNext = today0.find(e => etaMin(e) === null && travel(e, s) && depart(e, s) > now && depart(e, s) - now <= 45);
   const nx = today0.find(e => !e.all_day && e.start_min > now);
-  if (onWay) next = <div className="w-next go"><Icon name="car" /><div><strong>{nm(onWay.driver)} fährt:</strong> {onWay.title} · Ankunft ca. {hm(etaMin(onWay)!)}</div></div>;
+  if (onWay) next = <div className="w-next go"><Icon name="car" /><div><strong>{nm(etaDriver(onWay))} fährt:</strong> {onWay.title} · Ankunft ca. {hm(etaMin(onWay)!)}</div></div>;
   else if (goNext) next = <div className="w-next go"><Icon name="car" /><div><strong>{eink ? `Um ${hm(depart(goNext, s))}` : `In ${depart(goNext, s) - now} Min.`} losfahren:</strong> {nm(goNext.driver)} fährt{goNext.persons.length ? ` ${goNext.persons.map(nm).join(', ')}` : ''} · {goNext.title} · {travel(goNext, s)} Min. Fahrt</div></div>;
   else if (nx && nx.start_min - now <= 90) next = <div className="w-next"><Icon name="clock" /><div><strong>{eink ? `Um ${hm(nx.start_min)}` : `In ${nx.start_min - now} Min.`}:</strong> {nx.persons.length ? `${nx.persons.map(nm).join(', ')} · ` : ''}{nx.title}{nx.driver ? <> · <strong>{nm(nx.driver)} fährt</strong></> : null}</div></div>;
 
