@@ -26,6 +26,16 @@
             android:textStyle="bold" />
 
 
+        <!-- Zaubertaste: Claude fragen -->
+        <ImageView
+            android:id="@+id/ask"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="Claude fragen"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ring_ask" />
+
         <!-- Zahnrad: Einstellungen der App -->
         <ImageView
             android:id="@+id/settings"

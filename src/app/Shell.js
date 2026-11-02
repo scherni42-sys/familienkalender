@@ -75,6 +75,8 @@ export function Shell() {
                 newOn(id);
             if (k === 'settings')
                 setTab('settings');
+            if (k === 'ask' && me.role !== 'guest')
+                setSheet({ kind: 'ask' });
             if (k === 'msg') {
                 setTab('board');
                 setFocusMsg(id);

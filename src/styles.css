@@ -336,7 +336,7 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 a.addr { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px; }
 
 /* Zaubertaste: Claude fragen */
-.magic { width: 34px; height: 34px; border-radius: 999px; border: 1.5px solid color-mix(in srgb, #8a5cf6 55%, transparent); background: color-mix(in srgb, #8a5cf6 12%, var(--surface)); font-size: 17px; line-height: 1; display: inline-grid; place-items: center; cursor: pointer; }
+.magic { width: 34px; height: 34px; border-radius: 999px; border: 1.5px solid #f5b800; background: color-mix(in srgb, #ffc83d 22%, var(--surface)); font-size: 17px; line-height: 1; display: inline-grid; place-items: center; cursor: pointer; }
 .ask-in { display: flex; gap: 8px; align-items: stretch; margin: 10px 0; }
 .ask-in textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line, #d0d4d9); background: var(--surface); color: var(--ink); resize: none; }
 .ask-mic { flex: none; width: 48px; padding: 0; display: grid; place-items: center; }
