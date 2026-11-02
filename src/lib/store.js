@@ -70,7 +70,7 @@ class LocalStore extends Base {
         return id;
     }
     async deleteEvent(id) { this.patch(s => ({ events: s.events.filter(x => x.id !== id) })); }
-    async setEta(id, eta) { this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta } : x) })); }
+    async setEta(id, eta, driver) { this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta, ...(driver ? { driver } : {}) } : x) })); }
     async deleteMessage(id) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
     async postMessage(text, image) {
         const img = image ? `data:${image.type};base64,${image.data}` : null;
@@ -234,7 +234,7 @@ class SupabaseStore extends Base {
         return row.id;
     }
     async deleteEvent(id) { this.ok(await this.sb.from('events').delete().eq('id', id)); await this.refresh(); }
-    async setEta(id, eta) { this.ok(await this.sb.from('events').update({ eta }).eq('id', id)); await this.refresh(); }
+    async setEta(id, eta, driver) { this.ok(await this.sb.from('events').update(driver ? { eta, driver } : { eta }).eq('id', id)); await this.refresh(); }
     async deleteMessage(id) {
         const img = this.snap.messages.find(m => m.id === id)?.image;
         this.ok(await this.sb.from('messages').delete().eq('id', id));

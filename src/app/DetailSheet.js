@@ -33,9 +33,12 @@ export function DetailSheet({ id, day, add, close, edit }) {
     // Navigation starten: Google Maps öffnen; fährt man selbst, sieht die Familie „unterwegs“ mit Ankunftszeit
     const startNav = () => {
         window.open(nav, '_blank');
-        if (!iDrive)
+        // Ohne eingetragenen Fahrer wird, wer die Navigation startet, zum Fahrer (Kinder und Gäste nicht)
+        const meM = snap.members.find(m => m.id === snap.me);
+        const takeOver = !e.driver && !!meM && meM.role !== 'child' && meM.role !== 'guest';
+        if (!iDrive && !takeOver)
             return;
-        const set = (min) => store.setEta(e.id, new Date(Date.now() + min * 60000).toISOString()).catch(() => { });
+        const set = (min) => store.setEta(e.id, new Date(Date.now() + min * 60000).toISOString(), takeOver ? snap.me : undefined).catch(() => { });
         if (here) {
             void set(here.minutes);
             return;

@@ -21,7 +21,7 @@ export interface Store {
   reclaim(code: string): Promise<void>;
   loadExample(): Promise<void>;
   saveEvent(e: NewEvent, editId?: string): Promise<string>;
-  setEta(id: string, eta: string | null): Promise<void>;
+  setEta(id: string, eta: string | null, driver?: string | null): Promise<void>;
   deleteEvent(id: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
   postMessage(text: string, image?: { type: string; data: string }): Promise<void>;
@@ -103,7 +103,7 @@ class LocalStore extends Base implements Store {
     return id;
   }
   async deleteEvent(id: string) { this.patch(s => ({ events: s.events.filter(x => x.id !== id) })); }
-  async setEta(id: string, eta: string | null) { this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta } : x) })); }
+  async setEta(id: string, eta: string | null, driver?: string | null) { this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta, ...(driver ? { driver } : {}) } : x) })); }
   async deleteMessage(id: string) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
   async postMessage(text: string, image?: { type: string; data: string }) {
     const img = image ? `data:${image.type};base64,${image.data}` : null;
@@ -244,7 +244,7 @@ class SupabaseStore extends Base implements Store {
     return row.id;
   }
   async deleteEvent(id: string) { this.ok(await this.sb.from('events').delete().eq('id', id)); await this.refresh(); }
-  async setEta(id: string, eta: string | null) { this.ok(await this.sb.from('events').update({ eta }).eq('id', id)); await this.refresh(); }
+  async setEta(id: string, eta: string | null, driver?: string | null) { this.ok(await this.sb.from('events').update(driver ? { eta, driver } : { eta }).eq('id', id)); await this.refresh(); }
   async deleteMessage(id: string) {
     const img = this.snap.messages.find(m => m.id === id)?.image;
     this.ok(await this.sb.from('messages').delete().eq('id', id));
