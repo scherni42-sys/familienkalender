@@ -101,7 +101,8 @@ object Reminders {
                         prefs.edit().putLong("etachk:$key", System.currentTimeMillis()).apply()
                         Away.here(ctx)?.let { loc ->
                             val m = Away.minutes(ctx, loc, addr)
-                            if (m != null) Feed.eta(ctx, u.e.optString("id"), java.time.OffsetDateTime.now().plusMinutes(m.toLong()).toString())
+                            // Am Ziel (höchstens 2 Min. entfernt): automatisch „Angekommen“
+                            if (m != null) Feed.eta(ctx, u.e.optString("id"), if (m <= 2) null else java.time.OffsetDateTime.now().plusMinutes(m.toLong()).toString())
                         }
                     }
                     val again = now.plusMinutes(10)
