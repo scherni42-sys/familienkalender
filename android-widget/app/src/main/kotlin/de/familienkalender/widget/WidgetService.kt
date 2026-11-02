@@ -33,9 +33,8 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         }
         if (err != null) rows = listOf(Row(Kind.NOTE, err)) + rows
 
-        // Zeitstempel im Kopf zeigt, wie aktuell die Anzeige ist
-        val at = Feed.loadedAt(ctx)
-        val stamp = (if (at > 0) SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(at)) + " · " else "") + "v${BuildConfig.VERSION_CODE}"
+        // Im Aktualisieren-Knopf steht klein die Versionsnummer
+        val stamp = "${BuildConfig.VERSION_CODE}"
         val mgr = AppWidgetManager.getInstance(ctx)
         val head = RemoteViews(ctx.packageName, R.layout.widget)
         head.setTextViewText(R.id.stamp, stamp)
