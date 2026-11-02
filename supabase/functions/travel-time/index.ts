@@ -29,7 +29,19 @@ Deno.serve(async req => {
     const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
     if (!u?.user) return json({ error: 'nicht angemeldet' }, 401);
 
-    const { from, to } = await req.json();
+    const body = await req.json();
+    // Adresse zu einem Ortsnamen suchen, z. B. „Mediamarkt Kiel Citti-Park“
+    if (body.find) {
+      const u = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&countrycodes=de,at,ch,dk,nl&q=${encodeURIComponent(String(body.find).slice(0, 200))}`;
+      const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept-Language': 'de' } });
+      const a = r.ok ? (await r.json())?.[0]?.address : null;
+      if (!a) return json({ error: 'Keine Adresse gefunden' }, 404);
+      const street = [a.road ?? a.pedestrian ?? a.footway ?? '', a.house_number ?? ''].join(' ').trim();
+      const town = [a.postcode ?? '', a.city ?? a.town ?? a.village ?? a.municipality ?? ''].join(' ').trim();
+      if (!street && !town) return json({ error: 'Keine Adresse gefunden' }, 404);
+      return json({ addr: [street, town].filter(Boolean).join(', ') });
+    }
+    const { from, to } = body;
     if (!from || !to) return json({ error: 'Zuhause-Adresse oder Ziel fehlt' }, 400);
     const a = await geocode(String(from).slice(0, 200));
     if (!/^\s*-?\d{1,2}\.\d+\s*,/.test(String(from))) await new Promise(r => setTimeout(r, 1100)); // Nominatim: höchstens eine Anfrage pro Sekunde

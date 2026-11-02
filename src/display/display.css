@@ -281,3 +281,25 @@ body:has(.wys.full) { overflow: hidden; }
 .wys.tall .w-in .w-btn { font-size: 3.4cqw; padding: 2.2cqw 4.4cqw; }
 .wys.tall .w-in-err { font-size: 3cqw; }
 .wys.tall .w-toast { font-size: 3.4cqw; padding: 2cqw 4cqw; bottom: 22cqw; }
+/* Termin am Touch-Display bearbeiten */
+.w-card-btns { display: flex; gap: 1.2cqw; justify-content: flex-end; }
+.w-card .w-card-btns button { justify-self: auto; }
+.wys .w-card button.w-edit-btn { background: #1d8657; color: #fff; border-color: #1d8657; }
+.w-edit { max-height: 94dvh; gap: .9cqw; }
+.w-f { display: grid; gap: .4cqw; font-size: 1.5cqw; min-width: 0; }
+.w-f > span { color: var(--screen-muted); font-weight: 700; font-size: 1.2cqw; }
+.w-f input, .w-f select, .w-f textarea { font: inherit; font-size: 1.6cqw; padding: .8cqw 1cqw; border-radius: .8cqw; border: .15cqw solid var(--screen-line); background: var(--screen); color: var(--screen-ink); min-width: 0; }
+.w-f textarea { min-height: 6cqw; }
+.w-f.chk { display: flex; align-items: center; gap: .8cqw; align-self: end; padding-bottom: .8cqw; }
+.w-f.chk input { width: 2.2cqw; height: 2.2cqw; }
+.w-f.chk span { font-size: 1.5cqw; color: var(--screen-ink); }
+.w-f2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2cqw; }
+.w-tog { display: flex; flex-wrap: wrap; gap: .8cqw; }
+.w-tog button { font: inherit; font-size: 1.5cqw; padding: .6cqw 1.6cqw; border-radius: 99px; border: .2cqw solid var(--c); background: transparent; color: var(--screen-ink); cursor: pointer; }
+.wys .w-card .w-tog button[aria-pressed="true"] { background: var(--c); color: #fff; font-weight: 700; }
+.w-in .w-btn.danger { background: #c0392b; }
+.w-in .w-btn.danger-t { color: #e06d5f; border-color: #e06d5f; }
+.wys.tall .w-f, .wys.tall .w-f input, .wys.tall .w-f select, .wys.tall .w-f textarea, .wys.tall .w-tog button, .wys.tall .w-f.chk span { font-size: 3.4cqw; }
+.wys.tall .w-f > span { font-size: 2.6cqw; }
+.wys.tall .w-f.chk input { width: 4.4cqw; height: 4.4cqw; }
+.wys.tall .w-card-btns button { font-size: 3.4cqw; padding: 1.6cqw 3.6cqw; }

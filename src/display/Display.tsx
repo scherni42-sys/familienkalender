@@ -7,6 +7,7 @@ import { addDays, fromIso, hm, inDays, isoWeek, longDate, mondayOf, MON, nowMin,
 import { bdOn, byTime, dayOfN, depart, liveMsgs, onDay, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
 import { DisplayInput } from './DisplayInput';
+import { DisplayEdit } from './DisplayEdit';
 
 type Variant = 'bigme' | 'qm' | 'color' | 'eink' | 'mini' | 'hoch';
 const variant = (): Variant => {
@@ -29,6 +30,7 @@ export function Display({ token }: { token: string }) {
   const [detail, setDetail] = useState<CalEvent | null>(null);
   const [bdOpen, setBdOpen] = useState(false);
   const [input, setInput] = useState<'event' | 'board' | null>(null);
+  const [editing, setEditing] = useState<CalEvent | null>(null);
   const [note, setNote] = useState('');
   // Pinnwand zeigt so viele Nachrichten, wie in die Spalte passen; der Rest wird als „+N weitere“ gezählt
   const [fitN, setFitN] = useState(99);
@@ -180,11 +182,14 @@ export function Display({ token }: { token: string }) {
         <div className="r"><span>Wann</span><div>{whenText(detail)}</div></div>
         {detail.persons.length > 0 && <div className="r"><span>Wer</span><div><span className="wb">{detail.persons.map(sb)}</span> {detail.persons.map(nm).join(', ')}</div></div>}
         {detail.driver && <div className="r"><span>Fahrdienst</span><div>{nm(detail.driver)} fährt{travel(detail, s) ? ` · los um ${hm(depart(detail, s))}` : ''}</div></div>}
-        {detail.place && <div className="r"><span>Ort</span><div>{detail.place}</div></div>}
+        {(detail.place || detail.addr) && <div className="r"><span>Ort</span><div>{detail.place}{detail.place && detail.addr ? <br /> : null}{detail.addr && <small style={{ color: 'var(--screen-muted)' }}>{detail.addr}</small>}</div></div>}
         {detail.bring.length > 0 && <div className="r"><span>Mitbringen</span><div>{detail.bring.join(', ')}</div></div>}
         {detail.notes && <div className="r"><span>Notiz</span><div>{detail.notes}</div></div>}
-        <button type="button" onClick={() => setDetail(null)}>Schließen</button>
+        <div className="w-card-btns">{feed.touch && <button type="button" className="w-edit-btn" onClick={() => { setEditing(detail); setDetail(null); }}>Bearbeiten</button>}
+          <button type="button" onClick={() => setDetail(null)}>Schließen</button></div>
       </div></div>}
+      {editing && <DisplayEdit token={token} feed={feed} ev={editing} close={() => setEditing(null)}
+        saved={m => { setEditing(null); setNote(m); setTimeout(() => setNote(''), 4000); void store.displayFeed(token).then(f => setFeed(f)); }} />}
       {bdOpen && <div className="w-ov" onClick={e => { if (e.target === e.currentTarget) setBdOpen(false); }}><div className="w-card" style={cvar('#c9640f')} role="dialog" aria-label="Nächste Geburtstage">
         <h4>Nächste Geburtstage</h4>
         <div className="bdl">{upcoming(feed.birthdays).slice(0, 5).map(b => <div key={b.id} className={`bdr${b.days <= s.bdLead ? ' soon' : ''}`}><div><b>{b.name}</b><small>{b.day}. {MON[b.month - 1]}{b.age ? ` · wird ${b.age}` : ''}</small></div><span className="dd">{inDays(b.days)}</span></div>)}</div>

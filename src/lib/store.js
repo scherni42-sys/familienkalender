@@ -111,6 +111,8 @@ class LocalStore extends Base {
         this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: member, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: 'Display', image: null, replies: [] }] }));
     }
     async displaySaveEvent(_t, member, ev) { this.patch(s => ({ events: [...s.events, { ...ev, id: uid(), owner: member, vis: 'family' }] })); }
+    async displayUpdateEvent(_t, _m, id, ev) { this.patch(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...ev } : e) })); }
+    async displayDeleteEvent(_t, _m, id) { this.patch(s => ({ events: s.events.filter(e => e.id !== id) })); }
     switchUser(id) { this.patch(() => ({ me: id })); }
     async reclaim(_code) { throw new Error('Im Demo-Modus nicht möglich.'); }
     async reset() { try {
@@ -334,6 +336,8 @@ class SupabaseStore extends Base {
     }
     async displayPost(token, member, text) { this.ok(await this.sb.rpc('display_post', { p_token: token, p_member: member, p_text: text })); }
     async displaySaveEvent(token, member, ev) { this.ok(await this.sb.rpc('display_save_event', { p_token: token, p_member: member, p: ev })); }
+    async displayUpdateEvent(token, member, id, ev) { this.ok(await this.sb.rpc('display_update_event', { p_token: token, p_member: member, p_id: id, p: ev })); }
+    async displayDeleteEvent(token, member, id) { this.ok(await this.sb.rpc('display_delete_event', { p_token: token, p_member: member, p_id: id })); }
     async reset() { await this.sb.auth.signOut(); this.channel?.unsubscribe(); this.channel = null; this.emit(EMPTY); }
 }
 export const store = supabase ? new SupabaseStore() : new LocalStore();

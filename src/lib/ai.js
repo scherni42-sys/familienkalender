@@ -87,3 +87,10 @@ export async function travelTime(from, to) {
     }
     return data;
 }
+// Adresse zu einem Ortsnamen (OpenStreetMap), z. B. „Mediamarkt Kiel Citti-Park“
+export async function findAddress(place) {
+    if (!supabase)
+        return /sportplatz/i.test(place) ? 'Projensdorfer Str. 300, 24106 Kiel' : null;
+    const { data, error } = await supabase.functions.invoke('travel-time', { body: { find: place } });
+    return error ? null : data?.addr ?? null;
+}

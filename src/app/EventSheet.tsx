@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
 import type { NewEvent } from '../lib/types';
@@ -6,7 +6,7 @@ import { dayLabel, hm, toMin } from '../lib/dates';
 import { conflicts, nameOf, whenText } from '../lib/model';
 import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
-import { travelTime } from '../lib/ai';
+import { findAddress, travelTime } from '../lib/ai';
 
 // Adresse in zwei Feldern: „Straße Nr“ und „PLZ Ort“, gespeichert als „Straße Nr, PLZ Ort“ (eindeutig für Route und Fahrzeit)
 export const splitAddr = (a: string): [string, string] => { const k = a.lastIndexOf(','); return k < 0 ? [a, ''] : [a.slice(0, k), a.slice(k + 1).trimStart()]; };
@@ -29,6 +29,18 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
   const [busy, setBusy] = useState(false);
   const [bringTxt, setBringTxt] = useState(draft.bring.join(', '));
   const set = (p: Partial<Draft>) => setD(x => ({ ...x, ...p }));
+  const [looking, setLooking] = useState(false);
+  // Ortsname ohne Adresse: Adresse automatisch suchen und vorbelegen
+  const lookup = (place: string, quiet = false) => {
+    const q = place.trim();
+    if (q.length < 3 || d.addr.replace(/^,\s*/, '').trim()) return;
+    setLooking(true);
+    findAddress(q + (/\d{5}/.test(q) || !s.home ? '' : ` ${splitAddr(s.home)[1]}`)).then(a => a ?? (s.home ? findAddress(q) : null)).then(a => {
+      if (a) { setD(x => x.addr.trim() ? x : { ...x, addr: a }); toast(`Adresse gefunden: ${a}. Bitte kurz prüfen.`); }
+      else if (!quiet) toast('Keine Adresse gefunden. Bitte von Hand eintragen.');
+    }).finally(() => setLooking(false));
+  };
+  useEffect(() => { if (d.place && !d.addr) lookup(d.place, true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const people = snap.members.filter(m => m.role !== 'guest');
   const drivers = snap.members.filter(m => m.adult && m.role !== 'guest');
   const cf = conflicts(snap.events, snap.busy, d, snap.members, d.id);
@@ -100,7 +112,8 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
           {drivers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </label>
-      <label className="field"><span>Name des Ortes</span><input value={d.place} onChange={e => set({ place: e.target.value })} placeholder="z. B. Sportplatz Nord" /></label>
+      <label className="field"><span>Name des Ortes</span><input value={d.place} onChange={e => set({ place: e.target.value })} onBlur={e => lookup(e.target.value, true)} placeholder="z. B. Mediamarkt Kiel Citti-Park" />
+        {looking && <span className="note">Suche Adresse …</span>}</label>
       <div className="row2">
         <label className="field"><span>Straße und Hausnummer</span><input value={splitAddr(d.addr)[0]} onChange={e => set({ addr: joinAddr(e.target.value, splitAddr(d.addr)[1]) })} placeholder="z. B. Projensdorfer Str. 300" autoComplete="street-address" /></label>
         <label className="field"><span>PLZ und Ort</span><input value={splitAddr(d.addr)[1]} onChange={e => set({ addr: joinAddr(splitAddr(d.addr)[0], e.target.value) })} placeholder="z. B. 24106 Kiel" /></label>

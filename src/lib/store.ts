@@ -44,6 +44,8 @@ export interface Store {
   // Eingabe am Display: Person tippt ihren Avatar an, Display-Code erlaubt das Speichern
   displayPost(token: string, member: string, text: string): Promise<void>;
   displaySaveEvent(token: string, member: string, ev: NewEvent): Promise<void>;
+  displayUpdateEvent(token: string, member: string, id: string, ev: Partial<NewEvent>): Promise<void>;
+  displayDeleteEvent(token: string, member: string, id: string): Promise<void>;
   // nur Demo: zwischen den Familienmitgliedern umschalten
   switchUser?(id: string): void;
   reset(): Promise<void>;
@@ -140,6 +142,8 @@ class LocalStore extends Base implements Store {
     this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: member, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: 'Display', image: null, replies: [] }] }));
   }
   async displaySaveEvent(_t: string, member: string, ev: NewEvent) { this.patch(s => ({ events: [...s.events, { ...ev, id: uid(), owner: member, vis: 'family' } as CalEvent] })); }
+  async displayUpdateEvent(_t: string, _m: string, id: string, ev: Partial<NewEvent>) { this.patch(s => ({ events: s.events.map(e => e.id === id ? { ...e, ...ev } : e) })); }
+  async displayDeleteEvent(_t: string, _m: string, id: string) { this.patch(s => ({ events: s.events.filter(e => e.id !== id) })); }
   switchUser(id: string) { this.patch(() => ({ me: id })); }
   async reclaim(_code: string) { throw new Error('Im Demo-Modus nicht möglich.'); }
   async reset() { try { localStorage.removeItem(KEY); } catch { /* egal */ } this.invites = {}; this.emit(EMPTY); }
@@ -326,6 +330,8 @@ class SupabaseStore extends Base implements Store {
   }
   async displayPost(token: string, member: string, text: string) { this.ok(await this.sb.rpc('display_post', { p_token: token, p_member: member, p_text: text })); }
   async displaySaveEvent(token: string, member: string, ev: NewEvent) { this.ok(await this.sb.rpc('display_save_event', { p_token: token, p_member: member, p: ev })); }
+  async displayUpdateEvent(token: string, member: string, id: string, ev: Partial<NewEvent>) { this.ok(await this.sb.rpc('display_update_event', { p_token: token, p_member: member, p_id: id, p: ev })); }
+  async displayDeleteEvent(token: string, member: string, id: string) { this.ok(await this.sb.rpc('display_delete_event', { p_token: token, p_member: member, p_id: id })); }
   async reset() { await this.sb.auth.signOut(); this.channel?.unsubscribe(); this.channel = null; this.emit(EMPTY); }
 }
 
