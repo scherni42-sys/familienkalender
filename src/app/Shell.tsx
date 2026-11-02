@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
 import { native } from '../lib/native';
+import { SUPA } from '../lib/supabase';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
 import { bdOn, colorOf, depart, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
@@ -51,6 +52,13 @@ export function Shell() {
   // Leerer Termin an einem Tag (aus dem Widget oder „Weiterer Termin“ im Termin)
   const newOn = (date: string) => setSheet({ kind: 'edit', fresh: true, draft: { title: '', date, end_date: date, all_day: false, start_min: 600, end_min: 660, persons: [me.id], driver: null, vis: 'family', busy: false, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, reason: '', suggested: 'family', timeFound: true } });
   const saved = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 4000); };
+
+  // iPhone-App: persönlichen Widget-Code einmal an die App geben, damit das Widget die Familiendaten laden kann
+  useEffect(() => {
+    const n = native();
+    if (!n?.setCode || n.code() || store.demo || me.role === 'guest') return;
+    store.widgetToken().then(t => n.setCode!('FK1:' + btoa(JSON.stringify({ u: SUPA.url, k: SUPA.key, t, a: `${location.origin}${location.pathname}` }))), () => {});
+  }, [me.id]);
 
   // Schnellstart: ?mic=1 (Verknüpfung) oder Geräte-Einstellung öffnet beim Start und beim Zurückkehren sofort die Spracheingabe
   useEffect(() => {
