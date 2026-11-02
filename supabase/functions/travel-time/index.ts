@@ -2,6 +2,7 @@
 // Adressen werden über OpenStreetMap (Nominatim) gefunden, die Route über OSRM berechnet. Kein Schlüssel nötig.
 // Nur angemeldete Nutzer dürfen die Funktion verwenden.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import Anthropic from 'npm:@anthropic-ai/sdk';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +22,57 @@ async function geocode(q: string): Promise<[number, number] | null> {
   return a?.[0] ? [Number(a[0].lon), Number(a[0].lat)] : null;
 }
 
+// Vorschläge beim Tippen (Photon, OpenStreetMap), Treffer in der Nähe von zu Hause zuerst
+const near = new Map<string, [number, number] | null>();
+type Hit = { name: string; addr: string };
+const fmt = (p: Record<string, string>) => {
+  const street = [p.street ?? '', p.housenumber ?? ''].join(' ').trim();
+  const town = [p.postcode ?? '', p.city ?? p.town ?? p.village ?? p.district ?? ''].join(' ').trim();
+  return [street, town].filter(Boolean).join(', ');
+};
+async function suggest(q: string, home?: string): Promise<Hit[]> {
+  let bias = '';
+  if (home) {
+    if (!near.has(home)) {
+      const h = await fetch(`https://photon.komoot.io/api/?limit=1&lang=de&q=${encodeURIComponent(home)}`, { headers: { 'User-Agent': UA } }).then(r => r.json()).catch(() => null);
+      const c = h?.features?.[0]?.geometry?.coordinates;
+      near.set(home, c ? [c[0], c[1]] : null);
+    }
+    const c = near.get(home);
+    if (c) bias = `&lon=${c[0]}&lat=${c[1]}&location_bias_scale=0.5`;
+  }
+  const r = await fetch(`https://photon.komoot.io/api/?limit=6&lang=de&q=${encodeURIComponent(q)}${bias}`, { headers: { 'User-Agent': UA } });
+  if (!r.ok) return [];
+  const j = await r.json();
+  const out: Hit[] = [];
+  for (const f of j?.features ?? []) {
+    const p = f.properties ?? {};
+    if (!['DE', 'AT', 'CH', 'DK', 'NL'].includes(p.countrycode)) continue;
+    const addr = fmt(p);
+    if (!addr || !p.street) continue;
+    const name = p.name && p.name !== p.street ? p.name : '';
+    if (!out.some(o => o.addr === addr && o.name === name)) out.push({ name, addr });
+  }
+  return out.slice(0, 5);
+}
+
+// Nichts in OpenStreetMap: im Internet suchen lassen (z. B. Arztpraxen)
+async function webFind(q: string, home?: string): Promise<Hit[]> {
+  const client = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY') });
+  const messages: Anthropic.MessageParam[] = [{ role: 'user', content:
+    `Finde die Postanschrift von: „${q}“${home ? ` (wahrscheinlich in der Nähe von ${home})` : ''}. ` +
+    'Suche im Internet. Antworte am Ende mit genau einer Zeile JSON: {"name": "...", "addr": "Straße Hausnummer, PLZ Ort"} oder {"addr": ""}, wenn du nichts Sicheres findest.' }];
+  for (let i = 0; i < 3; i++) {
+    const m = await client.messages.create({ model: 'claude-sonnet-5-5', max_tokens: 2000, tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 3 }], messages });
+    if (m.stop_reason === 'pause_turn') { messages.push({ role: 'assistant', content: m.content }); continue; }
+    const text = m.content.filter(b => b.type === 'text').map(b => (b as { text: string }).text).join('\n');
+    const js = text.match(/\{[^{}]*"addr"[^{}]*\}/g)?.pop();
+    if (!js) return [];
+    try { const o = JSON.parse(js); return o.addr ? [{ name: String(o.name ?? ''), addr: String(o.addr) }] : []; } catch { return []; }
+  }
+  return [];
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -30,6 +82,8 @@ Deno.serve(async req => {
     if (!u?.user) return json({ error: 'nicht angemeldet' }, 401);
 
     const body = await req.json();
+    if (body.suggest) return json({ hits: await suggest(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined) });
+    if (body.web) return json({ hits: await webFind(String(body.web).slice(0, 160), body.home ? String(body.home).slice(0, 200) : undefined) });
     // Adresse zu einem Ortsnamen suchen, z. B. „Mediamarkt Kiel Citti-Park“
     if (body.find) {
       const u = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=1&countrycodes=de,at,ch,dk,nl&q=${encodeURIComponent(String(body.find).slice(0, 200))}`;

@@ -82,9 +82,11 @@ export async function travelTime(from: string, to: string): Promise<{ minutes: n
   return data;
 }
 
-// Adresse zu einem Ortsnamen (OpenStreetMap), z. B. „Mediamarkt Kiel Citti-Park“
-export async function findAddress(place: string): Promise<string | null> {
-  if (!supabase) return /sportplatz/i.test(place) ? 'Projensdorfer Str. 300, 24106 Kiel' : null;
-  const { data, error } = await supabase.functions.invoke('travel-time', { body: { find: place } });
-  return error ? null : data?.addr ?? null;
+// Ortsvorschläge beim Tippen (OpenStreetMap) und, wenn nichts passt, Suche im Internet
+export type PlaceHit = { name: string; addr: string };
+export async function suggestPlaces(q: string, home: string, web = false): Promise<PlaceHit[]> {
+  if (!supabase) return web ? [{ name: q, addr: 'Holstenstraße 1, 24103 Kiel' }] : /sport/i.test(q) ? [{ name: 'Sportplatz Nord', addr: 'Projensdorfer Str. 300, 24106 Kiel' }, { name: 'Sportplatz Süd', addr: 'Hamburger Chaussee 20, 24113 Kiel' }] : [];
+  const { data, error } = await supabase.functions.invoke('travel-time', { body: web ? { web: q, home } : { suggest: q, home } });
+  if (error) throw new Error('Suche gerade nicht möglich');
+  return data?.hits ?? [];
 }

@@ -311,3 +311,13 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .crop-zoom { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; font-weight: 700; }
 .crop-zoom input { flex: 1; }
 .av-use { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; margin-right: auto; }
+/* Ortsvorschläge beim Termin */
+.place-hits { display: grid; gap: 2px; margin: -6px 0 10px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.place-hits > button { display: flex; gap: 10px; align-items: flex-start; text-align: left; padding: 10px 12px; border: none; background: transparent; color: inherit; font: inherit; cursor: pointer; border-bottom: 1px solid var(--line); }
+.place-hits > button:last-child { border-bottom: none; }
+.place-hits > button:active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.place-hits > button .ico { width: 18px; height: 18px; flex: none; margin-top: 2px; color: var(--accent); }
+.place-hits > button span { display: grid; min-width: 0; }
+.place-hits > button small { color: var(--muted); }
+.place-hits > button.web { color: var(--accent); font-weight: 600; }
+.place-hits > .note { padding: 10px 12px; }

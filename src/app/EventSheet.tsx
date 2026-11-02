@@ -6,7 +6,7 @@ import { dayLabel, hm, toMin } from '../lib/dates';
 import { conflicts, nameOf, whenText } from '../lib/model';
 import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
-import { findAddress, travelTime } from '../lib/ai';
+import { suggestPlaces, travelTime, type PlaceHit } from '../lib/ai';
 
 // Adresse in zwei Feldern: „Straße Nr“ und „PLZ Ort“, gespeichert als „Straße Nr, PLZ Ort“ (eindeutig für Route und Fahrzeit)
 export const splitAddr = (a: string): [string, string] => { const k = a.lastIndexOf(','); return k < 0 ? [a, ''] : [a.slice(0, k), a.slice(k + 1).trimStart()]; };
@@ -29,18 +29,24 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
   const [busy, setBusy] = useState(false);
   const [bringTxt, setBringTxt] = useState(draft.bring.join(', '));
   const set = (p: Partial<Draft>) => setD(x => ({ ...x, ...p }));
-  const [looking, setLooking] = useState(false);
-  // Ortsname ohne Adresse: Adresse automatisch suchen und vorbelegen
-  const lookup = (place: string, quiet = false) => {
-    const q = place.trim();
-    if (q.length < 3 || d.addr.replace(/^,\s*/, '').trim()) return;
-    setLooking(true);
-    findAddress(q + (/\d{5}/.test(q) || !s.home ? '' : ` ${splitAddr(s.home)[1]}`)).then(a => a ?? (s.home ? findAddress(q) : null)).then(a => {
-      if (a) { setD(x => x.addr.trim() ? x : { ...x, addr: a }); toast(`Adresse gefunden: ${a}. Bitte kurz prüfen.`); }
-      else if (!quiet) toast('Keine Adresse gefunden. Bitte von Hand eintragen.');
-    }).finally(() => setLooking(false));
-  };
-  useEffect(() => { if (d.place && !d.addr) lookup(d.place, true); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [hits, setHits] = useState<PlaceHit[] | null>(null);
+  const [looking, setLooking] = useState<'' | 'osm' | 'web'>('');
+  const [typed, setTyped] = useState(false);
+  const hasAddr = !!d.addr.replace(/^,\s*/, '').trim();
+  // Beim Tippen des Ortsnamens Vorschläge mit Adresse zeigen (wie bei Google Maps)
+  useEffect(() => {
+    const q = d.place.trim();
+    if (!typed || q.length < 3) { setHits(null); return; }
+    const t = setTimeout(() => { setLooking('osm'); suggestPlaces(q, s.home).then(setHits, () => setHits([])).finally(() => setLooking('')); }, 500);
+    return () => clearTimeout(t);
+  }, [d.place, typed]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Ort von der KI erkannt, aber keine Adresse: ersten Treffer vorbelegen
+  useEffect(() => {
+    if (!d.place.trim() || hasAddr) return;
+    suggestPlaces(d.place.trim(), s.home).then(h => { if (h[0]) { setD(x => x.addr.trim() ? x : { ...x, addr: h[0].addr }); toast(`Adresse gefunden: ${h[0].addr}. Bitte kurz prüfen.`); } }, () => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (h: PlaceHit) => { set({ addr: h.addr, ...(h.name && h.name.length > d.place.trim().length ? { place: h.name } : {}) }); setTyped(false); setHits(null); };
+  const webSearch = () => { setLooking('web'); suggestPlaces(d.place.trim(), s.home, true).then(h => { setHits(h); if (!h.length) toast('Auch im Internet nichts Eindeutiges gefunden. Bitte von Hand eintragen.'); }, fail).finally(() => setLooking('')); };
   const people = snap.members.filter(m => m.role !== 'guest');
   const drivers = snap.members.filter(m => m.adult && m.role !== 'guest');
   const cf = conflicts(snap.events, snap.busy, d, snap.members, d.id);
@@ -112,8 +118,13 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
           {drivers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </label>
-      <label className="field"><span>Name des Ortes</span><input value={d.place} onChange={e => set({ place: e.target.value })} onBlur={e => lookup(e.target.value, true)} placeholder="z. B. Mediamarkt Kiel Citti-Park" />
-        {looking && <span className="note">Suche Adresse …</span>}</label>
+      <label className="field"><span>Name des Ortes</span><input value={d.place} onChange={e => { set({ place: e.target.value }); setTyped(true); }} placeholder="z. B. Mediamarkt Kiel Citti-Park" autoComplete="off" /></label>
+      {(hits || looking) && <div className="place-hits">
+        {looking === 'osm' && !hits && <div className="note">Suche …</div>}
+        {hits?.map((h, i) => <button key={i} type="button" onClick={() => pick(h)}><Icon name="place" /><span>{h.name && <b>{h.name}</b>}<small>{h.addr}</small></span></button>)}
+        {hits && looking !== 'web' && <button type="button" className="web" onClick={webSearch}><Icon name="search" /><span>{hits.length ? 'Nicht dabei? Im Internet suchen' : 'Nichts gefunden. Im Internet suchen'}</span></button>}
+        {looking === 'web' && <div className="note">Suche im Internet, das dauert ein paar Sekunden …</div>}
+      </div>}
       <div className="row2">
         <label className="field"><span>Straße und Hausnummer</span><input value={splitAddr(d.addr)[0]} onChange={e => set({ addr: joinAddr(e.target.value, splitAddr(d.addr)[1]) })} placeholder="z. B. Projensdorfer Str. 300" autoComplete="street-address" /></label>
         <label className="field"><span>PLZ und Ort</span><input value={splitAddr(d.addr)[1]} onChange={e => set({ addr: joinAddr(splitAddr(d.addr)[0], e.target.value) })} placeholder="z. B. 24106 Kiel" /></label>
