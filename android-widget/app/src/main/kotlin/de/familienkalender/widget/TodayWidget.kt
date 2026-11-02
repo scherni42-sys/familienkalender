@@ -137,8 +137,7 @@ class TodayWidget : AppWidgetProvider() {
         // Home-Knopf nur zeigen, wenn berufliche Kalender übernommen werden; eingeschaltet grün hinterlegt
         private fun homeButton(ctx: Context, v: RemoteViews) {
             v.setViewVisibility(R.id.home, if (CalImport.hasWork(ctx) || Feed.homeMode(ctx) || Geo.enabled(ctx)) android.view.View.VISIBLE else android.view.View.GONE)
-            v.setInt(R.id.home, "setBackgroundResource", if (Feed.homeMode(ctx)) R.drawable.bar_on else 0)
-            v.setTextViewText(R.id.home, if (Feed.homeMode(ctx)) "🏠 Home" else "🏠")
+            v.setImageViewResource(R.id.home, if (Feed.homeMode(ctx)) R.drawable.ring_home_on else R.drawable.ring_home_off)
         }
 
         fun refreshAll(ctx: Context) {

@@ -61,18 +61,14 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <TextView
+        <ImageView
             android:id="@+id/home"
-            android:layout_width="wrap_content"
+            android:layout_width="36dp"
             android:layout_height="36dp"
             android:layout_marginEnd="6dp"
-            android:gravity="center"
-            android:minWidth="40dp"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:text="🏠"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:contentDescription="Home-Modus"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ring_home_off"
             android:visibility="gone" />
 
         <TextView
