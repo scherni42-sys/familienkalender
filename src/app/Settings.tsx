@@ -8,6 +8,7 @@ import { Badge, cvar, Icon, type IconName } from './ui';
 import { fail, toast } from './toast';
 import { micStart, setMicStart } from '../lib/micstart';
 import { SUPA } from '../lib/supabase';
+import { squarePhoto } from '../lib/ai';
 import { native } from '../lib/native';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
@@ -67,13 +68,17 @@ export function Settings() {
     <span className="note">Vor dieser Uhrzeit zeigt das Display im Flur nur den heutigen Tag, groß und gut lesbar.</span>
   </>;
   if (sub === 'colors') content = <>
-    <p className="note">Die Farbe erscheint als Balken und zarte Tönung bei allen Terminen der Person, in der App und auf dem Display. {isAdmin ? 'Als Admin kannst du alle Farben ändern.' : 'Du kannst deine eigene Farbe ändern.'}</p>
+    <p className="note">Statt des Buchstabens kann jede Person ein Foto als Avatar haben, die Farbe bleibt als Ring drumherum. Die Farbe erscheint als Balken und zarte Tönung bei allen Terminen der Person, in der App und auf dem Display. {isAdmin ? 'Als Admin kannst du alle Farben ändern.' : 'Du kannst deine eigene Farbe ändern.'}</p>
     {snap.members.map(m => {
       const can = isAdmin || m.id === snap.me;
       const twin = snap.members.filter(o => o.id !== m.id && o.color.toLowerCase() === m.color.toLowerCase()).map(o => o.name);
       return <div key={m.id} className="colrow"><div className="nm"><Badge m={m} /> <b>{m.name}</b>{twin.length > 0 && <span className="note">gleiche Farbe wie {twin.join(', ')}</span>}</div>
         {can && <div className="sw">{SWATCHES.map(([h, l]) => <button key={h} type="button" className={`swb${m.color.toLowerCase() === h ? ' on' : ''}`} style={cvar(h)} aria-label={l} title={l} onClick={() => store.updateMember(m.id, { color: h }).catch(fail)} />)}
           <label className="swb own" title="Eigene Farbe" style={cvar(m.color)}><input type="color" value={m.color} onChange={e => store.updateMember(m.id, { color: e.target.value }).catch(fail)} aria-label={`Eigene Farbe für ${m.name}`} />+</label></div>}
+        {can && <div className="av-row"><Badge m={m} size={44} />
+          <label className="small-btn"><Icon name="camera" /> {m.avatar ? 'Anderes Foto' : 'Foto als Avatar'}
+            <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) squarePhoto(f).then(img => store.setAvatar(m.id, img)).then(() => toast('Avatar gespeichert.'), fail); }} /></label>
+          {m.avatar && <button type="button" className="small-btn danger" onClick={() => store.setAvatar(m.id, null).then(() => toast('Avatar entfernt, wieder der Buchstabe.'), fail)}>Entfernen</button>}</div>}
       </div>;
     })}
   </>;

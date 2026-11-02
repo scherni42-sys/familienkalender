@@ -24,6 +24,7 @@ export interface Store {
   deleteEvent(id: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
   postMessage(text: string, image?: { type: string; data: string }): Promise<void>;
+  setAvatar(id: string, image: { type: string; data: string } | null): Promise<void>;
   reply(id: string, text: string): Promise<void>;
   setMessage(id: string, patch: Partial<Pick<Message, 'pinned' | 'done' | 'taker' | 'text'>>): Promise<void>;
   addMember(m: MemberInput): Promise<string>;
@@ -98,6 +99,9 @@ class LocalStore extends Base implements Store {
   async postMessage(text: string, image?: { type: string; data: string }) {
     const img = image ? `data:${image.type};base64,${image.data}` : null;
     this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me!, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, image: img, replies: [] }] }));
+  }
+  async setAvatar(id: string, image: { type: string; data: string } | null) {
+    this.patch(s => ({ members: s.members.map(m => m.id === id ? { ...m, avatar: image ? `data:${image.type};base64,${image.data}` : null } : m) }));
   }
   async reply(id: string, text: string) {
     this.patch(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, replies: [...m.replies, { id: uid(), from_member: s.me!, text, created_at: new Date().toISOString() }] } : m) }));
@@ -243,6 +247,21 @@ class SupabaseStore extends Base implements Store {
     // Lösen setzt die Uhr neu: die Nachricht bleibt danach noch die eingestellte Zeit stehen
     const p = patch.pinned === false ? { ...patch, created_at: new Date().toISOString() } : patch;
     this.ok(await this.sb.from('messages').update(p).eq('id', id)); await this.refresh();
+  }
+  // Avatar: rundes Foto im Speicher „board“ (Ordner der Familie); eigenes über set_my_avatar, andere als Admin
+  async setAvatar(id: string, image: { type: string; data: string } | null) {
+    const old = this.snap.members.find(m => m.id === id)?.avatar;
+    let path: string | null = null;
+    if (image) {
+      const bytes = Uint8Array.from(atob(image.data), c => c.charCodeAt(0));
+      path = `${this.familyId}/avatar-${crypto.randomUUID()}.jpg`;
+      const up = await this.sb.storage.from('board').upload(path, new Blob([bytes], { type: image.type }), { contentType: image.type });
+      if (up.error) throw new Error('Foto ließ sich nicht hochladen: ' + up.error.message);
+    }
+    if (id === this.snap.me) this.ok(await this.sb.rpc('set_my_avatar', { p_avatar: path }));
+    else this.ok(await this.sb.from('members').update({ avatar: path }).eq('id', id));
+    if (old && !/^(data:|https?:)/.test(old)) await this.sb.storage.from('board').remove([old]);
+    await this.refresh();
   }
   async addMember(m: MemberInput) {
     const row = this.ok(await this.sb.from('members').insert({ ...m, family_id: this.familyId }).select('id').single()) as { id: string };

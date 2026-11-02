@@ -13,6 +13,16 @@ export async function shrinkPhoto(file: File): Promise<{ type: string; data: str
   return { type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.82).split(',')[1] };
 }
 
+// Avatar: Mitte des Fotos quadratisch ausschneiden, 256 × 256
+export async function squarePhoto(file: File): Promise<{ type: string; data: string }> {
+  const bmp = await createImageBitmap(file);
+  const n = Math.min(bmp.width, bmp.height);
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  c.getContext('2d')!.drawImage(bmp, (bmp.width - n) / 2, (bmp.height - n) / 2, n, n, 0, 0, 256, 256);
+  return { type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.85).split(',')[1] };
+}
+
 // KI-Erkennung über die Edge Function „parse-event“ (Text oder Foto); ohne Verbindung die einfache Erkennung auf dem Handy
 export async function parseSpoken(text: string, me: string, members: Member[], image?: { type: string; data: string }): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean }> {
   const local = parseLocal(text, me, members);

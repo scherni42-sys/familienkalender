@@ -9,6 +9,7 @@ export interface Member {
   adult: boolean;
   linked: boolean; // hat ein Handy mit der App verbunden
   app_bg: string | null;
+  avatar?: string | null;
 }
 
 export interface CalEvent {

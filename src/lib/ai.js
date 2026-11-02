@@ -11,6 +11,15 @@ export async function shrinkPhoto(file) {
     c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
     return { type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.82).split(',')[1] };
 }
+// Avatar: Mitte des Fotos quadratisch ausschneiden, 256 × 256
+export async function squarePhoto(file) {
+    const bmp = await createImageBitmap(file);
+    const n = Math.min(bmp.width, bmp.height);
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    c.getContext('2d').drawImage(bmp, (bmp.width - n) / 2, (bmp.height - n) / 2, n, n, 0, 0, 256, 256);
+    return { type: 'image/jpeg', data: c.toDataURL('image/jpeg', 0.85).split(',')[1] };
+}
 // KI-Erkennung über die Edge Function „parse-event“ (Text oder Foto); ohne Verbindung die einfache Erkennung auf dem Handy
 export async function parseSpoken(text, me, members, image) {
     const local = parseLocal(text, me, members);

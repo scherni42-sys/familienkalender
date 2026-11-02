@@ -65,7 +65,8 @@ export function Display({ token }: { token: string }) {
   const hidePast = (e: CalEvent) => s.pastMode === 'hide' && !e.all_day && e.end_min <= now;
   const msgs = liveMsgs(feed.messages, s);
 
-  const sb = (id: string) => <span key={id} className="b" style={cvar(color(id))}>{ini(id)}</span>;
+  const av = (id: string) => members.find(m => m.id === id)?.avatar;
+  const sb = (id: string) => { const a = av(id); return <span key={id} className={`b${a ? ' av' : ''}`} style={cvar(color(id))}>{a ? <img src={boardImg(a)} alt="" /> : ini(id)}</span>; };
   const ad = (e: CalEvent, d: string) => <div key={e.id} className="w-ad" style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}><b>{e.title}</b><span className="lbl">ganztägig{e.end_date > e.date ? ` · ${dayOfN(e, d)}` : ''}</span></div>;
   const row = (e: CalEvent, past: boolean, noGo = false) => (
     <div key={e.id} className={`w-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>

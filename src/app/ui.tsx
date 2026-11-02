@@ -1,3 +1,4 @@
+import { boardImg } from '../lib/supabase';
 import type { CSSProperties, ReactNode } from 'react';
 import type { Member } from '../lib/types';
 import { initial } from '../lib/model';
@@ -33,7 +34,7 @@ export function Icon({ name }: { name: IconName }) {
 export const cvar = (color: string) => ({ '--c': color } as CSSProperties);
 
 export function Badge({ m, size }: { m?: Member; size?: number }) {
-  return <span className="b" title={m?.name} style={{ ...cvar(m?.color ?? '#7a8590'), ...(size ? { width: size, height: size, fontSize: size * .46 } : {}) }}>{initial(m)}</span>;
+  return <span className={`b${m?.avatar ? ' av' : ''}`} title={m?.name} style={{ ...cvar(m?.color ?? '#7a8590'), ...(size ? { width: size, height: size, fontSize: size * .46 } : {}) }}>{m?.avatar ? <img src={boardImg(m.avatar)} alt="" /> : initial(m)}</span>;
 }
 export function Badges({ ids, members }: { ids: string[]; members: Member[] }) {
   return <span className="badges">{ids.map(id => <Badge key={id} m={members.find(x => x.id === id)} />)}</span>;

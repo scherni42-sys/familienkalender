@@ -1,4 +1,5 @@
 import { jsx as _jsx } from "react/jsx-runtime";
+import { boardImg } from '../lib/supabase';
 import { initial } from '../lib/model';
 // Feste SVG-Symbole (aus dem Prototyp übernommen)
 const ICON = {
@@ -27,7 +28,7 @@ export function Icon({ name }) {
 }
 export const cvar = (color) => ({ '--c': color });
 export function Badge({ m, size }) {
-    return _jsx("span", { className: "b", title: m?.name, style: { ...cvar(m?.color ?? '#7a8590'), ...(size ? { width: size, height: size, fontSize: size * .46 } : {}) }, children: initial(m) });
+    return _jsx("span", { className: `b${m?.avatar ? ' av' : ''}`, title: m?.name, style: { ...cvar(m?.color ?? '#7a8590'), ...(size ? { width: size, height: size, fontSize: size * .46 } : {}) }, children: m?.avatar ? _jsx("img", { src: boardImg(m.avatar), alt: "" }) : initial(m) });
 }
 export function Badges({ ids, members }) {
     return _jsx("span", { className: "badges", children: ids.map(id => _jsx(Badge, { m: members.find(x => x.id === id) }, id)) });
