@@ -22,6 +22,7 @@ class AppActivity : Activity() {
         const val EXTRA_MIC = "mic"
         const val DEFAULT_APP = "https://scherni42-sys.github.io/familienkalender/"
         private const val FILES = 7
+        private const val SPEECH = 8
     }
 
     private lateinit var web: WebView
@@ -91,13 +92,24 @@ class AppActivity : Activity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.hasExtra(EXTRA_OPEN) || intent.hasExtra(EXTRA_MIC)) web.loadUrl(target(intent))
+        val mic = intent.getStringExtra(EXTRA_MIC)
+        // App schon offen: Eingabefenster per Ereignis öffnen statt die Seite neu zu laden
+        if (mic != null && !intent.hasExtra(EXTRA_OPEN) && web.url != null) {
+            web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-mic',{detail:" + org.json.JSONObject.quote(mic) + "}))", null)
+            return
+        }
+        if (intent.hasExtra(EXTRA_OPEN) || mic != null) web.loadUrl(target(intent))
     }
 
     override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); web.saveState(out) }
 
     @Deprecated("Activity API")
     override fun onActivityResult(code: Int, result: Int, data: Intent?) {
+        if (code == SPEECH) {
+            val text = if (result == RESULT_OK) data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() ?: "" else ""
+            web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-speech',{detail:" + org.json.JSONObject.quote(text) + "}))", null)
+            return
+        }
         if (code == FILES) {
             val cam = shot
             shot = null
@@ -130,6 +142,19 @@ class AppActivity : Activity() {
                 val i = Intent(this@AppActivity, QuickActivity::class.java)
                 if (mode.isNotEmpty()) i.putExtra(QuickActivity.EXTRA_MODE, mode)
                 startActivity(i)
+            }
+        }
+        // Spracheingabe im Eingabefenster: Spracherkennung des Handys, Ergebnis kommt als Ereignis „famto-speech“ zurück
+        @JavascriptInterface fun listen() {
+            runOnUiThread {
+                val i = Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
+                    .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Termin oder Nachricht sprechen")
+                try { @Suppress("DEPRECATION") startActivityForResult(i, SPEECH) } catch (e: Exception) {
+                    web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-speech',{detail:''}))", null)
+                    android.widget.Toast.makeText(this@AppActivity, "Keine Spracherkennung auf diesem Handy gefunden", android.widget.Toast.LENGTH_LONG).show()
+                }
             }
         }
         @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java)) } }

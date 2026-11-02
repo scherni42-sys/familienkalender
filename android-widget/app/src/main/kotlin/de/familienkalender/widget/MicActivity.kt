@@ -23,14 +23,9 @@ class MicActivity : Activity() {
             finish()
             return
         }
-        if (m != "photo" && Feed.cached(this)?.let { Feed.me(it) } != null) {
-            startActivity(Intent(this, QuickActivity::class.java).putExtra(QuickActivity.EXTRA_MODE, m).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            finish()
-            return
-        }
-        // Foto-Knopf im Widget: FamTO in der App mit der Foto-Aufnahme
-        if (m == "photo" && Feed.config(this) != null) {
-            startActivity(Intent(this, AppActivity::class.java).putExtra(AppActivity.EXTRA_MIC, "photo").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // ＋ im Widget und Mikrofon-Symbol: FamTO in der App mit dem Eingabefenster (Privat, Familie, Board in Ruhe wählen)
+        if (Feed.config(this) != null) {
+            startActivity(Intent(this, AppActivity::class.java).putExtra(AppActivity.EXTRA_MIC, m ?: "new").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             finish()
             return
         }

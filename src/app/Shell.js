@@ -77,7 +77,7 @@ export function Shell() {
             {
                 const v = q.get('mic'), preset = micPreset(v);
                 if (v !== 'photo' && native())
-                    native().mic(preset ?? '');
+                    setSheet({ kind: 'mic', preset });
                 else
                     setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset });
             }
@@ -93,17 +93,17 @@ export function Shell() {
         const onShow = () => { if (document.visibilityState === 'visible' && micStart())
             setSheet(x => x ?? { kind: 'mic', auto: true, quick: true }); };
         document.addEventListener('visibilitychange', onShow);
-        return () => document.removeEventListener('visibilitychange', onShow);
+        // Android-App schon offen: ＋ im Widget öffnet das Fenster ohne Neuladen
+        const onMic = (e) => { const v = String(e.detail ?? ''); setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', preset: micPreset(v) }); };
+        window.addEventListener('famto-mic', onMic);
+        return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); };
     }, [me.role]);
     return (_jsxs("div", { className: "screen", style: me.app_bg ? { background: me.app_bg } : undefined, children: [_jsxs("div", { className: "ph-head", children: [_jsxs("div", { children: [_jsx("small", { children: snap.family.name }), _jsx("strong", { children: titles[tab] })] }), _jsxs("span", { className: "head-r", children: [cake && _jsxs("button", { type: "button", className: "cake", onClick: () => setSheet({ kind: 'bdays' }), "aria-label": `Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`, children: [cake.days === 0 ? 'Heute' : cake.days, _jsx(Icon, { name: "cake" })] }), _jsx("span", { className: "me", children: _jsx(Badge, { m: me }) })] })] }), (tab === 'today' || tab === 'week') && (_jsx("div", { className: "seg filter", role: "group", "aria-label": "Filter", children: [['all', 'Alle'], ['family', 'Familie'], ['home', '🏠 Home']].map(([k, l]) => _jsx("button", { type: "button", "aria-pressed": filter === k, onClick: () => { setFilter(k); try {
                         localStorage.setItem('fk-filter', k);
                     }
                     catch { /* egal */ } }, children: l }, k)) })), _jsxs("div", { className: `ph-body${tab === 'today' ? ' today' : ''}`, children: [tab === 'today' && _jsx(TodayTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'board' && _jsx(Board, { focus: focusMsg }), tab === 'settings' && _jsx(Settings, {})] }), _jsxs("nav", { className: "tabs", "aria-label": "Bereiche", children: [_jsx(TabBtn, { on: tab === 'today', icon: "today", label: "Heute", go: () => setTab('today') }), _jsx(TabBtn, { on: tab === 'week', icon: "week", label: "Kalender", go: () => setTab('week') }), me.role === 'guest'
                         ? _jsx("span", {})
-                        : _jsx("button", { type: "button", className: "mic", "aria-label": "Termin oder Nachricht sprechen", onClick: () => { const n = native(); if (n)
-                                n.mic('');
-                            else
-                                setSheet({ kind: 'mic' }); }, children: _jsx(Icon, { name: "mic" }) }), _jsx(TabBtn, { on: tab === 'board', icon: "board", label: "Board", go: () => setTab('board') }), _jsx(TabBtn, { on: tab === 'settings', icon: "gear", label: "Einstellungen", go: () => setTab('settings') })] }), sheet?.kind === 'mic' && _jsx(MicSheet, { auto: sheet.auto, quick: sheet.quick, preset: sheet.preset, photoFirst: sheet.photo, close: () => setSheet(null), toDraft: (draft) => setSheet({ kind: 'edit', draft, fresh: true }), posted: () => { setSheet(null); setTab('board'); }, saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'edit' && _jsx(EventSheet, { draft: sheet.draft, fresh: sheet.fresh, close: () => setSheet(null), back: () => setSheet({ kind: 'mic' }), saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'detail' && _jsx(DetailSheet, { id: sheet.id, day: sheet.day, add: newOn, close: () => setSheet(null), edit: (draft) => setSheet({ kind: 'edit', draft, fresh: false }) }), sheet?.kind === 'bdays' && _jsx(BdaySheet, { adding: sheet.adding, close: () => setSheet(null) }), _jsx(PushBanner, { now: now }), toastMsg && _jsx("div", { className: "toast", role: "status", children: toastMsg })] }));
+                        : _jsx("button", { type: "button", className: "mic", "aria-label": "Termin oder Nachricht sprechen", onClick: () => setSheet({ kind: 'mic' }), children: _jsx(Icon, { name: "mic" }) }), _jsx(TabBtn, { on: tab === 'board', icon: "board", label: "Board", go: () => setTab('board') }), _jsx(TabBtn, { on: tab === 'settings', icon: "gear", label: "Einstellungen", go: () => setTab('settings') })] }), sheet?.kind === 'mic' && _jsx(MicSheet, { auto: sheet.auto, quick: sheet.quick, preset: sheet.preset, photoFirst: sheet.photo, close: () => setSheet(null), toDraft: (draft) => setSheet({ kind: 'edit', draft, fresh: true }), posted: () => { setSheet(null); setTab('board'); }, saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'edit' && _jsx(EventSheet, { draft: sheet.draft, fresh: sheet.fresh, close: () => setSheet(null), back: () => setSheet({ kind: 'mic' }), saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'detail' && _jsx(DetailSheet, { id: sheet.id, day: sheet.day, add: newOn, close: () => setSheet(null), edit: (draft) => setSheet({ kind: 'edit', draft, fresh: false }) }), sheet?.kind === 'bdays' && _jsx(BdaySheet, { adding: sheet.adding, close: () => setSheet(null) }), _jsx(PushBanner, { now: now }), toastMsg && _jsx("div", { className: "toast", role: "status", children: toastMsg })] }));
 }
 function TabBtn({ on, icon, label, go }) {
     return _jsxs("button", { type: "button", "aria-pressed": on, onClick: go, children: [_jsx(Icon, { name: icon }), label] });

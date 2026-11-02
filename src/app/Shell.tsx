@@ -66,14 +66,17 @@ export function Shell() {
     }
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
-    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); { const v = q.get('mic'), preset = micPreset(v); if (v !== 'photo' && native()) native()!.mic(preset ?? ''); else setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset }); } }
+    if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); { const v = q.get('mic'), preset = micPreset(v); if (v !== 'photo' && native()) setSheet({ kind: 'mic', preset }); else setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset }); } }
     else if (micStart() && !o) setSheet({ kind: 'mic', auto: true, quick: true });
     // Falls Chrome die laufende App nur nach vorn holt: Startadresse über die Launch-Queue auswerten
     (window as unknown as { launchQueue?: { setConsumer: (f: (p: { targetURL?: string }) => void) => void } }).launchQueue
       ?.setConsumer(p => { const m = p.targetURL ? new URL(p.targetURL).searchParams : null; if (m?.has('mic')) { const v = m.get('mic'), preset = micPreset(v); setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset }); } });
     const onShow = () => { if (document.visibilityState === 'visible' && micStart()) setSheet(x => x ?? { kind: 'mic', auto: true, quick: true }); };
     document.addEventListener('visibilitychange', onShow);
-    return () => document.removeEventListener('visibilitychange', onShow);
+    // Android-App schon offen: ＋ im Widget öffnet das Fenster ohne Neuladen
+    const onMic = (e: Event) => { const v = String((e as CustomEvent).detail ?? ''); setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', preset: micPreset(v) }); };
+    window.addEventListener('famto-mic', onMic);
+    return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); };
   }, [me.role]);
 
   return (
@@ -102,7 +105,7 @@ export function Shell() {
         <TabBtn on={tab === 'week'} icon="week" label="Kalender" go={() => setTab('week')} />
         {me.role === 'guest'
           ? <span />
-          : <button type="button" className="mic" aria-label="Termin oder Nachricht sprechen" onClick={() => { const n = native(); if (n) n.mic(''); else setSheet({ kind: 'mic' }); }}><Icon name="mic" /></button>}
+          : <button type="button" className="mic" aria-label="Termin oder Nachricht sprechen" onClick={() => setSheet({ kind: 'mic' })}><Icon name="mic" /></button>}
         <TabBtn on={tab === 'board'} icon="board" label="Board" go={() => setTab('board')} />
         <TabBtn on={tab === 'settings'} icon="gear" label="Einstellungen" go={() => setTab('settings')} />
       </nav>

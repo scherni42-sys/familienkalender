@@ -3,16 +3,15 @@ import { useEffect, useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { parseSpoken, shrinkPhoto } from '../lib/ai';
 import { Icon, Sheet } from './ui';
-import { toNewEvent } from './EventSheet';
-import { whenText } from '../lib/model';
 import { fail, toast } from './toast';
+import { native } from '../lib/native';
 const SR = window.SpeechRecognition
     ?? window.webkitSpeechRecognition;
 // Stichwort am Satzanfang: „Privat …“, „Familie …“ oder „Board …“ speichert ohne Rückfrage
 const PREFIX = /^\s*(privat|familie|pinnwand|board|bord)\b[\s,.:;!-]*/i;
 const PAUSE = 3000; // so lange darf man schweigen, bevor die Aufnahme endet
 const FIRST = 7000; // Zeit bis zum ersten Wort
-export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, posted, saved }) {
+export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, posted }) {
     const snap = useSnapshot();
     // Seitentaste: ohne Stichwort „Privat“/„Familie“ landet das Gesprochene auf der Pinnwand
     const [mode, setMode] = useState(preset ?? (quick ? 'board' : 'family'));
@@ -52,9 +51,6 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
                 return;
             }
             setRec(false);
-            // Nach der Pause geht es ohne weiteres Antippen weiter: mit Stichwort direkt speichern, sonst zur Bestätigung
-            if (!st.stop && st.base)
-                void go(st.base);
         };
         x.onerror = e => {
             if (e.error === 'no-speech' || e.error === 'aborted')
@@ -74,7 +70,20 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
             setRec(false);
         }
     };
+    // In der Android-App: Spracherkennung des Handys, der Text landet im Feld (gespeichert wird erst mit Weiter)
+    useEffect(() => {
+        const on = (e) => { const t = String(e.detail ?? '').trim(); setRec(false); if (t)
+            setText(x => join(x, t)); };
+        window.addEventListener('famto-speech', on);
+        return () => window.removeEventListener('famto-speech', on);
+    }, []);
     const listen = (quiet = false) => {
+        const n = native();
+        if (n?.listen) {
+            setRec(true);
+            n.listen();
+            return;
+        }
         if (!SR) {
             toast('Dieser Browser kann keine Sprache erkennen. Tippe den Satz einfach ein.');
             return;
@@ -93,8 +102,6 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
             return;
         let m = latest.current.mode;
         const pre = v.match(PREFIX);
-        // Stichwort oder Schnellknopf im Widget: ohne Rückfrage speichern, solange die Art nicht umgestellt wurde
-        const direct = !!pre || (!!preset && m === preset);
         if (pre) {
             const k = pre[1].toLowerCase();
             m = k === 'privat' ? 'private' : k === 'familie' ? 'family' : 'board';
@@ -113,14 +120,8 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
                 return;
             }
             const parsed = await parseSpoken(v, snap.me, snap.members.filter(x => x.role !== 'guest'));
-            const d = { ...parsed, vis: m, busy: m === 'private' && parsed.busy };
-            if (direct && d.title.trim()) {
-                const id = await store.saveEvent(toNewEvent(d));
-                toast(`${m === 'family' ? 'Familientermin' : 'Privater Termin'} gespeichert: ${d.title}, ${whenText(d)}`);
-                saved(id);
-                return;
-            }
-            toDraft(d);
+            // Nie automatisch speichern: immer erst zur Bestätigung
+            toDraft({ ...parsed, vis: m, busy: m === 'private' && parsed.busy });
         }
         catch (e) {
             fail(e);
@@ -165,5 +166,5 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
             setBusy(false);
         }
     };
-    return (_jsxs(Sheet, { onClose: close, label: "Sprechen", children: [_jsx("h2", { children: mode === 'board' ? 'Nachricht ans Board' : 'Neuer Termin' }), photoFirst && !store.demo && _jsxs("label", { className: `photobig${busy ? ' busy' : ''}`, children: [_jsx(Icon, { name: "camera" }), busy ? 'Claude liest das Foto …' : 'Foto aufnehmen', _jsx("input", { type: "file", accept: "image/*", capture: "environment", hidden: true, disabled: busy, onChange: e => { void photo(e.target.files?.[0]); e.target.value = ''; } })] }), _jsxs("div", { className: "visbig three", role: "group", "aria-label": "Art", children: [_jsxs("button", { type: "button", className: "private", "aria-pressed": mode === 'private', onClick: () => setMode('private'), children: [_jsx(Icon, { name: "lock" }), "Privat", _jsx("small", { children: "nur ich" })] }), _jsxs("button", { type: "button", className: "family", "aria-pressed": mode === 'family', onClick: () => setMode('family'), children: [_jsx(Icon, { name: "home" }), "Familie", _jsx("small", { children: "alle + Display" })] }), _jsxs("button", { type: "button", className: "board", "aria-pressed": mode === 'board', onClick: () => setMode('board'), children: [_jsx(Icon, { name: "board" }), "Board", _jsx("small", { children: "Nachricht" })] })] }), _jsxs("div", { className: "listen", children: [_jsx("button", { type: "button", className: `mic${rec ? ' rec' : ''}`, onClick: () => listen(), "aria-label": rec ? 'Aufnahme beenden' : 'Sprechen', children: _jsx(Icon, { name: "mic" }) }), !store.demo && !photoFirst && _jsxs("label", { className: `photo${busy ? ' busy' : ''}`, "aria-label": "Termin vom Foto", children: [_jsx(Icon, { name: "camera" }), _jsx("span", { children: "Foto" }), _jsx("input", { type: "file", accept: "image/*", capture: "environment", hidden: true, disabled: busy, onChange: e => { void photo(e.target.files?.[0]); e.target.value = ''; } })] })] }), _jsx("p", { style: { textAlign: 'center' }, children: rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : busy ? 'Einen Moment, Claude liest …' : 'Tippe aufs Mikrofon und sprich, schreib den Satz oder fotografiere einen Zettel.' }), _jsx("textarea", { value: text, onChange: e => setText(e.target.value), placeholder: mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen', maxLength: 500 }), _jsx("p", { className: "note", children: "Tipp: Beginnst du mit \u201EPrivat\u201C, \u201EFamilie\u201C oder \u201EBoard\u201C, wird ohne R\u00FCckfrage gespeichert." }), _jsxs("div", { className: "btn-row", children: [_jsx("button", { type: "button", className: "btn ghost", onClick: close, children: "Abbrechen" }), _jsx("button", { type: "button", className: "btn", disabled: busy || !text.trim(), onClick: () => void go(), children: busy ? _jsx("span", { className: "spin" }) : mode === 'board' ? 'Boarding' : 'Weiter' })] })] }));
+    return (_jsxs(Sheet, { onClose: close, label: "Sprechen", children: [_jsx("h2", { children: mode === 'board' ? 'Nachricht ans Board' : 'Neuer Termin' }), photoFirst && !store.demo && _jsxs("label", { className: `photobig${busy ? ' busy' : ''}`, children: [_jsx(Icon, { name: "camera" }), busy ? 'Claude liest das Foto …' : 'Foto aufnehmen', _jsx("input", { type: "file", accept: "image/*", capture: "environment", hidden: true, disabled: busy, onChange: e => { void photo(e.target.files?.[0]); e.target.value = ''; } })] }), _jsxs("div", { className: "visbig three", role: "group", "aria-label": "Art", children: [_jsxs("button", { type: "button", className: "private", "aria-pressed": mode === 'private', onClick: () => setMode('private'), children: [_jsx(Icon, { name: "lock" }), "Privat", _jsx("small", { children: "nur ich" })] }), _jsxs("button", { type: "button", className: "family", "aria-pressed": mode === 'family', onClick: () => setMode('family'), children: [_jsx(Icon, { name: "home" }), "Familie", _jsx("small", { children: "alle + Display" })] }), _jsxs("button", { type: "button", className: "board", "aria-pressed": mode === 'board', onClick: () => setMode('board'), children: [_jsx(Icon, { name: "board" }), "Board", _jsx("small", { children: "Nachricht" })] })] }), _jsxs("div", { className: "listen", children: [_jsx("button", { type: "button", className: `mic${rec ? ' rec' : ''}`, onClick: () => listen(), "aria-label": rec ? 'Aufnahme beenden' : 'Sprechen', children: _jsx(Icon, { name: "mic" }) }), !store.demo && !photoFirst && _jsxs("label", { className: `photo${busy ? ' busy' : ''}`, "aria-label": "Termin vom Foto", children: [_jsx(Icon, { name: "camera" }), _jsx("span", { children: "Foto" }), _jsx("input", { type: "file", accept: "image/*", capture: "environment", hidden: true, disabled: busy, onChange: e => { void photo(e.target.files?.[0]); e.target.value = ''; } })] })] }), _jsx("p", { style: { textAlign: 'center' }, children: rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : busy ? 'Einen Moment, Claude liest …' : 'Tippe aufs Mikrofon und sprich, schreib den Satz oder fotografiere einen Zettel.' }), _jsx("textarea", { value: text, onChange: e => setText(e.target.value), placeholder: mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen', maxLength: 500 }), _jsx("p", { className: "note", children: "Tipp: Beginnst du mit \u201EPrivat\u201C, \u201EFamilie\u201C oder \u201EBoard\u201C, wird die Art gleich umgestellt." }), _jsxs("div", { className: "btn-row", children: [_jsx("button", { type: "button", className: "btn ghost", onClick: close, children: "Abbrechen" }), _jsx("button", { type: "button", className: "btn", disabled: busy || !text.trim(), onClick: () => void go(), children: busy ? _jsx("span", { className: "spin" }) : mode === 'board' ? 'Boarding' : 'Weiter' })] })] }));
 }
