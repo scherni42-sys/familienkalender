@@ -74,6 +74,8 @@ class AppActivity : Activity() {
                 val u = req.url
                 if (u.host == host && (u.scheme == "https" || u.scheme == "http")) return false
                 try { startActivity(Intent(Intent.ACTION_VIEW, u)) } catch (e: Exception) { }
+                // Navigation gestartet: nach kurzer Zeit die Ankunftszeit vom Standort aus berechnen (die Seite pausiert, solange Maps vorne ist)
+                if ((u.host ?: "").contains("google") && u.path?.contains("maps") == true) etaSoon()
                 return true
             }
         }
@@ -145,6 +147,19 @@ class AppActivity : Activity() {
         super.onResume()
         // Nach einer Eingabe in der Schnelleingabe sofort den neuen Stand zeigen
         web.evaluateJavascript("window.dispatchEvent(new Event('famto-resume'))", null)
+    }
+
+    private fun etaSoon() {
+        val ctx = applicationContext
+        Thread {
+            try {
+                Thread.sleep(8000)
+                val prefs = ctx.getSharedPreferences("familien-widget", MODE_PRIVATE)
+                val e = prefs.edit(); prefs.all.keys.filter { it.startsWith("etachk:") }.forEach { e.remove(it) }; e.apply()
+                Feed.load(ctx).first?.let { Reminders.process(ctx, it) }
+                Feed.load(ctx).first?.let { feed -> TodayWidget.refreshData(ctx); NextWidget.updateAll(ctx, feed) }
+            } catch (x: Exception) { }
+        }.start()
     }
 
     // Für die Web-App erreichbar als window.FamTO
