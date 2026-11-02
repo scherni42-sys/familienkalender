@@ -323,7 +323,7 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .place-hits > .note { padding: 10px 12px; }
 /* Navigation läuft: pulsierender Punkt im Knopf */
 .btn.nav-on { position: relative; padding-left: 26px; }
-.btn.nav-on::before { content: ''; position: absolute; left: 10px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #7dffb0; animation: navpulse 1.4s ease-in-out infinite; }
+.btn.nav-on::before { content: ''; position: absolute; left: 10px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #e53935; box-shadow: 0 0 0 2px #fff; animation: navpulse 1.4s ease-in-out infinite; }
 @keyframes navpulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
 .btn.nav-btn { white-space: nowrap; }
 /* Termindetails: „Fahrzeit von hier“ und „Navigation“ gleich breit nebeneinander */
