@@ -72,7 +72,7 @@ class LocalStore extends Base {
     }
     async deleteEvent(id) { this.patch(s => ({ events: s.events.filter(x => x.id !== id) })); }
     async setEta(id, eta, driver) {
-        this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta, eta_by: eta ? (driver ?? s.me) : null, arrived_at: eta ? null : x.eta ? new Date().toISOString() : x.arrived_at ?? null, ...(driver ? { driver } : {}) } : x) }));
+        this.patch(s => ({ events: s.events.map(x => x.id === id ? { ...x, eta, eta_by: eta ? (driver ?? s.me) : x.eta_by ?? null, arrived_at: eta ? null : x.eta ? new Date().toISOString() : x.arrived_at ?? null, ...(driver ? { driver } : {}) } : x) }));
     }
     async driverAnswer(id, ok) {
         this.patch(s => ({ events: s.events.map(x => x.id !== id ? x : x.driver === s.me
@@ -258,7 +258,7 @@ class SupabaseStore extends Base {
         const base = driver ? { eta, driver } : { eta };
         const was = this.snap.events.find(x => x.id === id);
         // Mit Fahrer und „angekommen“-Zeit; ohne die neuen Spalten (ältere Datenbank) nur die Ankunftszeit
-        const r = await this.sb.from('events').update({ ...base, eta_by: eta ? (driver ?? this.snap.me) : null, ...(eta ? { arrived_at: null } : was?.eta ? { arrived_at: new Date().toISOString() } : {}) }).eq('id', id);
+        const r = await this.sb.from('events').update({ ...base, ...(eta ? { eta_by: driver ?? this.snap.me } : {}), ...(eta ? { arrived_at: null } : was?.eta ? { arrived_at: new Date().toISOString() } : {}) }).eq('id', id);
         if (r.error)
             this.ok(await this.sb.from('events').update(base).eq('id', id));
         await this.refresh();

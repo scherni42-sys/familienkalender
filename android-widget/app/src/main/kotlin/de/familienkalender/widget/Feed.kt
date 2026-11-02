@@ -187,6 +187,37 @@ object Feed {
         } catch (e: Exception) { false }
     }
 
+    // Allgemeiner RPC-Aufruf mit dem Widget-Code; liefert eine Fehlermeldung oder null
+    private fun rpc(ctx: Context, fn: String, body: JSONObject): String? {
+        val c = config(ctx) ?: return "Kein Widget-Code"
+        return try {
+            val conn = URL("${c.url}/rest/v1/rpc/$fn").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 15000
+            conn.doOutput = true
+            conn.setRequestProperty("apikey", c.key)
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(body.put("p_token", c.token).toString().toByteArray()) }
+            val code = conn.responseCode
+            if (code in 200..299) null else {
+                val err = conn.errorStream?.bufferedReader()?.use { it.readText() } ?: ""
+                (try { JSONObject(err).optString("message") } catch (e: Exception) { "" }).ifEmpty { "Server meldet $code" }
+            }
+        } catch (e: Exception) { "Keine Verbindung" }
+    }
+
+    // Eingetragener Fahrer sagt zu (ok) oder ab
+    fun answer(ctx: Context, event: String, ok: Boolean): String? =
+        rpc(ctx, "widget_driver_answer", JSONObject().put("p_event", event).put("p_ok", ok))
+
+    // Google Maps beendet: Fahrt beenden, am Ziel als angekommen
+    fun etaStop(ctx: Context, event: String, arrived: Boolean): String? =
+        rpc(ctx, "widget_eta_stop", JSONObject().put("p_event", event).put("p_arrived", arrived))
+
+    // Feld als ID oder null (JSON-null kommt als "null")
+    fun id(e: JSONObject, k: String): String? = if (e.isNull(k)) null else e.optString(k).takeIf { it.isNotEmpty() && it != "null" }
+
     fun act(ctx: Context, action: String, msg: String): String? {
         val c = config(ctx) ?: return "Kein Widget-Code"
         return try {
@@ -279,19 +310,25 @@ object Feed {
                 if (past && hidePast) continue
                 val persons = e.optJSONArray("persons")
                 val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
-                val driver = e.optString("driver").takeIf { it.isNotEmpty() && it != "null" }
+                val driver = id(e, "driver")
+                val trip = e.optString("trip", "hin")
+                val eta = etaOf(e)
+                // Unterwegs ist, wer die Ankunftszeit gesetzt hat (bei „beides“ auch der Abholer)
+                val drv = if (eta != null) id(e, "eta_by") ?: driver else driver
+                val d2 = if (trip == "beides") id(e, "driver2") else null
                 out += Row(
                     // Eigene private Termine (nur mit persönlichem Widget-Code) mit Schloss kennzeichnen
                     Kind.EVENT, (if (e.optString("vis", "family") != "family") "🔒 " else "") + e.optString("title"),
                     time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
-                    drive = driver?.let { drv ->
-                        val who = name[drv] ?: ""
-                        val eta = etaOf(e)
+                    drive = drv?.let { who0 ->
+                        val who = name[who0] ?: ""
                         val tr = if (e.isNull("travel_min")) 0 else e.optInt("travel_min")
-                        "🚗 $who fährt" + when {
-                            eta != null -> " · ETA $eta"
-                            isToday && !allDay && tr > 0 && e.optInt("start_min") > nowMin -> " · los ${hm(e.optInt("start_min") - tr)}"
-                            else -> ""
+                        val at = if (trip == "ab") e.optInt("end_min") else e.optInt("start_min")
+                        when {
+                            eta != null -> "🚗 $who fährt · ETA $eta"
+                            else -> "🚗 $who " + (if (trip == "ab") "holt ab" else if (trip == "beides") "bringt" else "fährt") +
+                                (if (isToday && !allDay && tr > 0 && at > nowMin) " · los ${hm(at - tr)}" else "") +
+                                (d2?.let { " · ${name[it] ?: ""} holt ab" } ?: "")
                         }
                     } ?: "",
                     color = first?.let { color[it] } ?: Color.GRAY,

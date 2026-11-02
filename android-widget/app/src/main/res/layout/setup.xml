@@ -138,6 +138,19 @@
             android:layout_marginStart="32dp"
             android:textSize="13sp" />
 
+        <Button
+            android:id="@+id/mapswatch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Google-Maps-Navigation erkennen" />
+
+        <TextView
+            android:id="@+id/mapsstatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="13sp" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

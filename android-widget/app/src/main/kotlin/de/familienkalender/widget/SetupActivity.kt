@@ -82,6 +82,12 @@ class SetupActivity : Activity() {
         radius.setOnFocusChangeListener { _, has -> if (!has) radius.text.toString().toIntOrNull()?.let { Geo.setRadius(this, it); showGeo() } }
         showGeo()
 
+        // Google-Maps-Navigation erkennen (Benachrichtigungszugriff)
+        findViewById<Button>(R.id.mapswatch).setOnClickListener {
+            try { startActivity(android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } catch (e: Exception) { }
+        }
+        showMaps()
+
         // Symbol für den kompletten Kalender (ohne Browser) auf den Startbildschirm
         findViewById<Button>(R.id.pinapp).setOnClickListener {
             val sm = getSystemService(android.content.pm.ShortcutManager::class.java)
@@ -176,6 +182,12 @@ class SetupActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 29) requestPermissions(arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION), 5)
     }
 
+    private fun showMaps() {
+        findViewById<TextView>(R.id.mapsstatus).text = if (MapsWatch.allowed(this))
+            "✓ An. Startest du in Google Maps eine Navigation zu deinem Termin, sieht die Familie deine Ankunftszeit. Beendest du sie, ist die Fahrt vorbei (am Ziel: angekommen)."
+        else "Aus. Zum Einschalten tippen und „FamTO: Navigation erkennen“ erlauben. FamTO sieht dabei nur, ob Google Maps navigiert."
+    }
+
     private fun showGeo() {
         findViewById<android.view.View>(R.id.geobox).visibility = if (Geo.enabled(this)) android.view.View.VISIBLE else android.view.View.GONE
         findViewById<TextView>(R.id.geostatus).text = Geo.status(this)
@@ -239,6 +251,7 @@ class SetupActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        showMaps()
         if (Geo.enabled(this)) { Geo.register(this); showGeo() }
         // Code aus der Zwischenablage übernehmen, wenn das Feld leer ist
         val field = findViewById<EditText>(R.id.code)

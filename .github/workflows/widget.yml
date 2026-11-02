@@ -50,14 +50,16 @@ jobs:
         env: { WIDGET_KEY_PASS: '${{ secrets.WIDGET_KEY_PASS }}' }
         run: |
           set -o pipefail
-          gradle -p android-widget assembleRelease --no-daemon 2>&1 | tee build.log || {
+          gradle -p android-widget assembleRelease bundleRelease --no-daemon 2>&1 | tee build.log || {
             # Fehlerzeilen als Anmerkungen, damit sie ohne Log-Zugriff sichtbar sind
             grep -E '^e: |error:|FAILURE|What went wrong' -A2 build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
             exit 1
           }
           cp android-widget/app/build/outputs/apk/release/app-release.apk familien-widget.apk
+          # Für den Play Store (interner Test): App-Bundle mit demselben Schlüssel
+          cp android-widget/app/build/outputs/bundle/release/app-release.aab familien-widget.aab
       - name: Release aktualisieren
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           gh release view widget-latest >/dev/null 2>&1 || gh release create widget-latest --title "Familien-Widget (Android)" --notes "Android-App mit Widget für heutige Familientermine und Pinnwand. APK herunterladen und installieren."
-          gh release upload widget-latest familien-widget.apk --clobber
+          gh release upload widget-latest familien-widget.apk familien-widget.aab --clobber

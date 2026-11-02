@@ -88,7 +88,7 @@ begin
   select t.family_id, t.member_id into w from widget_tokens t where t.token = p_token;
   if w.member_id is null then raise exception 'Kein persönlicher Widget-Code'; end if;
   if p_eta is null then
-    update events set eta = null, eta_by = null, arrived_at = case when eta is not null then now() else arrived_at end
+    update events set eta = null, arrived_at = case when eta is not null then now() else arrived_at end
       where id = p_event and family_id = w.family_id and (driver = w.member_id or driver2 = w.member_id);
   else
     update events set eta = p_eta, eta_by = w.member_id, arrived_at = null
@@ -137,7 +137,7 @@ declare w record;
 begin
   select t.family_id, t.member_id into w from widget_tokens t where t.token = p_token;
   if w.member_id is null then raise exception 'Kein persönlicher Widget-Code'; end if;
-  update events set eta = null, eta_by = null, arrived_at = case when p_arrived and eta is not null then now() else arrived_at end
+  update events set eta = null, eta_by = case when p_arrived then eta_by else null end, arrived_at = case when p_arrived and eta is not null then now() else arrived_at end
     where id = p_event and family_id = w.family_id and eta_by = w.member_id;
 end $$;
 
