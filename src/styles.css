@@ -310,3 +310,4 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .crop img { position: absolute; max-width: none; user-select: none; -webkit-user-select: none; pointer-events: none; }
 .crop-zoom { display: flex; align-items: center; gap: 10px; margin: 8px 0 4px; font-weight: 700; }
 .crop-zoom input { flex: 1; }
+.av-use { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; margin-right: auto; }

@@ -73,13 +73,14 @@ export function Settings() {
     {snap.members.map(m => {
       const can = isAdmin || m.id === snap.me;
       const twin = snap.members.filter(o => o.id !== m.id && o.color.toLowerCase() === m.color.toLowerCase()).map(o => o.name);
-      return <div key={m.id} className="colrow"><div className="nm"><Badge m={m} /> <b>{m.name}</b>{twin.length > 0 && <span className="note">gleiche Farbe wie {twin.join(', ')}</span>}</div>
+      return <div key={m.id} className="colrow"><div className="nm"><Badge m={m} size={36} /> <b>{m.name}</b>{twin.length > 0 && <span className="note">gleiche Farbe wie {twin.join(', ')}</span>}</div>
         {can && <div className="sw">{SWATCHES.map(([h, l]) => <button key={h} type="button" className={`swb${m.color.toLowerCase() === h ? ' on' : ''}`} style={cvar(h)} aria-label={l} title={l} onClick={() => store.updateMember(m.id, { color: h }).catch(fail)} />)}
           <label className="swb own" title="Eigene Farbe" style={cvar(m.color)}><input type="color" value={m.color} onChange={e => store.updateMember(m.id, { color: e.target.value }).catch(fail)} aria-label={`Eigene Farbe für ${m.name}`} />+</label></div>}
-        {can && <div className="av-row"><Badge m={m} size={44} />
+        {can && <div className="av-row">
+          {m.avatar && <label className="av-use"><input type="checkbox" checked={!m.avatar.startsWith('off:')} onChange={e => store.useAvatar(m.id, e.target.checked).catch(fail)} /> Avatar benutzen</label>}
           <label className="small-btn"><Icon name="camera" /> {m.avatar ? 'Anderes Foto' : 'Foto als Avatar'}
             <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setCrop({ id: m.id, file: f }); }} /></label>
-          {m.avatar && <button type="button" className="small-btn danger" onClick={() => store.setAvatar(m.id, null).then(() => toast('Avatar entfernt, wieder der Buchstabe.'), fail)}>Entfernen</button>}</div>}
+          {m.avatar && <button type="button" className="small-btn danger" onClick={() => { if (confirm('Foto löschen?')) store.setAvatar(m.id, null).then(() => toast('Foto gelöscht, wieder der Buchstabe.'), fail); }}>Löschen</button>}</div>}
       </div>;
     })}
   </>;

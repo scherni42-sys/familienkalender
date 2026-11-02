@@ -25,6 +25,7 @@ export interface Store {
   deleteMessage(id: string): Promise<void>;
   postMessage(text: string, image?: { type: string; data: string }): Promise<void>;
   setAvatar(id: string, image: { type: string; data: string } | null): Promise<void>;
+  useAvatar(id: string, on: boolean): Promise<void>;
   reply(id: string, text: string): Promise<void>;
   setMessage(id: string, patch: Partial<Pick<Message, 'pinned' | 'done' | 'taker' | 'text'>>): Promise<void>;
   addMember(m: MemberInput): Promise<string>;
@@ -103,6 +104,9 @@ class LocalStore extends Base implements Store {
   async setAvatar(id: string, image: { type: string; data: string } | null) {
     this.patch(s => ({ members: s.members.map(m => m.id === id ? { ...m, avatar: image ? `data:${image.type};base64,${image.data}` : null } : m) }));
   }
+  async useAvatar(id: string, on: boolean) {
+    this.patch(s => ({ members: s.members.map(m => m.id === id && m.avatar ? { ...m, avatar: on ? m.avatar.replace(/^off:/, '') : 'off:' + m.avatar.replace(/^off:/, '') } : m) }));
+  }
   async reply(id: string, text: string) {
     this.patch(s => ({ messages: s.messages.map(m => m.id === id ? { ...m, replies: [...m.replies, { id: uid(), from_member: s.me!, text, created_at: new Date().toISOString() }] } : m) }));
   }
@@ -172,7 +176,7 @@ class SupabaseStore extends Base implements Store {
     this.familyId = fam;
     const [f, mem, ev, busy, msg, rep, bd, disp] = await Promise.all([
       this.sb.from('families').select('id, name, settings').eq('id', fam).single(),
-      this.sb.from('members').select('id, name, role, color, adult, user_id, app_bg').eq('family_id', fam).eq('active', true).order('created_at'),
+      this.sb.from('members').select('id, name, role, color, adult, user_id, app_bg, avatar').eq('family_id', fam).eq('active', true).order('created_at'),
       this.sb.from('events').select('*').eq('family_id', fam).gte('end_date', addDays(today(), -62)),
       this.sb.rpc('busy_slots', { fam }),
       this.sb.from('messages').select('*').eq('family_id', fam).order('created_at'),
@@ -248,9 +252,14 @@ class SupabaseStore extends Base implements Store {
     const p = patch.pinned === false ? { ...patch, created_at: new Date().toISOString() } : patch;
     this.ok(await this.sb.from('messages').update(p).eq('id', id)); await this.refresh();
   }
-  // Avatar: rundes Foto im Speicher „board“ (Ordner der Familie); eigenes über set_my_avatar, andere als Admin
+  // Avatar: rundes Foto im Speicher „board“ (Ordner der Familie); eigenes über set_my_avatar, andere als Admin.
+  // „off:“ vor dem Pfad heißt: Foto bleibt gespeichert, wird aber nicht gezeigt (Häkchen „Avatar benutzen“ aus)
+  private async writeAvatar(id: string, value: string | null) {
+    if (id === this.snap.me) this.ok(await this.sb.rpc('set_my_avatar', { p_avatar: value }));
+    else this.ok(await this.sb.from('members').update({ avatar: value }).eq('id', id));
+  }
   async setAvatar(id: string, image: { type: string; data: string } | null) {
-    const old = this.snap.members.find(m => m.id === id)?.avatar;
+    const old = this.snap.members.find(m => m.id === id)?.avatar?.replace(/^off:/, '');
     let path: string | null = null;
     if (image) {
       const bytes = Uint8Array.from(atob(image.data), c => c.charCodeAt(0));
@@ -258,9 +267,15 @@ class SupabaseStore extends Base implements Store {
       const up = await this.sb.storage.from('board').upload(path, new Blob([bytes], { type: image.type }), { contentType: image.type });
       if (up.error) throw new Error('Foto ließ sich nicht hochladen: ' + up.error.message);
     }
-    if (id === this.snap.me) this.ok(await this.sb.rpc('set_my_avatar', { p_avatar: path }));
-    else this.ok(await this.sb.from('members').update({ avatar: path }).eq('id', id));
+    await this.writeAvatar(id, path);
     if (old && !/^(data:|https?:)/.test(old)) await this.sb.storage.from('board').remove([old]);
+    await this.refresh();
+  }
+  async useAvatar(id: string, on: boolean) {
+    const cur = this.snap.members.find(m => m.id === id)?.avatar;
+    if (!cur) return;
+    const p = cur.replace(/^off:/, '');
+    await this.writeAvatar(id, on ? p : 'off:' + p);
     await this.refresh();
   }
   async addMember(m: MemberInput) {

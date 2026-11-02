@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { boardImg } from '../lib/supabase';
+import { avatarOf, boardImg } from '../lib/supabase';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import './display.css';
 import { store } from '../lib/store';
@@ -61,8 +61,8 @@ export function Display({ token }) {
     const fixed = s.boardMode === 'fixed';
     const hidePast = (e) => s.pastMode === 'hide' && !e.all_day && e.end_min <= now;
     const msgs = liveMsgs(feed.messages, s);
-    const av = (id) => members.find(m => m.id === id)?.avatar;
-    const sb = (id) => { const a = av(id); return _jsx("span", { className: `b${a ? ' av' : ''}`, style: cvar(color(id)), children: a ? _jsx("img", { src: boardImg(a), alt: "" }) : ini(id) }, id); };
+    const av = (id) => avatarOf(members.find(m => m.id === id));
+    const sb = (id) => { const a = av(id); return _jsx("span", { className: `b${a ? ' av' : ''}`, style: cvar(color(id)), children: a ? _jsx("img", { src: a, alt: "" }) : ini(id) }, id); };
     const ad = (e, d) => _jsxs("div", { className: "w-ad", style: cvar(e.persons.length ? color(e.persons[0]) : '#7a8590'), onClick: () => setDetail(e), role: "button", tabIndex: 0, children: [_jsx("b", { children: e.title }), _jsxs("span", { className: "lbl", children: ["ganzt\u00E4gig", e.end_date > e.date ? ` · ${dayOfN(e, d)}` : ''] })] }, e.id);
     const row = (e, past, noGo = false) => (_jsxs("div", { className: `w-ev${past ? ' past' : ''}`, style: cvar(e.persons.length ? color(e.persons[0]) : '#7a8590'), onClick: () => setDetail(e), role: "button", tabIndex: 0, children: [_jsx("time", { children: hm(e.start_min) }), _jsxs("div", { children: [_jsx("div", { className: "tt", children: e.title }), e.driver && _jsxs("div", { className: "dr", children: [_jsx(Icon, { name: "car" }), " ", nm(e.driver), " f\u00E4hrt", travel(e, s) && !noGo ? _jsxs(_Fragment, { children: [" \u00B7 ", _jsxs("b", { children: ["los ", hm(depart(e, s))] })] }) : null, e.place ? ` · ${e.place}` : ''] })] }), _jsx("span", { className: "wb", children: e.persons.map(sb) })] }, e.id));
     const bdRow = (d) => bdOn(feed.birthdays, d).map(b => _jsxs("div", { className: "w-bd", onClick: () => setBdOpen(true), role: "button", tabIndex: 0, children: [_jsx(Icon, { name: "cake" }), _jsxs("span", { children: [_jsx("b", { children: b.name }), " hat Geburtstag", b.age ? ` und wird ${b.age}` : ''] })] }, b.id));
