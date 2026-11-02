@@ -86,6 +86,8 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
             else -> RemoteViews(ctx.packageName, R.layout.row).apply {
                 setTextViewText(R.id.text, r.text)
                 setTextViewText(R.id.sub, r.sub)
+                setTextViewText(R.id.drive, r.drive)
+                setViewVisibility(R.id.drive, if (r.drive.isNotEmpty()) View.VISIBLE else View.GONE)
                 setInt(R.id.bar, "setBackgroundColor", r.color)
                 if (r.kind == Kind.EVENT) {
                     setTextViewText(R.id.time, r.time)
@@ -103,6 +105,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                     val faded = (ctx.getColor(R.color.fg) and 0x00FFFFFF) or 0x73000000
                     setTextColor(R.id.text, faded)
                     setTextColor(R.id.time, faded)
+                    setTextColor(R.id.drive, faded)
                     setInt(R.id.bar, "setBackgroundColor", (r.color and 0x00FFFFFF) or 0x73000000)
                 }
                 setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))

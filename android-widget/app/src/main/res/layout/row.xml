@@ -11,7 +11,8 @@
     <ImageView
         android:id="@+id/bar"
         android:layout_width="4dp"
-        android:layout_height="22dp"
+        android:layout_height="match_parent"
+        android:minHeight="22dp"
         android:layout_marginEnd="8dp" />
 
     <!-- Board-Nachricht: Avatar des Absenders -->
@@ -39,15 +40,32 @@
         android:src="@drawable/ic_pin"
         android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/text"
+    <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/fg"
-        android:textSize="15sp" />
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/fg"
+            android:textSize="15sp" />
+
+        <!-- Fahrer unter dem Termin: 🚗 Matthias fährt · ETA 13:58 -->
+        <TextView
+            android:id="@+id/drive"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/muted"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/sub"

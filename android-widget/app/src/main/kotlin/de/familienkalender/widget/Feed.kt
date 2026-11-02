@@ -31,7 +31,9 @@ data class Row(
     val msg: String = "",
     val canTake: Boolean = false,
     // Board-Nachricht: Avatar-Foto des Absenders (Pfad im Speicher), leer = keins
-    val avatar: String = ""
+    val avatar: String = "",
+    // Termin mit Fahrer: zweite Zeile, z. B. „🚗 Matthias fährt · ETA 13:58“
+    val drive: String = ""
 )
 
 object Feed {
@@ -222,6 +224,16 @@ object Feed {
     }
 
     // Baut die Zeilen: heutige und morgige Familientermine, dann die Pinnwand (wie die Web-Ansicht ?v=mini)
+    // Fahrer unterwegs: Ankunftszeit als „13:58“, nur wenn sie noch sinnvoll ist
+    private fun etaOf(e: JSONObject): String? {
+        if (e.isNull("eta")) return null
+        return try {
+            val t = java.time.OffsetDateTime.parse(e.optString("eta")).atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDateTime()
+            val now = java.time.LocalDateTime.now()
+            if (t.isBefore(now.minusMinutes(30)) || t.isAfter(now.plusHours(12))) null else "%d:%02d".format(t.hour, t.minute)
+        } catch (x: Exception) { null }
+    }
+
     fun rows(feed: JSONObject, week: Int? = null): List<Row> {
         val today = LocalDate.now().toString()
         val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
@@ -272,7 +284,16 @@ object Feed {
                     // Eigene private Termine (nur mit persönlichem Widget-Code) mit Schloss kennzeichnen
                     Kind.EVENT, (if (e.optString("vis", "family") != "family") "🔒 " else "") + e.optString("title"),
                     time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
-                    sub = driver?.let { "${name[it] ?: ""} fährt" } ?: "",
+                    drive = driver?.let { drv ->
+                        val who = name[drv] ?: ""
+                        val eta = etaOf(e)
+                        val tr = if (e.isNull("travel_min")) 0 else e.optInt("travel_min")
+                        "🚗 $who fährt" + when {
+                            eta != null -> " · ETA $eta"
+                            isToday && !allDay && tr > 0 && e.optInt("start_min") > nowMin -> " · los ${hm(e.optInt("start_min") - tr)}"
+                            else -> ""
+                        }
+                    } ?: "",
                     color = first?.let { color[it] } ?: Color.GRAY,
                     faded = past,
                     open = "event:" + e.optString("id") + ":" + d
