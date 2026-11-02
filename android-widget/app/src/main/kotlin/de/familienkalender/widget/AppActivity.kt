@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.ViewGroup
+import android.webkit.GeolocationPermissions
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
@@ -23,6 +24,7 @@ class AppActivity : Activity() {
         const val DEFAULT_APP = "https://scherni42-sys.github.io/familienkalender/"
         private const val FILES = 7
         private const val SPEECH = 8
+        private const val GEO = 9
     }
 
     private lateinit var web: WebView
@@ -62,6 +64,7 @@ class AppActivity : Activity() {
         web.settings.domStorageEnabled = true
         web.settings.databaseEnabled = true
         web.settings.mediaPlaybackRequiresUserGesture = false
+        @Suppress("DEPRECATION") web.settings.setGeolocationEnabled(true)
         web.settings.userAgentString = web.settings.userAgentString + " FamTO-Android/" + BuildConfig.VERSION_CODE
         web.addJavascriptInterface(Bridge(), "FamTO")
         val host = base().host
@@ -86,6 +89,12 @@ class AppActivity : Activity() {
                 }
             }
             override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
+            // Standort für „Fahrzeit von hier“: Android-Berechtigung einmal erfragen
+            override fun onGeolocationPermissionsShowPrompt(origin: String, cb: GeolocationPermissions.Callback) {
+                if (Geo.hasFine(this@AppActivity) || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) { cb.invoke(origin, true, false); return }
+                geoAsk = origin to cb
+                requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), GEO)
+            }
         }
         if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(target(intent))
     }
@@ -99,6 +108,13 @@ class AppActivity : Activity() {
             return
         }
         if (intent.hasExtra(EXTRA_OPEN) || mic != null) web.loadUrl(target(intent))
+    }
+
+    private var geoAsk: Pair<String, GeolocationPermissions.Callback>? = null
+
+    override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
+        super.onRequestPermissionsResult(code, perms, res)
+        if (code == GEO) { geoAsk?.let { (o, cb) -> cb.invoke(o, res.any { it == android.content.pm.PackageManager.PERMISSION_GRANTED }, false) }; geoAsk = null }
     }
 
     override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); web.saveState(out) }

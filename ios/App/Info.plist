@@ -22,6 +22,7 @@
 	<key>LSRequiresIPhoneOS</key><true/>
 	<key>NSCameraUsageDescription</key><string>Fotos von Zetteln und Einladungen für Termine und das Board aufnehmen.</string>
 	<key>NSMicrophoneUsageDescription</key><string>Termine und Nachrichten einsprechen.</string>
+	<key>NSLocationWhenInUseUsageDescription</key><string>Fahrzeit vom aktuellen Standort zum Termin berechnen.</string>
 	<key>NSSpeechRecognitionUsageDescription</key><string>Gesprochene Termine und Nachrichten in Text umwandeln.</string>
 	<key>NSPhotoLibraryUsageDescription</key><string>Fotos fürs Board und für den eigenen Avatar auswählen.</string>
 	<key>UILaunchScreen</key><dict><key>UIColorName</key><string>LaunchBackground</string></dict>

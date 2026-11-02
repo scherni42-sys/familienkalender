@@ -1,11 +1,12 @@
 import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
 import { fail, toast } from './toast';
-import { hm } from '../lib/dates';
+import { hm, today } from '../lib/dates';
+import { travelTime } from '../lib/ai';
 import { bdLabel, depart, nameOf, travel, upcoming, visLabel, whenText } from '../lib/model';
 import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BdayForm } from './Settings';
 
 // Links in Notizen anklickbar machen (z. B. Teams-Besprechung)
@@ -17,6 +18,8 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const snap = useSnapshot();
   const s = snap.family!.settings;
   const e = snap.events.find(x => x.id === id);
+  const [here, setHere] = useState<{ minutes: number; km: number } | null>(null);
+  const [busy, setBusy] = useState(false);
   if (!e) return null;
   const me = snap.members.find(m => m.id === snap.me)!;
   const canEdit = me.role !== 'guest' && (e.owner === snap.me || e.vis === 'family');
@@ -26,6 +29,15 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
     persons: [...e.persons], driver: e.driver, vis: e.vis === 'family' ? 'family' : 'private', busy: e.vis === 'busy', place: e.place, addr: e.addr,
     travel_min: e.travel_min, notes: e.notes, bring: [...e.bring], discreet: e.discreet, reason: '', suggested: e.vis === 'family' ? 'family' : 'private', timeFound: !e.all_day
   });
+  const nav = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(e.addr)}`;
+  const fromHere = () => {
+    if (!navigator.geolocation) { toast('Standort ist auf diesem Gerät nicht verfügbar.'); return; }
+    setBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(setHere, fail).finally(() => setBusy(false)),
+      () => { setBusy(false); toast('Standort nicht freigegeben. Bitte in den Einstellungen des Handys erlauben.'); },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
+  };
   const maps = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(e.addr)}${s.home ? `&origin=${encodeURIComponent(s.home)}` : ''}`;
   return (
     <Sheet onClose={close} label="Termindetails">
@@ -38,8 +50,13 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
         {tr > 0 && <Row k="Fahrt"><div className="route" style={cvar(snap.members.find(m => m.id === e.driver)?.color ?? '#7a8590')}>
           <div className="rt-bar"><span className="rt-drive" style={{ flex: tr }}><Icon name="car" /> {tr} Min.</span>{s.buffer > 0 && <span className="rt-buf" style={{ flex: Math.max(s.buffer, 4) }}>{s.buffer}</span>}</div>
           <div className="rt-times"><span><b>{hm(dep)}</b> losfahren</span><span><b>{hm(e.start_min)}</b> Beginn</span></div>
-          {e.addr && <a className="btn ghost sm" href={maps} target="_blank" rel="noreferrer">Route öffnen</a>}
+          {e.addr && <a className="btn ghost sm" href={maps} target="_blank" rel="noreferrer">Route von zu Hause</a>}
         </div></Row>}
+        {e.addr && <Row k="Von hier">{here ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km{!e.all_day && e.date === today() ? <> · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}</> : null}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: here ? 6 : 0 }}>
+            <button type="button" className="btn ghost sm" disabled={busy} onClick={fromHere}>{busy ? 'Suche Standort …' : here ? 'Neu berechnen' : 'Fahrzeit von hier'}</button>
+            <a className="btn sm" href={nav} target="_blank" rel="noreferrer"><Icon name="car" /> Navigation starten</a>
+          </div></Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}
         {e.notes && <Row k="Notiz">{linkify(e.notes)}</Row>}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>

@@ -76,3 +76,14 @@ export async function parseSpoken(text, me, members, image, display) {
         return { ...local, source: 'local', why };
     }
 }
+// Fahrzeit mit dem Auto von zu Hause zur Adresse (Edge Function „travel-time“, OpenStreetMap)
+export async function travelTime(from, to) {
+    if (!supabase)
+        return { minutes: 12, km: 6.4 }; // Beispielfamilie: feste Werte
+    const { data, error } = await supabase.functions.invoke('travel-time', { body: { from, to } });
+    if (error) {
+        const msg = await error.context?.json?.().then((j) => j.error).catch(() => '');
+        throw new Error(msg || 'Fahrzeit konnte nicht berechnet werden');
+    }
+    return data;
+}

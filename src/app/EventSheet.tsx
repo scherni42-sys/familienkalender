@@ -6,6 +6,7 @@ import { dayLabel, hm, toMin } from '../lib/dates';
 import { conflicts, nameOf, whenText } from '../lib/model';
 import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
+import { travelTime } from '../lib/ai';
 
 // Adresse in zwei Feldern: „Straße Nr“ und „PLZ Ort“, gespeichert als „Straße Nr, PLZ Ort“ (eindeutig für Route und Fahrzeit)
 export const splitAddr = (a: string): [string, string] => { const k = a.lastIndexOf(','); return k < 0 ? [a, ''] : [a.slice(0, k), a.slice(k + 1).trimStart()]; };
@@ -23,6 +24,7 @@ export const toNewEvent = (d: Draft, bringTxt = d.bring.join(', ')): NewEvent =>
 export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft; fresh: boolean; close: () => void; back: () => void; saved: (id: string) => void }) {
   const snap = useSnapshot();
   const s = snap.family!.settings;
+  const [calc, setCalc] = useState(false);
   const [d, setD] = useState<Draft>(draft);
   const [busy, setBusy] = useState(false);
   const [bringTxt, setBringTxt] = useState(draft.bring.join(', '));
@@ -99,7 +101,12 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       {d.driver && s.showTravel && !d.all_day && (
         <div className="row2">
           <label className="field"><span>Fahrzeit (Min.)</span><input type="number" inputMode="numeric" min={0} max={240} value={d.travel_min ?? ''} onChange={e => set({ travel_min: e.target.value ? Math.max(0, Math.min(240, Number(e.target.value))) : null })} placeholder="z. B. 15" /></label>
-          <div className="note" style={{ alignSelf: 'end' }}>{d.travel_min ? <>Los um <b>{hm(d.start_min - d.travel_min - s.buffer)}</b>{s.buffer ? ` (mit ${s.buffer} Min. Puffer)` : ''}</> : 'Mit Fahrzeit zeigt die App, wann es losgeht.'}</div>
+          <div className="note" style={{ alignSelf: 'end' }}>
+            {d.addr.replace(/^,\s*/, '').trim() && <button type="button" className="small-btn" style={{ marginBottom: 6 }} disabled={calc}
+              onClick={() => { if (!s.home) { toast('Bitte zuerst unter Einstellungen → Allgemein die Zuhause-Adresse eintragen.'); return; } setCalc(true);
+                travelTime(s.home, d.addr.replace(/^,\s*/, '')).then(r => { set({ travel_min: r.minutes }); toast(`${r.minutes} Min. Fahrt (${String(r.km).replace('.', ',')} km) von zu Hause.`); }, fail).finally(() => setCalc(false)); }}>
+              {calc ? 'Rechne …' : 'Fahrzeit berechnen'}</button>}<br />
+            {d.travel_min ? <>Los um <b>{hm(d.start_min - d.travel_min - s.buffer)}</b>{s.buffer ? ` (mit ${s.buffer} Min. Puffer)` : ''}</> : 'Mit Fahrzeit zeigt die App, wann es losgeht.'}</div>
         </div>
       )}
       <label className="field"><span>Mitbringen (mit Komma trennen)</span><input value={bringTxt} onChange={e => setBringTxt(e.target.value)} placeholder="z. B. Trinkflasche, Schienbeinschoner" /></label>
