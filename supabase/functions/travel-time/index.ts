@@ -15,11 +15,23 @@ async function geocode(q: string): Promise<[number, number] | null> {
   // Aktueller Standort kommt als „lat,lon“
   const c = q.match(/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/);
   if (c) return [Number(c[2]), Number(c[1])];
-  const u = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=de,at,ch,dk,nl&q=${encodeURIComponent(q)}`;
-  const r = await fetch(u, { headers: { 'User-Agent': UA, 'Accept-Language': 'de' } });
-  if (!r.ok) return null;
-  const a = await r.json();
-  return a?.[0] ? [Number(a[0].lon), Number(a[0].lat)] : null;
+  // Erst Photon, dann Nominatim; ohne Treffer schrittweise ungenauer (ohne Hausnummer, nur PLZ und Ort)
+  const tries = [q, q.replace(/(\D)\s*\d+\s*[a-zA-Z]?\s*,/, '$1,'), q.split(',').slice(-1)[0].trim()].filter((x, i, a) => x && a.indexOf(x) === i);
+  for (const t of tries) {
+    try {
+      const p = await fetch(`https://photon.komoot.io/api/?limit=1&lang=de&q=${encodeURIComponent(t)}`, { headers: { 'User-Agent': UA } });
+      const f = p.ok ? (await p.json())?.features?.[0] : null;
+      if (f?.properties?.countrycode && ['DE', 'AT', 'CH', 'DK', 'NL'].includes(f.properties.countrycode)) return [f.geometry.coordinates[0], f.geometry.coordinates[1]];
+      if (!p.ok) console.log('photon', p.status, t);
+    } catch (e) { console.log('photon', String(e)); }
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=de,at,ch,dk,nl&q=${encodeURIComponent(t)}`, { headers: { 'User-Agent': UA, 'Accept-Language': 'de' } });
+      if (!r.ok) { console.log('nominatim', r.status, t); continue; }
+      const a = await r.json();
+      if (a?.[0]) return [Number(a[0].lon), Number(a[0].lat)];
+    } catch (e) { console.log('nominatim', String(e)); }
+  }
+  return null;
 }
 
 // Vorschläge beim Tippen (Photon, OpenStreetMap), Treffer in der Nähe von zu Hause zuerst
@@ -98,13 +110,12 @@ Deno.serve(async req => {
     const { from, to } = body;
     if (!from || !to) return json({ error: 'Zuhause-Adresse oder Ziel fehlt' }, 400);
     const a = await geocode(String(from).slice(0, 200));
-    if (!/^\s*-?\d{1,2}\.\d+\s*,/.test(String(from))) await new Promise(r => setTimeout(r, 1100)); // Nominatim: höchstens eine Anfrage pro Sekunde
     const b = await geocode(String(to).slice(0, 200));
     if (!a) return json({ error: 'Zuhause-Adresse nicht gefunden' }, 404);
     if (!b) return json({ error: 'Ziel-Adresse nicht gefunden' }, 404);
     const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a[0]},${a[1]};${b[0]},${b[1]}?overview=false`, { headers: { 'User-Agent': UA } });
     const route = (await r.json())?.routes?.[0];
-    if (!route) return json({ error: 'keine Route gefunden' }, 404);
+    if (!route) { console.log('osrm', r.status); return json({ error: 'keine Route gefunden' }, 404); }
     return json({ minutes: Math.max(1, Math.ceil(route.duration / 60)), km: Math.round(route.distance / 100) / 10 });
   } catch (e) {
     return json({ error: String(e) }, 500);
