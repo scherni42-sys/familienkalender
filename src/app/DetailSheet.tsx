@@ -3,7 +3,7 @@ import type { Draft } from '../lib/parse';
 import { fail, toast } from './toast';
 import { hm, today } from '../lib/dates';
 import { travelTime } from '../lib/ai';
-import { bdLabel, depart, nameOf, travel, upcoming, visLabel, whenText } from '../lib/model';
+import { bdLabel, depart, etaMin, nameOf, travel, upcoming, visLabel, whenText } from '../lib/model';
 import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
 import { useState, type ReactNode } from 'react';
@@ -30,6 +30,18 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
     travel_min: e.travel_min, notes: e.notes, bring: [...e.bring], discreet: e.discreet, reason: '', suggested: e.vis === 'family' ? 'family' : 'private', timeFound: !e.all_day
   });
   const nav = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(e.addr)}`;
+  const iDrive = e.driver === snap.me;
+  const eta = etaMin(e);
+  // Navigation starten: Google Maps öffnen; fährt man selbst, sieht die Familie „unterwegs“ mit Ankunftszeit
+  const startNav = () => {
+    window.open(nav, '_blank');
+    if (!iDrive) return;
+    const set = (min: number) => store.setEta(e.id, new Date(Date.now() + min * 60000).toISOString()).catch(() => {});
+    if (here) { void set(here.minutes); return; }
+    navigator.geolocation?.getCurrentPosition(
+      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(r => set(r.minutes), () => {}),
+      () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
+  };
   const fromHere = () => {
     if (!navigator.geolocation) { toast('Standort ist auf diesem Gerät nicht verfügbar.'); return; }
     setBusy(true);
@@ -55,8 +67,10 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
         {e.addr && <Row k="Von hier">{here ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km{!e.all_day && e.date === today() ? <> · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}</> : null}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: here ? 6 : 0 }}>
             <button type="button" className="btn ghost sm" disabled={busy} onClick={fromHere}>{busy ? 'Suche Standort …' : here ? 'Neu berechnen' : 'Fahrzeit von hier'}</button>
-            <a className="btn sm" href={nav} target="_blank" rel="noreferrer"><Icon name="car" /> Navigation starten</a>
-          </div></Row>}
+            <button type="button" className="btn sm" onClick={startNav}><Icon name="car" /> Navigation starten</button>
+            {iDrive && eta !== null && <button type="button" className="btn ghost sm" onClick={() => store.setEta(e.id, null).catch(fail)}>Angekommen</button>}
+          </div>
+          {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nameOf(snap.members, e.driver)} ist unterwegs, Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}
         {e.notes && <Row k="Notiz">{linkify(e.notes)}</Row>}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>

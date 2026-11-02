@@ -28,6 +28,7 @@ export interface CalEvent {
   place: string;
   addr: string;
   travel_min: number | null;
+  eta?: string | null; // Fahrer ist unterwegs: voraussichtliche Ankunft
   notes: string;
   bring: string[];
   discreet: boolean;

@@ -83,3 +83,12 @@ export function conflicts(events, busy, draft, members, skipId) {
 }
 export const visLabel = (v) => (v === 'family' ? 'Familie: alle und das Display' : v === 'busy' ? 'Privat: nur du (andere sehen bei Überschneidung „belegt“)' : 'Privat: nur du');
 export { addDays };
+// Fahrer ist unterwegs: Ankunft in Minuten nach Mitternacht (nur heute und solange sinnvoll), sonst null
+export const etaMin = (e) => {
+    if (!e.eta)
+        return null;
+    const t = new Date(e.eta), now = Date.now();
+    if (isNaN(t.getTime()) || t.getTime() < now - 30 * 60000 || t.getTime() > now + 12 * 3600000)
+        return null;
+    return t.getHours() * 60 + t.getMinutes();
+};

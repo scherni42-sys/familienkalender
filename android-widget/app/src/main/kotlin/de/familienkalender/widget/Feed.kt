@@ -169,6 +169,22 @@ object Feed {
     fun me(feed: JSONObject): String? = feed.optString("me").takeIf { it.isNotEmpty() && it != "null" }
 
     // Board-Knopf im Widget ausführen: like, take oder done; liefert eine Fehlermeldung oder null
+    // Fahrer unterwegs: neue voraussichtliche Ankunft an den Server (sieht die Familie auf dem Display)
+    fun eta(ctx: Context, event: String, iso: String?): Boolean {
+        val c = config(ctx) ?: return false
+        return try {
+            val conn = URL("${c.url}/rest/v1/rpc/widget_eta").openConnection() as HttpURLConnection
+            conn.requestMethod = "POST"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 15000
+            conn.doOutput = true
+            conn.setRequestProperty("apikey", c.key)
+            conn.setRequestProperty("Content-Type", "application/json")
+            conn.outputStream.use { it.write(JSONObject().put("p_token", c.token).put("p_event", event).put("p_eta", iso ?: JSONObject.NULL).toString().toByteArray()) }
+            conn.responseCode in 200..299
+        } catch (e: Exception) { false }
+    }
+
     fun act(ctx: Context, action: String, msg: String): String? {
         val c = config(ctx) ?: return "Kein Widget-Code"
         return try {

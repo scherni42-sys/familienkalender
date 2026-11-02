@@ -91,6 +91,23 @@ object Reminders {
                     "Fahrt $travel Min. · los um ${hm(leave)} · Beginn ${hm(u.start)}" + (if (addr.isNotBlank()) " · $addr" else ""),
                     "event:${u.e.optString("id")}", addr)
             }
+            // Unterwegs (Navigation aus der App gestartet): Ankunftszeit alle 10 Minuten vom Standort aus nachführen
+            val etaIso = if (u.e.isNull("eta")) "" else u.e.optString("eta")
+            if (iDrive && etaIso.isNotBlank() && addr.isNotBlank() && now.isBefore(u.start.plusMinutes(30))) {
+                val etaAt = try { java.time.OffsetDateTime.parse(etaIso).atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime() } catch (x: Exception) { null }
+                if (etaAt != null && now.isBefore(etaAt.plusMinutes(15))) {
+                    val last = prefs.getLong("etachk:$key", 0)
+                    if (System.currentTimeMillis() - last > 9 * 60_000) {
+                        prefs.edit().putLong("etachk:$key", System.currentTimeMillis()).apply()
+                        Away.here(ctx)?.let { loc ->
+                            val m = Away.minutes(loc, addr)
+                            if (m != null) Feed.eta(ctx, u.e.optString("id"), java.time.OffsetDateTime.now().plusMinutes(m.toLong()).toString())
+                        }
+                    }
+                    val again = now.plusMinutes(10)
+                    val n = next; if (n == null || again.isBefore(n)) next = again
+                }
+            }
             // Sicherheits-Check: zwei Stunden vor der Abfahrt prüfen, ob ich weit weg bin und es vom Standort länger dauert
             if (iDrive && addr.isNotBlank()) {
                 val from = u.start.minusMinutes((u.travel + AWAY_MIN).toLong())
