@@ -80,8 +80,8 @@ class TodayWidget : AppWidgetProvider() {
         fun weekBar(ctx: Context, v: RemoteViews) {
             val on = Feed.weekMode(ctx)
             v.setTextViewText(R.id.weeklabel, if (on) "KW ${Feed.weekNumber(ctx)}" else "KW")
-            v.setInt(R.id.weeklabel, "setBackgroundResource", if (on) R.drawable.bar_on else R.drawable.bar_off)
-            v.setTextColor(R.id.weeklabel, if (on) 0xFFFFFFFF.toInt() else ctx.getColor(R.color.fg))
+            v.setInt(R.id.weeklabel, "setBackgroundResource", if (on) R.drawable.bar_on else R.drawable.kw_off)
+            v.setTextColor(R.id.weeklabel, 0xFFFFFFFF.toInt())
             val year = if (on) Feed.weekYear(ctx) else null
             v.setTextViewText(R.id.weekyear, year?.toString() ?: "")
             v.setViewVisibility(R.id.weekyear, if (year != null) View.VISIBLE else View.GONE)

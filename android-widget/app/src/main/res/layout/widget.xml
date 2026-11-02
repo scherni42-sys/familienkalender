@@ -147,8 +147,10 @@
                 android:layout_height="match_parent"
                 android:gravity="center"
                 android:includeFontPadding="false"
-                android:text="🎂"
-                android:textSize="18sp" />
+                android:text="B"
+                android:textColor="#FFFFFF"
+                android:textSize="19sp"
+                android:textStyle="bold" />
         </FrameLayout>
 
         <TextView
@@ -189,7 +191,7 @@
                 android:id="@+id/weeklabel"
                 android:layout_width="84dp"
                 android:layout_height="40dp"
-                android:background="@drawable/bar_off"
+                android:background="@drawable/kw_off"
                 android:gravity="center"
                 android:maxLines="1"
                 android:text="KW"
