@@ -91,7 +91,7 @@ export function Display({ token }) {
             }
             const eta = etaMin(e);
             if (eta !== null && e.start_min + 30 > now) {
-                out.push(_jsxs("div", { className: "w-go soon", style: cvar(color(e.driver)), children: [_jsx("time", { children: hm(eta) }), _jsxs("div", { className: "w-go-bar", style: { ['--p']: '100%' }, children: [_jsx(Icon, { name: "car" }), _jsxs("span", { children: [nm(e.driver), " f\u00E4hrt \u00B7 Ankunft ca. ", hm(eta)] })] })] }, `go${e.id}`));
+                out.push(_jsxs("div", { className: "w-go soon", style: cvar(color(e.driver)), children: [_jsx("time", { children: hm(eta) }), _jsxs("div", { className: "w-go-bar", style: { ['--p']: '100%' }, children: [_jsx(Icon, { name: "car" }), _jsxs("span", { children: [nm(e.driver), " f\u00E4hrt \u00B7 Ankunft"] })] })] }, `go${e.id}`));
             }
             else if (travel(e, s) && e.start_min > now) {
                 const dep = depart(e, s), gone = dep <= now;

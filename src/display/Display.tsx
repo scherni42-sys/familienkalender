@@ -98,7 +98,7 @@ export function Display({ token }: { token: string }) {
       const eta = etaMin(e);
       if (eta !== null && e.start_min + 30 > now) {
         out.push(<div key={`go${e.id}`} className="w-go soon" style={cvar(color(e.driver))}><time>{hm(eta)}</time>
-          <div className="w-go-bar" style={{ ['--p' as string]: '100%' }}><Icon name="car" /><span>{nm(e.driver)} fährt · Ankunft ca. {hm(eta)}</span></div></div>);
+          <div className="w-go-bar" style={{ ['--p' as string]: '100%' }}><Icon name="car" /><span>{nm(e.driver)} fährt · Ankunft</span></div></div>);
       } else if (travel(e, s) && e.start_min > now) {
         const dep = depart(e, s), gone = dep <= now;
         out.push(<div key={`go${e.id}`} className={`w-go${gone ? ' gone' : dep - now <= 30 ? ' soon' : ''}`} style={cvar(color(e.driver))}><time>{hm(dep)}</time>

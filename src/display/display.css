@@ -128,8 +128,8 @@
 .w-main.days2 .w-ev time, .w-main.days3 .w-ev time { grid-row: 1; grid-column: 1; }
 .w-main.days2 .w-ev .wb, .w-main.days3 .w-ev .wb { grid-row: 1; grid-column: 2; }
 .w-main.days2 .w-ev > div, .w-main.days3 .w-ev > div { grid-row: 2; grid-column: 1 / -1; }
-.w-main.days3 .w-go { grid-template-columns: 5cqw 1fr; padding: 0; }
-.w-main.days2 .w-go { grid-template-columns: 6cqw 1fr; padding: 0; }
+.w-main.days3 .w-go { grid-template-columns: 5cqw minmax(0, 1fr); padding: 0; }
+.w-main.days2 .w-go { grid-template-columns: 6cqw minmax(0, 1fr); padding: 0; }
 .w-main.fixboard, .wys.kal .w-main.qm.fixboard { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 1.6cqw; padding-left: 2.2cqw; padding-right: 2.2cqw; }
 .w-days { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 1cqw; min-height: 0; min-width: 0; }
 .w-dcols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 1.3cqw; min-height: 0; overflow: hidden; }
@@ -160,9 +160,9 @@
 .w-main.morning .w-ad, .w-main.morning .w-bd { font-size: 1.9cqw; }
 .w-later { display: flex; gap: .8cqw; align-items: center; font-size: 1.3cqw; color: var(--screen-muted); border-top: .15cqw dashed var(--screen-line); padding-top: .8cqw; }
 .w-later .ico { width: 1.6cqw; height: 1.6cqw; }
-.w-go { display: grid; grid-template-columns: 7cqw 1fr; gap: 1.2cqw; align-items: center; padding: 0 1cqw; font-size: 1.4cqw; }
+.w-go { display: grid; grid-template-columns: 7cqw minmax(0, 1fr); gap: 1.2cqw; align-items: center; padding: 0 1cqw; font-size: 1.4cqw; }
 .w-go time { font-variant-numeric: tabular-nums; font-weight: 700; }
-.w-go-bar { display: flex; align-items: center; gap: .6cqw; padding: .35cqw .9cqw; border-radius: 99px; border: .15cqw dashed var(--c); background: linear-gradient(90deg, color-mix(in srgb, var(--c) 22%, var(--screen-mix, #ffffff)) var(--p), var(--screen-mix, #ffffff) var(--p)); font-weight: 600; }
+.w-go-bar { min-width: 0; overflow: hidden; display: flex; align-items: center; gap: .6cqw; padding: .35cqw .9cqw; border-radius: 99px; border: .15cqw dashed var(--c); background: linear-gradient(90deg, color-mix(in srgb, var(--c) 22%, var(--screen-mix, #ffffff)) var(--p), var(--screen-mix, #ffffff) var(--p)); font-weight: 600; }
 .w-go-bar .ico { width: 1.7cqw; height: 1.7cqw; }
 .w-go.soon .w-go-bar { border-style: solid; border-width: .25cqw; }
 .w-go.gone { opacity: .55; }
