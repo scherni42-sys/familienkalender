@@ -97,7 +97,8 @@ class LocalStore extends Base implements Store {
   }
   async loadExample() { this.save(seed()); }
   async saveEvent(e: NewEvent, editId?: string) {
-    if (editId) { this.patch(s => ({ events: s.events.map(x => x.id === editId ? { ...x, ...e } : x) })); return editId; }
+    // Anderer Fahrer: laufende Fahrt (Ankunftszeit) des bisherigen Fahrers endet
+    if (editId) { this.patch(s => ({ events: s.events.map(x => x.id === editId ? { ...x, ...e, ...((x.driver ?? null) !== (e.driver ?? null) ? { eta: null } : {}) } : x) })); return editId; }
     const id = uid();
     this.patch(s => ({ events: [...s.events, { ...e, id, owner: s.me! } as CalEvent] }));
     return id;
@@ -238,7 +239,12 @@ class SupabaseStore extends Base implements Store {
   }
   async loadExample() { throw new Error('Die Beispielfamilie gibt es nur im Demo-Modus.'); }
   async saveEvent(e: NewEvent, editId?: string) {
-    if (editId) { this.ok(await this.sb.from('events').update(e).eq('id', editId)); await this.refresh(); return editId; }
+    if (editId) {
+      // Anderer Fahrer: laufende Fahrt (Ankunftszeit) des bisherigen Fahrers endet
+      const was = this.snap.events.find(x => x.id === editId);
+      const patch = was && (was.driver ?? null) !== (e.driver ?? null) ? { ...e, eta: null } : e;
+      this.ok(await this.sb.from('events').update(patch).eq('id', editId)); await this.refresh(); return editId;
+    }
     const row = this.ok(await this.sb.from('events').insert({ ...e, family_id: this.familyId, owner: this.snap.me }).select('id').single()) as { id: string };
     await this.refresh();
     return row.id;
