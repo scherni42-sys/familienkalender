@@ -243,6 +243,12 @@ object Feed {
         "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".")} ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
 
     // Kopfzeile: „Montag, 2. November“
+    // Große Schrift am Handy: kurze Kopfzeile „Mo, 2. Nov.“, damit nichts abgeschnitten wird
+    fun headLabel(ctx: Context, d: LocalDate): String =
+        if (ctx.resources.configuration.fontScale > 1.1f)
+            "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".")}, ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".")}."
+        else headLabel(d)
+
     fun headLabel(d: LocalDate): String =
         "${d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.GERMAN)}, ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
 

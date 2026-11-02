@@ -147,7 +147,7 @@ class TodayWidget : AppWidgetProvider() {
             val mgr = AppWidgetManager.getInstance(ctx)
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java))
             val v = RemoteViews(ctx.packageName, R.layout.widget)
-            v.setTextViewText(R.id.date, Feed.headLabel(LocalDate.now()))
+            v.setTextViewText(R.id.date, Feed.headLabel(ctx, LocalDate.now()))
             bdButton(ctx, v)
             weekBar(ctx, v)
             homeButton(ctx, v)
@@ -174,7 +174,7 @@ class TodayWidget : AppWidgetProvider() {
 
         fun views(ctx: Context, id: Int): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.widget)
-            v.setTextViewText(R.id.date, Feed.headLabel(LocalDate.now()))
+            v.setTextViewText(R.id.date, Feed.headLabel(ctx, LocalDate.now()))
 
             val svc = Intent(ctx, WidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)

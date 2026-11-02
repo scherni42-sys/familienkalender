@@ -17,7 +17,11 @@
         <TextView
             android:id="@+id/date"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center_vertical"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="12sp"
+            android:autoSizeMaxTextSize="17sp"
             android:layout_weight="1"
             android:maxLines="1"
             android:ellipsize="end"
