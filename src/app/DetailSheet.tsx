@@ -69,10 +69,10 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           {e.addr && <a className="btn ghost sm" href={maps} target="_blank" rel="noreferrer">Route von zu Hause</a>}
         </div></Row>}
         {e.addr && <Row k="Von hier">{here ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km{!e.all_day && e.date === today() ? <> · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}</> : null}
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: here ? 6 : 0 }}>
-            <button type="button" className="btn ghost sm" disabled={busy} onClick={fromHere}>{busy ? 'Suche Standort …' : here ? 'Neu berechnen' : 'Fahrzeit von hier'}</button>
+          <div className="nav-row" style={{ marginTop: here ? 6 : 0 }}>
+            <button type="button" className="btn ghost sm nav-btn" disabled={busy} onClick={fromHere}>{busy ? 'Suche Standort …' : here ? 'Neu berechnen' : 'Fahrzeit von hier'}</button>
             <button type="button" className={`btn sm nav-btn${iDrive && eta !== null ? " nav-on" : ""}`} onClick={startNav}><Icon name="car" /> {iDrive && eta !== null ? 'Navigation läuft' : 'Navigation starten'}</button>
-            {iDrive && eta !== null && <button type="button" className="btn ghost sm" onClick={() => store.setEta(e.id, null).catch(fail)}>Angekommen</button>}
+            {iDrive && eta !== null && <button type="button" className="btn ghost sm nav-wide" onClick={() => store.setEta(e.id, null).catch(fail)}>Angekommen</button>}
           </div>
           {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nameOf(snap.members, e.driver)} fährt · Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}

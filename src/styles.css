@@ -326,3 +326,9 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .btn.nav-on::before { content: ''; position: absolute; left: 10px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #7dffb0; animation: navpulse 1.4s ease-in-out infinite; }
 @keyframes navpulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
 .btn.nav-btn { white-space: nowrap; }
+/* Termindetails: „Fahrzeit von hier“ und „Navigation“ gleich breit nebeneinander */
+.nav-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.nav-row .btn { width: 100%; min-width: 0; justify-content: center; }
+.nav-row .btn.nav-btn { white-space: normal; text-wrap: balance; line-height: 1.25; text-align: center; padding-top: 8px; padding-bottom: 8px; }
+.nav-row .btn.nav-on { padding-left: 24px; }
+.nav-row .nav-wide { grid-column: 1 / -1; }
