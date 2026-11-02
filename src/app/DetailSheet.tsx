@@ -61,7 +61,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
       p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(r => set(r.minutes), () => {}),
       () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
   };
-  const maps = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(e.addr)}${s.home ? `&origin=${encodeURIComponent(s.home)}` : ''}`;
+  const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([e.place, e.addr].filter(Boolean).join(', '))}`;
   return (
     <Sheet onClose={close} label="Termindetails">
       <h2>{e.title}</h2>
@@ -69,12 +69,11 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
         <Row k="Wann">{whenText(e)}</Row>
         <Row k="Wer">{e.persons.length ? <><Badges ids={e.persons} members={snap.members} /> {e.persons.map(p => nameOf(snap.members, p)).join(', ')}</> : 'Niemand bestimmtes'}</Row>
         {e.driver && <Row k="Fahrdienst">{nameOf(snap.members, e.driver)} fährt</Row>}
-        {(e.place || e.addr) && <Row k="Ort">{e.place}{e.addr && <small className="addr">{e.addr}</small>}</Row>}
+        {(e.place || e.addr) && <Row k="Ort">{e.place}{e.addr && <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a>}</Row>}
         {tr > 0 && <Row k="Fahrt"><div className="route" style={cvar(snap.members.find(m => m.id === e.driver)?.color ?? '#7a8590')}>
           {eta !== null ? <div className="rt-times"><span><b>{nameOf(snap.members, e.driver)} fährt</b></span><span>Ankunft ca. <b>{hm(eta)}</b></span></div> : <>
           <div className="rt-bar"><span className="rt-drive" style={{ flex: tr }}><Icon name="car" /> {tr} Min.</span>{s.buffer > 0 && <span className="rt-buf" style={{ flex: Math.max(s.buffer, 4) }}>{s.buffer}</span>}</div>
           <div className="rt-times"><span><b>{hm(dep)}</b> losfahren</span><span><b>{hm(e.start_min)}</b> Beginn</span></div></>}
-          {e.addr && <a className="btn ghost sm" href={maps} target="_blank" rel="noreferrer">Route von zu Hause</a>}
         </div></Row>}
         {e.addr && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">
           {busy && eta === null ? <span className="note">Fahrzeit vom Standort wird berechnet …</span> : here && eta === null ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}

@@ -333,3 +333,4 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .nav-row .btn.nav-on { padding-left: 24px; }
 .nav-row .nav-wide { grid-column: 1 / -1; }
 .nav-row.one { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+a.addr { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px; }
