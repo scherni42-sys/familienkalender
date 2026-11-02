@@ -44,6 +44,12 @@ export function AskSheet({ close, open, edit, toDraft, bdays }: { close: () => v
     return () => window.removeEventListener('famto-speech', on);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Zaubertaste: Mikrofon geht sofort an; nach der Sprechpause fragt die App von selbst
+  useEffect(() => {
+    const t = setTimeout(() => { if (native()?.listen || SR) listen(); else input.current?.focus(); }, 350);
+    return () => clearTimeout(t);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const listen = () => {
     const n = native();
     if (n?.listen) { setRec(true); n.listen(); return; }
