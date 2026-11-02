@@ -166,7 +166,7 @@ export function Display({ token }: { token: string }) {
   }
 
   return (
-    <div className={`wys full${eink ? ' eink' : ''}${qm ? ' qm' : ''}${big ? ' kal' : ''}`} style={s.wbg ? { background: s.wbg } : undefined}>
+    <div className={`wys full${!eink && !big && !s.wbg ? ' dark' : ''}${eink ? ' eink' : ''}${qm ? ' qm' : ''}${big ? ' kal' : ''}`} style={s.wbg ? { background: s.wbg } : undefined}>
       <div className="w-head"><h2>{longDate(day)}</h2>
         {cakes.length > 0 && <div className="w-cakes">{cakes.map(b => <button key={b.id} type="button" className="w-cake" onClick={() => setBdOpen(true)}>{b.days === 0 ? 'Heute' : b.days}<Icon name="cake" /><small>{b.name}</small></button>)}</div>}
         <div><div className="clock">{eink ? '' : hm(now)}</div><div className="sub">{feed.family.name}</div></div></div>

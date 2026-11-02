@@ -89,7 +89,7 @@ export function Settings() {
       <BgPick cur={me.app_bg ?? ''} pick={h => store.updateMember(me.id, { app_bg: h || null }).catch(fail)} /></div>
     <div className="colrow"><div className="nm"><b>Display im Flur</b><span className="note">{isAdmin ? 'gilt für alle' : 'ändern kann nur der Admin'}</span></div>
       {isAdmin && <BgPick cur={s.wbg} pick={h => upd({ wbg: h }, 'Display-Hintergrund gespeichert.')} />}</div>
-    <p className="note">Helle Töne halten Termine und Schrift gut lesbar. Beim E-Ink-Display erscheint die Farbe als Grauton.</p>
+    <p className="note">Display „Standard“ ist dunkel wie das Widget. Eine helle Farbe schaltet das Display auf hell. Beim E-Ink-Display erscheint die Farbe als Grauton.</p>
   </>;
   if (sub === 'bdays') content = <Bdays />;
   if (sub === 'displays') content = <Displays />;
