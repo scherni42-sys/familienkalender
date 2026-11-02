@@ -13,7 +13,7 @@ import { native } from '../lib/native';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
 const MENU: [Exclude<Sub, null>, string, IconName][] = [
-  ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Mitglieder', 'palette'],
+  ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Personalisierung', 'palette'],
   ['bg', 'Hintergrund', 'palette'], ['bdays', 'Geburtstage', 'cake'], ['displays', 'Displays', 'screen']
 ];
 

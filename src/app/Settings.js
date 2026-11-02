@@ -10,7 +10,7 @@ import { SUPA } from '../lib/supabase';
 import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
 const MENU = [
-    ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Mitglieder', 'palette'],
+    ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Personalisierung', 'palette'],
     ['bg', 'Hintergrund', 'palette'], ['bdays', 'Geburtstage', 'cake'], ['displays', 'Displays', 'screen']
 ];
 export function Settings() {
