@@ -63,10 +63,12 @@ object Reminders {
         val now = LocalDateTime.now()
         var next: LocalDateTime? = null
 
-        fun due(key: String, at: LocalDateTime, until: LocalDateTime, title: String, text: String, open: String) {
+        val me = Feed.me(feed)
+        val lead = feed.optJSONObject("family")?.optJSONObject("settings")?.optInt("remind", 10) ?: 10
+        fun due(key: String, at: LocalDateTime, until: LocalDateTime, title: String, text: String, open: String, nav: String = "") {
             if (key in sent || !now.isBefore(until)) return
             if (now.isBefore(at)) { val n = next; if (n == null || at.isBefore(n)) next = at; return }
-            notify(ctx, key.hashCode(), title, text, open)
+            notify(ctx, key.hashCode(), title, text, open, nav)
             sent += key
         }
 
@@ -77,6 +79,14 @@ object Reminders {
             val title = u.e.optString("title")
             val text = "um ${hm(u.start)}" + (if (u.travel > 0) " · los um ${hm(leave)}" else "") + (if (mins in 1..120) " · in $mins Min" else "")
             due("ev:${u.e.optString("id")}:${u.start}", at, u.start, title, text, "event:${u.e.optString("id")}")
+            // Fahrer: Fahrzeit plus Vorlauf (Einstellung „Erinnerung an den Fahrer“, Standard 10 Min.) vor Beginn
+            if (u.travel > 0 && me != null && u.e.optString("driver") == me && lead > 0) {
+                val go = u.start.minusMinutes((u.travel + lead).toLong())
+                val addr = u.e.optString("addr")
+                due("go:${u.e.optString("id")}:${u.start}", go, u.start.minusMinutes(u.travel.toLong()), "🚗 In $lead Min. losfahren: $title",
+                    "Fahrt ${u.travel} Min. · los um ${hm(u.start.minusMinutes(u.travel.toLong()))} · Beginn ${hm(u.start)}" + (if (addr.isNotBlank()) " · $addr" else ""),
+                    "event:${u.e.optString("id")}", addr)
+            }
         }
 
         val bds = feed.optJSONArray("birthdays") ?: JSONArray()
@@ -101,7 +111,7 @@ object Reminders {
             ?: am.cancel(alarm)
     }
 
-    private fun notify(ctx: Context, id: Int, title: String, text: String, open: String) {
+    private fun notify(ctx: Context, id: Int, title: String, text: String, open: String, nav: String = "") {
         if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Erinnerungen", NotificationManager.IMPORTANCE_HIGH))
@@ -113,7 +123,13 @@ object Reminders {
             .setContentText(text)
             .setContentIntent(tap)
             .setAutoCancel(true)
-            .build()
-        nm.notify(id, n)
+            .setStyle(android.app.Notification.BigTextStyle().bigText(text))
+        if (nav.isNotBlank()) {
+            // Knopf „Navigation“: Google Maps startet die Route vom aktuellen Standort
+            val go = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("google.navigation:q=" + android.net.Uri.encode(nav))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val pi = PendingIntent.getActivity(ctx, id + 1, go, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            n.addAction(android.app.Notification.Action.Builder(null, "Navigation", pi).build())
+        }
+        nm.notify(id, n.build())
     }
 }

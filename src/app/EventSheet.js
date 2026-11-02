@@ -43,7 +43,15 @@ export function EventSheet({ draft, fresh, close, back, saved }) {
         }
         setBusy(true);
         try {
-            const id = await store.saveEvent(toNewEvent(d, bringTxt), d.id);
+            // Fahrer, Adresse, aber keine Fahrzeit: von zu Hause aus berechnen (für die Abfahrts-Erinnerung)
+            let dd = d;
+            const to = d.addr.replace(/^,\s*/, '').trim();
+            if (d.driver && to && !d.travel_min && !d.all_day && s.home) {
+                const r = await Promise.race([travelTime(s.home, to), new Promise(res => setTimeout(() => res(null), 8000))]).catch(() => null);
+                if (r)
+                    dd = { ...d, travel_min: r.minutes };
+            }
+            const id = await store.saveEvent(toNewEvent(dd, bringTxt), d.id);
             toast(d.vis === 'family' ? 'Gespeichert. Steht jetzt auch auf dem Display.' : 'Gespeichert, nur für dich.');
             saved(id);
         }
