@@ -41,7 +41,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         // Blättern nur in der Geburtstagsliste und nur bei mehr als einer Seite
         val bd = Feed.bdMode(ctx) && Feed.bdPages(ctx) > 1
         head.setViewVisibility(R.id.bdnav, if (bd) View.VISIBLE else View.GONE)
-        head.setTextViewText(R.id.bdpage, "${Feed.bdPage(ctx) + 1}/${Feed.bdPages(ctx)}")
+        head.setTextViewText(R.id.bdpage, "${Feed.bdPage(ctx) + 1} / ${Feed.bdPages(ctx)}")
         TodayWidget.weekBar(ctx, head)
         head.setTextViewText(R.id.empty, if (err != null && feed == null) err else "Keine Einträge")
         for (id in mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java))) mgr.partiallyUpdateAppWidget(id, head)
