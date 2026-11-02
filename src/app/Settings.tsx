@@ -218,12 +218,14 @@ function Displays() {
     {widget}
     <p className="note">Jedes Display ruft die Familienseite unter einer eigenen, geheimen Adresse auf. Diese Adresse im WYSCREEN als Webseite eintragen. Entfernen macht die Adresse sofort ungültig.</p>
     {snap.displays.map(d => {
-      const url = `${base}#/display/${d.token}`;
+      const tall = (s.tall ?? []).includes(d.id);
+      const url = `${base}${tall ? '?v=hoch' : ''}#/display/${d.token}`;
       return <div key={d.id} className="mem"><span className="b" style={cvar('var(--muted)')}>W</span><div><div className="nm">{d.name}</div><div className="sub">nur Familientermine{d.touch ? ' · mit Eingabe' : ''}</div></div><span />
         <div className="acts" style={{ display: 'grid' }}>
           <label className="setrow"><span>👆 Touch-Display: Termine und Board-Nachrichten direkt am Display eingeben</span><input type="checkbox" checked={!!d.touch} onChange={e => store.setDisplayTouch(d.id, e.target.checked).then(() => toast(e.target.checked ? 'Eingabe am Display eingeschaltet.' : 'Eingabe am Display ausgeschaltet.'), fail)} /></label>
+          <label className="setrow"><span>📱 Hochkant wie das Widget: Bildschirm hängt hochkant</span><input type="checkbox" checked={tall} onChange={e => { const on = e.target.checked; store.updateSettings({ tall: on ? [...(s.tall ?? []), d.id] : (s.tall ?? []).filter(x => x !== d.id) }).then(() => toast(on ? 'Hochkant-Ansicht an. Bitte die neue Adresse am Display eintragen.' : 'Hochkant-Ansicht aus. Bitte die neue Adresse am Display eintragen.'), fail); }} /></label>
           <div className="urlbox">{url}</div>
-          <span className="note">Varianten: <code>?v=bigme</code>, <code>?v=qm</code>, <code>?v=color</code>, <code>?v=eink</code> vor dem # anhängen. <code>?r=5</code> lädt alle 5 Sekunden neu, beides zusammen mit <code>?v=qm&amp;r=5</code>.</span>
+          <span className="note">Varianten: <code>?v=bigme</code>, <code>?v=qm</code>, <code>?v=color</code>, <code>?v=eink</code>, <code>?v=hoch</code> vor dem # anhängen. Ein hochkant hängender Bildschirm zeigt die Widget-Ansicht auch von selbst. <code>?r=5</code> lädt alle 5 Sekunden neu, beides zusammen mit <code>?v=qm&amp;r=5</code>.</span>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText(url).then(() => toast('Adresse kopiert.'))}>Adresse kopieren</button>
             <a className="small-btn" href={url} target="_blank" rel="noreferrer">Ansehen</a>

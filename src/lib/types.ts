@@ -75,6 +75,7 @@ export interface Settings {
   ahead: number;
   boardMode: 'dynamic' | 'fixed';
   wbg: string;
+  tall?: string[]; // Displays (id), die hochkant hängen
 }
 
 export const DEFAULT_SETTINGS: Settings = {

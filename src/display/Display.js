@@ -3,13 +3,16 @@ import { avatarOf, boardImg } from '../lib/supabase';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import './display.css';
 import { store } from '../lib/store';
-import { addDays, fromIso, hm, inDays, longDate, MON, nowMin, today, WD, WDS } from '../lib/dates';
+import { addDays, fromIso, hm, inDays, isoWeek, longDate, mondayOf, MON, nowMin, today, WD, WDS } from '../lib/dates';
 import { bdOn, byTime, dayOfN, depart, liveMsgs, onDay, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
 import { DisplayInput } from './DisplayInput';
 const variant = () => {
     const v = new URLSearchParams(location.search).get('v');
-    return v === 'bigme' || v === 'color' || v === 'eink' || v === 'mini' ? v : 'qm';
+    if (v === 'bigme' || v === 'color' || v === 'eink' || v === 'mini' || v === 'hoch' || v === 'qm')
+        return v;
+    // Ohne Angabe: hochkant aufgehängter Bildschirm bekommt die Widget-Ansicht
+    return innerHeight > innerWidth * 1.15 ? 'hoch' : 'qm';
 };
 // ?r=Sekunden in der Adresse setzt den Abruf-Takt (mindestens 5 Sekunden)
 const refreshMs = (v) => {
@@ -27,15 +30,20 @@ export function Display({ token }) {
     const [note, setNote] = useState('');
     // Pinnwand zeigt so viele Nachrichten, wie in die Spalte passen; der Rest wird als „+N weitere“ gezählt
     const [fitN, setFitN] = useState(99);
+    const [wk, setWk] = useState(0);
+    const [, setTick] = useState(0);
+    // Nach dem Blättern kehrt die Ansicht nach einer Minute zu heute zurück
+    useEffect(() => { if (!wk)
+        return; const t = setTimeout(() => setWk(0), 60000); return () => clearTimeout(t); }, [wk]);
     useLayoutEffect(() => { setFitN(99); }, [feed]);
     useLayoutEffect(() => {
         const list = document.querySelector('.wys .w-msgs');
-        const boxes = [list?.closest('.w-sec'), list?.closest('.w-col, .w-board')].filter(Boolean);
+        const boxes = [list?.closest('.w-sec'), list?.closest('.w-col, .w-board, .t-board')].filter(Boolean);
         const count = document.querySelectorAll('.wys .w-msgs .w-msg').length;
         if (count > 1 && boxes.some(b => b.scrollHeight > b.clientHeight + 2))
             setFitN(count - 1);
     });
-    useEffect(() => { const r = () => setFitN(99); addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
+    useEffect(() => { const r = () => { setFitN(99); setTick(t => t + 1); }; addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
     const v = variant();
     useEffect(() => {
         document.title = 'FamTO · Display';
@@ -134,9 +142,34 @@ export function Display({ token }) {
     else {
         main = _jsxs("div", { className: "w-main days2", children: [_jsx("div", { className: "w-col", children: _jsxs("div", { className: "w-sec", children: [_jsx("h3", { children: H(0) }), _jsx("div", { className: "w-list", children: todayList })] }) }), _jsx("div", { className: "w-col", children: _jsxs("div", { className: "w-sec", children: [_jsx("h3", { children: H(1) }), _jsx("div", { className: "w-list", children: dayList(dayOf(1)) })] }) }), _jsxs("div", { className: "w-col side", children: [s.ahead >= 2 && _jsxs("div", { className: "w-sec", children: [_jsx("h3", { children: "N\u00E4chste Tage" }), _jsx("div", { className: "w-week", children: compact(2, Math.min(s.ahead, 4)) })] }), board(s.ahead > 3 ? 1 : 2)] })] });
     }
-    return (_jsxs("div", { className: `wys full${!eink && !big && !s.wbg ? ' dark' : ''}${eink ? ' eink' : ''}${qm ? ' qm' : ''}${big ? ' kal' : ''}`, style: s.wbg ? { background: s.wbg } : undefined, children: [_jsxs("div", { className: "w-head", children: [_jsx("h2", { children: longDate(day) }), cakes.length > 0 && _jsx("div", { className: "w-cakes", children: cakes.map(b => _jsxs("button", { type: "button", className: "w-cake", onClick: () => setBdOpen(true), children: [b.days === 0 ? 'Heute' : b.days, _jsx(Icon, { name: "cake" }), _jsx("small", { children: b.name })] }, b.id)) }), _jsxs("div", { children: [_jsx("div", { className: "clock", children: eink ? '' : hm(now) }), _jsx("div", { className: "sub", children: feed.family.name })] })] }), next, main, _jsxs("div", { className: "w-foot", children: [feed.touch && !eink ? _jsxs("span", { className: "w-add", children: [_jsx("button", { type: "button", className: "w-addbtn", onClick: () => setInput('event'), children: "\uFF0B Termin" }), _jsx("button", { type: "button", className: "w-addbtn board", onClick: () => setInput('board'), children: "\u270E Board" })] }) : _jsx("span", { children: "Termin antippen f\u00FCr Details" }), _jsxs("span", { children: ["Nur Familientermine", morning ? ' · Tagesansicht' : ''] })] }), input && _jsx(DisplayInput, { token: token, feed: feed, mode: input, close: () => setInput(null), saved: m => { setInput(null); setNote(m); setTimeout(() => setNote(''), 4000); void store.displayFeed(token).then(f => setFeed(f)); } }), note && _jsx("div", { className: "w-toast", children: note }), detail && _jsx("div", { className: "w-ov", onClick: e => { if (e.target === e.currentTarget)
+    const overlays = _jsxs(_Fragment, { children: [input && _jsx(DisplayInput, { token: token, feed: feed, mode: input, close: () => setInput(null), saved: m => { setInput(null); setNote(m); setTimeout(() => setNote(''), 4000); void store.displayFeed(token).then(f => setFeed(f)); } }), note && _jsx("div", { className: "w-toast", children: note }), detail && _jsx("div", { className: "w-ov", onClick: e => { if (e.target === e.currentTarget)
                     setDetail(null); }, children: _jsxs("div", { className: "w-card", style: cvar(color(detail.persons[0])), role: "dialog", "aria-label": "Termindetails", children: [_jsx("h4", { children: detail.title }), _jsxs("div", { className: "r", children: [_jsx("span", { children: "Wann" }), _jsx("div", { children: whenText(detail) })] }), detail.persons.length > 0 && _jsxs("div", { className: "r", children: [_jsx("span", { children: "Wer" }), _jsxs("div", { children: [_jsx("span", { className: "wb", children: detail.persons.map(sb) }), " ", detail.persons.map(nm).join(', ')] })] }), detail.driver && _jsxs("div", { className: "r", children: [_jsx("span", { children: "Fahrdienst" }), _jsxs("div", { children: [nm(detail.driver), " f\u00E4hrt", travel(detail, s) ? ` · los um ${hm(depart(detail, s))}` : ''] })] }), detail.place && _jsxs("div", { className: "r", children: [_jsx("span", { children: "Ort" }), _jsx("div", { children: detail.place })] }), detail.bring.length > 0 && _jsxs("div", { className: "r", children: [_jsx("span", { children: "Mitbringen" }), _jsx("div", { children: detail.bring.join(', ') })] }), detail.notes && _jsxs("div", { className: "r", children: [_jsx("span", { children: "Notiz" }), _jsx("div", { children: detail.notes })] }), _jsx("button", { type: "button", onClick: () => setDetail(null), children: "Schlie\u00DFen" })] }) }), bdOpen && _jsx("div", { className: "w-ov", onClick: e => { if (e.target === e.currentTarget)
-                    setBdOpen(false); }, children: _jsxs("div", { className: "w-card", style: cvar('#c9640f'), role: "dialog", "aria-label": "N\u00E4chste Geburtstage", children: [_jsx("h4", { children: "N\u00E4chste Geburtstage" }), _jsx("div", { className: "bdl", children: upcoming(feed.birthdays).slice(0, 5).map(b => _jsxs("div", { className: `bdr${b.days <= s.bdLead ? ' soon' : ''}`, children: [_jsxs("div", { children: [_jsx("b", { children: b.name }), _jsxs("small", { children: [b.day, ". ", MON[b.month - 1], b.age ? ` · wird ${b.age}` : ''] })] }), _jsx("span", { className: "dd", children: inDays(b.days) })] }, b.id)) }), _jsx("button", { type: "button", onClick: () => setBdOpen(false), children: "Schlie\u00DFen" })] }) })] }));
+                    setBdOpen(false); }, children: _jsxs("div", { className: "w-card", style: cvar('#c9640f'), role: "dialog", "aria-label": "N\u00E4chste Geburtstage", children: [_jsx("h4", { children: "N\u00E4chste Geburtstage" }), _jsx("div", { className: "bdl", children: upcoming(feed.birthdays).slice(0, 5).map(b => _jsxs("div", { className: `bdr${b.days <= s.bdLead ? ' soon' : ''}`, children: [_jsxs("div", { children: [_jsx("b", { children: b.name }), _jsxs("small", { children: [b.day, ". ", MON[b.month - 1], b.age ? ` · wird ${b.age}` : ''] })] }), _jsx("span", { className: "dd", children: inDays(b.days) })] }, b.id)) }), _jsx("button", { type: "button", onClick: () => setBdOpen(false), children: "Schlie\u00DFen" })] }) })] });
+    const tall = v === 'hoch';
+    if (tall) {
+        // Hochkant wie das Handy-Widget: Tage untereinander, Board, unten Geburtstage, Kalenderwoche und Eingabe
+        const start = wk === 0 ? day : addDays(mondayOf(day), 7 * wk);
+        const n = wk === 0 ? Math.max(3, Math.min(s.ahead + 1, 7)) : 7;
+        const lbl = (d) => { const k = d === day ? 'Heute' : d === addDays(day, 1) ? 'Morgen' : d === addDays(day, 2) ? 'Übermorgen' : ''; const x = fromIso(d); return k ? `${k} · ${WD[x.getDay()]}` : `${WD[x.getDay()]} ${x.getDate()}. ${MON[x.getMonth()]}`; };
+        const tev = (e, d) => {
+            const past = d === day && !e.all_day && e.end_min <= now;
+            if (d === day && hidePast(e))
+                return null;
+            return _jsxs("div", { className: `t-ev${past ? ' past' : ''}`, style: cvar(e.persons.length ? color(e.persons[0]) : '#7a8590'), onClick: () => setDetail(e), role: "button", tabIndex: 0, children: [_jsx("time", { children: e.all_day ? 'ganzt.' : hm(e.start_min) }), _jsxs("div", { className: "tt", children: [_jsx("b", { children: e.title }), e.driver ? _jsxs("small", { children: [" \u00B7 ", nm(e.driver), " f\u00E4hrt", travel(e, s) && d === day && !past ? ` · los ${hm(depart(e, s))}` : ''] }) : e.place ? _jsxs("small", { children: [" \u00B7 ", e.place] }) : null] }), _jsx("span", { className: "wb", children: e.persons.map(sb) })] }, e.id + d);
+        };
+        const days = Array.from({ length: n }, (_, i) => addDays(start, i)).map(d => {
+            const l = list(d), bds = bdOn(feed.birthdays, d), rows = l.map(e => tev(e, d)).filter(Boolean);
+            if (!rows.length && !bds.length && d !== day && wk === 0 && d !== addDays(day, 1))
+                return null;
+            if (!rows.length && !bds.length && wk !== 0)
+                return _jsx("div", { className: "t-day free", children: _jsxs("h3", { children: [lbl(d), " ", _jsx("span", { children: "frei" })] }) }, d);
+            return _jsxs("div", { className: "t-day", children: [_jsx("h3", { children: lbl(d) }), bds.map(b => _jsxs("div", { className: "t-ev bd", style: cvar('#c2477a'), onClick: () => setBdOpen(true), role: "button", tabIndex: 0, children: [_jsx("time", { children: _jsx(Icon, { name: "cake" }) }), _jsxs("div", { className: "tt", children: [_jsx("b", { children: b.name }), _jsxs("small", { children: [" hat Geburtstag", b.age ? ` · wird ${b.age}` : ''] })] })] }, b.id)), rows.length ? rows : !bds.length && _jsx("div", { className: "w-empty", children: d === day && l.length ? 'Keine weiteren Familientermine' : 'Keine Familientermine' })] }, d);
+        });
+        const shown = msgs.slice(0, fitN);
+        const touch = feed.touch;
+        return (_jsxs("div", { className: `wys full tall${!s.wbg ? ' dark' : ''}`, style: s.wbg ? { background: s.wbg } : undefined, children: [_jsxs("div", { className: "t-head", children: [_jsx("h2", { children: longDate(day) }), _jsx("div", { className: "clock", children: hm(now) })] }), _jsx("div", { className: "t-days", children: days }), _jsx("div", { className: "t-board", children: _jsxs("div", { className: "w-sec", children: [_jsxs("h3", { children: ["Board", msgs.length > fitN && _jsxs("span", { className: "w-more", children: ["+", msgs.length - fitN, " weitere"] })] }), _jsx("div", { className: "w-msgs", children: shown.length ? shown.map(m => _jsxs("div", { className: "w-msg", children: [sb(m.from_member), _jsxs("span", { children: [m.pinned && _jsx(Icon, { name: "pin" }), " ", m.text, m.taker ? _jsxs("b", { children: [" \u00B7 \u00FCbernimmt ", nm(m.taker)] }) : m.replies.length ? _jsxs("b", { children: [" \u00B7 ", nm(m.replies.at(-1).from_member), ": ", m.replies.at(-1).text] }) : null] }), _jsxs("small", { children: [nm(m.from_member), " \u00B7 ", whenM(m)] })] }, m.id)) : _jsx("div", { className: "w-empty", children: "Keine Nachrichten" }) })] }) }), _jsxs("div", { className: "t-bar", children: [_jsx("button", { type: "button", className: "t-ring b", onClick: () => setBdOpen(true), "aria-label": "Geburtstage", children: "B" }), _jsxs("div", { className: "t-kw", children: [_jsx("button", { type: "button", onClick: () => setWk(w => w - 1), "aria-label": "Woche zur\u00FCck", children: "\u25C0" }), _jsxs("button", { type: "button", className: "t-ring kw", onClick: () => setWk(0), "aria-label": "Zur\u00FCck zu heute", children: ["KW ", isoWeek(wk === 0 ? day : start)] }), _jsx("button", { type: "button", onClick: () => setWk(w => w + 1), "aria-label": "Woche vor", children: "\u25B6" })] }), touch ? _jsxs("div", { className: "t-kw", children: [_jsx("button", { type: "button", className: "t-ring", onClick: () => setInput('board'), "aria-label": "Board-Nachricht", children: "\u270E" }), _jsx("button", { type: "button", className: "t-ring", onClick: () => setInput('event'), "aria-label": "Neuer Termin", children: "\uFF0B" })] }) : _jsx("span", { className: "t-ring ghost" })] }), overlays] }));
+    }
+    return (_jsxs("div", { className: `wys full${!eink && !big && !s.wbg ? ' dark' : ''}${eink ? ' eink' : ''}${qm ? ' qm' : ''}${big ? ' kal' : ''}`, style: s.wbg ? { background: s.wbg } : undefined, children: [_jsxs("div", { className: "w-head", children: [_jsx("h2", { children: longDate(day) }), cakes.length > 0 && _jsx("div", { className: "w-cakes", children: cakes.map(b => _jsxs("button", { type: "button", className: "w-cake", onClick: () => setBdOpen(true), children: [b.days === 0 ? 'Heute' : b.days, _jsx(Icon, { name: "cake" }), _jsx("small", { children: b.name })] }, b.id)) }), _jsxs("div", { children: [_jsx("div", { className: "clock", children: eink ? '' : hm(now) }), _jsx("div", { className: "sub", children: feed.family.name })] })] }), next, main, _jsxs("div", { className: "w-foot", children: [feed.touch && !eink ? _jsxs("span", { className: "w-add", children: [_jsx("button", { type: "button", className: "w-addbtn", onClick: () => setInput('event'), children: "\uFF0B Termin" }), _jsx("button", { type: "button", className: "w-addbtn board", onClick: () => setInput('board'), children: "\u270E Board" })] }) : _jsx("span", { children: "Termin antippen f\u00FCr Details" }), _jsxs("span", { children: ["Nur Familientermine", morning ? ' · Tagesansicht' : ''] })] }), overlays] }));
 }
 // Kleine Ansicht für Handy-Widgets (z. B. über eine Web-Widget-App): heutige Familientermine und Pinnwand
 function Mini({ feed, day, now }) {

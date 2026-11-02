@@ -3,15 +3,17 @@ import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import './display.css';
 import { store } from '../lib/store';
 import type { CalEvent, DisplayFeed, Member } from '../lib/types';
-import { addDays, fromIso, hm, inDays, longDate, MON, nowMin, today, WD, WDS } from '../lib/dates';
+import { addDays, fromIso, hm, inDays, isoWeek, longDate, mondayOf, MON, nowMin, today, WD, WDS } from '../lib/dates';
 import { bdOn, byTime, dayOfN, depart, liveMsgs, onDay, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
 import { DisplayInput } from './DisplayInput';
 
-type Variant = 'bigme' | 'qm' | 'color' | 'eink' | 'mini';
+type Variant = 'bigme' | 'qm' | 'color' | 'eink' | 'mini' | 'hoch';
 const variant = (): Variant => {
   const v = new URLSearchParams(location.search).get('v');
-  return v === 'bigme' || v === 'color' || v === 'eink' || v === 'mini' ? v : 'qm';
+  if (v === 'bigme' || v === 'color' || v === 'eink' || v === 'mini' || v === 'hoch' || v === 'qm') return v;
+  // Ohne Angabe: hochkant aufgehängter Bildschirm bekommt die Widget-Ansicht
+  return innerHeight > innerWidth * 1.15 ? 'hoch' : 'qm';
 };
 // ?r=Sekunden in der Adresse setzt den Abruf-Takt (mindestens 5 Sekunden)
 const refreshMs = (v: Variant) => {
@@ -30,14 +32,18 @@ export function Display({ token }: { token: string }) {
   const [note, setNote] = useState('');
   // Pinnwand zeigt so viele Nachrichten, wie in die Spalte passen; der Rest wird als „+N weitere“ gezählt
   const [fitN, setFitN] = useState(99);
+  const [wk, setWk] = useState(0);
+  const [, setTick] = useState(0);
+  // Nach dem Blättern kehrt die Ansicht nach einer Minute zu heute zurück
+  useEffect(() => { if (!wk) return; const t = setTimeout(() => setWk(0), 60000); return () => clearTimeout(t); }, [wk]);
   useLayoutEffect(() => { setFitN(99); }, [feed]);
   useLayoutEffect(() => {
     const list = document.querySelector('.wys .w-msgs');
-    const boxes = [list?.closest('.w-sec'), list?.closest('.w-col, .w-board')].filter(Boolean) as HTMLElement[];
+    const boxes = [list?.closest('.w-sec'), list?.closest('.w-col, .w-board, .t-board')].filter(Boolean) as HTMLElement[];
     const count = document.querySelectorAll('.wys .w-msgs .w-msg').length;
     if (count > 1 && boxes.some(b => b.scrollHeight > b.clientHeight + 2)) setFitN(count - 1);
   });
-  useEffect(() => { const r = () => setFitN(99); addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
+  useEffect(() => { const r = () => { setFitN(99); setTick(t => t + 1); }; addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
   const v = variant();
 
   useEffect(() => {
@@ -165,14 +171,7 @@ export function Display({ token }: { token: string }) {
     </div>;
   }
 
-  return (
-    <div className={`wys full${!eink && !big && !s.wbg ? ' dark' : ''}${eink ? ' eink' : ''}${qm ? ' qm' : ''}${big ? ' kal' : ''}`} style={s.wbg ? { background: s.wbg } : undefined}>
-      <div className="w-head"><h2>{longDate(day)}</h2>
-        {cakes.length > 0 && <div className="w-cakes">{cakes.map(b => <button key={b.id} type="button" className="w-cake" onClick={() => setBdOpen(true)}>{b.days === 0 ? 'Heute' : b.days}<Icon name="cake" /><small>{b.name}</small></button>)}</div>}
-        <div><div className="clock">{eink ? '' : hm(now)}</div><div className="sub">{feed.family.name}</div></div></div>
-      {next}
-      {main}
-      <div className="w-foot">{feed.touch && !eink ? <span className="w-add"><button type="button" className="w-addbtn" onClick={() => setInput('event')}>＋ Termin</button><button type="button" className="w-addbtn board" onClick={() => setInput('board')}>✎ Board</button></span> : <span>Termin antippen für Details</span>}<span>Nur Familientermine{morning ? ' · Tagesansicht' : ''}</span></div>
+  const overlays = <>
       {input && <DisplayInput token={token} feed={feed} mode={input} close={() => setInput(null)}
         saved={m => { setInput(null); setNote(m); setTimeout(() => setNote(''), 4000); void store.displayFeed(token).then(f => setFeed(f)); }} />}
       {note && <div className="w-toast">{note}</div>}
@@ -191,6 +190,59 @@ export function Display({ token }: { token: string }) {
         <div className="bdl">{upcoming(feed.birthdays).slice(0, 5).map(b => <div key={b.id} className={`bdr${b.days <= s.bdLead ? ' soon' : ''}`}><div><b>{b.name}</b><small>{b.day}. {MON[b.month - 1]}{b.age ? ` · wird ${b.age}` : ''}</small></div><span className="dd">{inDays(b.days)}</span></div>)}</div>
         <button type="button" onClick={() => setBdOpen(false)}>Schließen</button>
       </div></div>}
+  </>;
+  const tall = v === 'hoch';
+  if (tall) {
+    // Hochkant wie das Handy-Widget: Tage untereinander, Board, unten Geburtstage, Kalenderwoche und Eingabe
+    const start = wk === 0 ? day : addDays(mondayOf(day), 7 * wk);
+    const n = wk === 0 ? Math.max(3, Math.min(s.ahead + 1, 7)) : 7;
+    const lbl = (d: string) => { const k = d === day ? 'Heute' : d === addDays(day, 1) ? 'Morgen' : d === addDays(day, 2) ? 'Übermorgen' : ''; const x = fromIso(d); return k ? `${k} · ${WD[x.getDay()]}` : `${WD[x.getDay()]} ${x.getDate()}. ${MON[x.getMonth()]}`; };
+    const tev = (e: CalEvent, d: string) => {
+      const past = d === day && !e.all_day && e.end_min <= now;
+      if (d === day && hidePast(e)) return null;
+      return <div key={e.id + d} className={`t-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>
+        <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
+        <div className="tt"><b>{e.title}</b>{e.driver ? <small> · {nm(e.driver)} fährt{travel(e, s) && d === day && !past ? ` · los ${hm(depart(e, s))}` : ''}</small> : e.place ? <small> · {e.place}</small> : null}</div>
+        <span className="wb">{e.persons.map(sb)}</span></div>;
+    };
+    const days = Array.from({ length: n }, (_, i) => addDays(start, i)).map(d => {
+      const l = list(d), bds = bdOn(feed.birthdays, d), rows = l.map(e => tev(e, d)).filter(Boolean);
+      if (!rows.length && !bds.length && d !== day && wk === 0 && d !== addDays(day, 1)) return null;
+      if (!rows.length && !bds.length && wk !== 0) return <div key={d} className="t-day free"><h3>{lbl(d)} <span>frei</span></h3></div>;
+      return <div key={d} className="t-day"><h3>{lbl(d)}</h3>
+        {bds.map(b => <div key={b.id} className="t-ev bd" style={cvar('#c2477a')} onClick={() => setBdOpen(true)} role="button" tabIndex={0}><time><Icon name="cake" /></time><div className="tt"><b>{b.name}</b><small> hat Geburtstag{b.age ? ` · wird ${b.age}` : ''}</small></div></div>)}
+        {rows.length ? rows : !bds.length && <div className="w-empty">{d === day && l.length ? 'Keine weiteren Familientermine' : 'Keine Familientermine'}</div>}</div>;
+    });
+    const shown = msgs.slice(0, fitN);
+    const touch = feed.touch;
+    return (
+      <div className={`wys full tall${!s.wbg ? ' dark' : ''}`} style={s.wbg ? { background: s.wbg } : undefined}>
+        <div className="t-head"><h2>{longDate(day)}</h2><div className="clock">{hm(now)}</div></div>
+        <div className="t-days">{days}</div>
+        <div className="t-board"><div className="w-sec"><h3>Board{msgs.length > fitN && <span className="w-more">+{msgs.length - fitN} weitere</span>}</h3><div className="w-msgs">
+          {shown.length ? shown.map(m => <div key={m.id} className="w-msg">{sb(m.from_member)}<span>{m.pinned && <Icon name="pin" />} {m.text}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span><small>{nm(m.from_member)} · {whenM(m)}</small></div>) : <div className="w-empty">Keine Nachrichten</div>}
+        </div></div></div>
+        <div className="t-bar">
+          <button type="button" className="t-ring b" onClick={() => setBdOpen(true)} aria-label="Geburtstage">B</button>
+          <div className="t-kw"><button type="button" onClick={() => setWk(w => w - 1)} aria-label="Woche zurück">◀</button>
+            <button type="button" className="t-ring kw" onClick={() => setWk(0)} aria-label="Zurück zu heute">KW {isoWeek(wk === 0 ? day : start)}</button>
+            <button type="button" onClick={() => setWk(w => w + 1)} aria-label="Woche vor">▶</button></div>
+          {touch ? <div className="t-kw"><button type="button" className="t-ring" onClick={() => setInput('board')} aria-label="Board-Nachricht">✎</button><button type="button" className="t-ring" onClick={() => setInput('event')} aria-label="Neuer Termin">＋</button></div> : <span className="t-ring ghost" />}
+        </div>
+        {overlays}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`wys full${!eink && !big && !s.wbg ? ' dark' : ''}${eink ? ' eink' : ''}${qm ? ' qm' : ''}${big ? ' kal' : ''}`} style={s.wbg ? { background: s.wbg } : undefined}>
+      <div className="w-head"><h2>{longDate(day)}</h2>
+        {cakes.length > 0 && <div className="w-cakes">{cakes.map(b => <button key={b.id} type="button" className="w-cake" onClick={() => setBdOpen(true)}>{b.days === 0 ? 'Heute' : b.days}<Icon name="cake" /><small>{b.name}</small></button>)}</div>}
+        <div><div className="clock">{eink ? '' : hm(now)}</div><div className="sub">{feed.family.name}</div></div></div>
+      {next}
+      {main}
+      <div className="w-foot">{feed.touch && !eink ? <span className="w-add"><button type="button" className="w-addbtn" onClick={() => setInput('event')}>＋ Termin</button><button type="button" className="w-addbtn board" onClick={() => setInput('board')}>✎ Board</button></span> : <span>Termin antippen für Details</span>}<span>Nur Familientermine{morning ? ' · Tagesansicht' : ''}</span></div>
+      {overlays}
     </div>
   );
 }
