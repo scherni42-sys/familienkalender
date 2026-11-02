@@ -1,12 +1,12 @@
 import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
 import { fail, toast } from './toast';
-import { hm, today } from '../lib/dates';
+import { hm, nowMin, today } from '../lib/dates';
 import { travelTime } from '../lib/ai';
 import { bdLabel, depart, etaMin, nameOf, travel, upcoming, visLabel, whenText } from '../lib/model';
 import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BdayForm } from './Settings';
 
 // Links in Notizen anklickbar machen (z. B. Teams-Besprechung)
@@ -20,6 +20,16 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const e = snap.events.find(x => x.id === id);
   const [here, setHere] = useState<{ minutes: number; km: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Fahrer öffnet den Termin am selben Tag: Fahrzeit vom aktuellen Standort automatisch berechnen
+  const auto = !!e && !!e.addr && e.driver === snap.me && !e.all_day && e.date === today() && e.start_min > nowMin() && etaMin(e) === null;
+  useEffect(() => {
+    if (!auto || !e || !navigator.geolocation) return;
+    let live = true; setBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(r => { if (live) setHere(r); }, () => {}).finally(() => { if (live) setBusy(false); }),
+      () => { if (live) setBusy(false); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
+    return () => { live = false; };
+  }, [auto, e?.id, e?.addr]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!e) return null;
   const me = snap.members.find(m => m.id === snap.me)!;
   const canEdit = me.role !== 'guest' && (e.owner === snap.me || e.vis === 'family');
@@ -51,14 +61,6 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
       p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(r => set(r.minutes), () => {}),
       () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
   };
-  const fromHere = () => {
-    if (!navigator.geolocation) { toast('Standort ist auf diesem Gerät nicht verfügbar.'); return; }
-    setBusy(true);
-    navigator.geolocation.getCurrentPosition(
-      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(setHere, fail).finally(() => setBusy(false)),
-      () => { setBusy(false); toast('Standort nicht freigegeben. Bitte in den Einstellungen des Handys erlauben.'); },
-      { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
-  };
   const maps = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(e.addr)}${s.home ? `&origin=${encodeURIComponent(s.home)}` : ''}`;
   return (
     <Sheet onClose={close} label="Termindetails">
@@ -74,11 +76,11 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           <div className="rt-times"><span><b>{hm(dep)}</b> losfahren</span><span><b>{hm(e.start_min)}</b> Beginn</span></div></>}
           {e.addr && <a className="btn ghost sm" href={maps} target="_blank" rel="noreferrer">Route von zu Hause</a>}
         </div></Row>}
-        {e.addr && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">{here ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km{!e.all_day && e.date === today() ? <> · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}</> : null}
-          <div className="nav-row" style={{ marginTop: here ? 6 : 0 }}>
-            <button type="button" className="btn ghost sm nav-btn" disabled={busy} onClick={fromHere}>{busy ? 'Suche Standort …' : here ? 'Neu berechnen' : 'Fahrzeit von hier'}</button>
+        {e.addr && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">
+          {busy && eta === null ? <span className="note">Fahrzeit vom Standort wird berechnet …</span> : here && eta === null ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}
+          <div className="nav-row one" style={{ marginTop: (here || busy) && eta === null ? 6 : 0 }}>
             <button type="button" className={`btn sm nav-btn${iDrive && eta !== null ? " nav-on" : ""}`} onClick={startNav}><Icon name="car" /> {iDrive && eta !== null ? 'Navigation läuft' : 'Navigation starten'}</button>
-            {iDrive && eta !== null && <button type="button" className="btn ghost sm nav-wide" onClick={() => store.setEta(e.id, null).catch(fail)}>Angekommen</button>}
+            {iDrive && eta !== null && <button type="button" className="btn ghost sm" onClick={() => store.setEta(e.id, null).catch(fail)}>Angekommen</button>}
           </div>
           {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nameOf(snap.members, e.driver)} fährt · Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}
