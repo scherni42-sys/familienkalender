@@ -14,6 +14,15 @@
         android:layout_height="22dp"
         android:layout_marginEnd="8dp" />
 
+    <!-- Board-Nachricht: Avatar des Absenders -->
+    <ImageView
+        android:id="@+id/av"
+        android:layout_width="26dp"
+        android:layout_height="26dp"
+        android:layout_marginEnd="8dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/time"
         android:layout_width="52dp"

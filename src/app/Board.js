@@ -6,7 +6,7 @@ import { Badge, Icon } from './ui';
 import { fail, toast } from './toast';
 import { shrinkPhoto } from '../lib/ai';
 import { boardImg } from '../lib/supabase';
-export function Board({ focus }) {
+export function Board({ focus, reply: replyOpen }) {
     const snap = useSnapshot();
     const s = snap.family.settings;
     const me = snap.members.find(m => m.id === snap.me);
@@ -25,6 +25,11 @@ export function Board({ focus }) {
     const msgs = liveMsgs(snap.messages, s);
     const member = (id) => snap.members.find(m => m.id === id);
     // Aus dem Widget angetippte Nachricht ins Bild holen
+    // „Antworten“ im Widget: Antwortfeld dieser Nachricht gleich öffnen
+    useEffect(() => { if (replyOpen) {
+        setReplyTo(replyOpen);
+        setReply('');
+    } }, [replyOpen]);
     useEffect(() => { if (focus)
         document.getElementById(`msg-${focus}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [focus]);
     const ttl = s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tagen`;

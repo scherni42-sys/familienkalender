@@ -65,11 +65,12 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 setTextViewText(R.id.text, r.text)
                 if (r.open.isNotEmpty()) setOnClickFillInIntent(R.id.text, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
             }
-            // 👍 / Mach ich / erledigt: über OpenActivity an den Widget-Empfänger, die App bleibt zu
+            // 👍 und erledigt: über OpenActivity an den Widget-Empfänger, die App bleibt zu.
+            // Antworten: öffnet die Nachricht in der App mit dem Feld für eine Kurzantwort
             Kind.ACTIONS -> RemoteViews(ctx.packageName, R.layout.actions).apply {
-                setViewVisibility(R.id.a_take, if (r.canTake) View.VISIBLE else View.GONE)
-                for ((id, act) in listOf(R.id.a_like to "like", R.id.a_take to "take", R.id.a_done to "done"))
+                for ((id, act) in listOf(R.id.a_like to "like", R.id.a_done to "done"))
                     setOnClickFillInIntent(id, Intent().putExtra(OpenActivity.EXTRA_ACT, act).putExtra(OpenActivity.EXTRA_MSG, r.msg))
+                setOnClickFillInIntent(R.id.a_take, Intent().putExtra(OpenActivity.EXTRA_OPEN, "msg:${r.msg}:reply"))
             }
             Kind.PHOTO -> RemoteViews(ctx.packageName, R.layout.photo).apply {
                 val bmp = Photos.thumb(ctx, r.text)
@@ -93,6 +94,10 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                     setViewVisibility(R.id.time, View.GONE)
                 }
                 setViewVisibility(R.id.pin, if (r.pinned) View.VISIBLE else View.GONE)
+                // Avatar nur bei Board-Nachrichten
+                val av = if (r.kind == Kind.MESSAGE && r.avatar.isNotEmpty()) Photos.avatar(ctx, r.avatar, r.color) else null
+                if (av != null) setImageViewBitmap(R.id.av, av)
+                setViewVisibility(R.id.av, if (av != null) View.VISIBLE else View.GONE)
                 if (r.faded) {
                     // Vergangene Termine blass: Textfarbe mit Transparenz statt setAlpha (nicht in RemoteViews erlaubt)
                     val faded = (ctx.getColor(R.color.fg) and 0x00FFFFFF) or 0x73000000

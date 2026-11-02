@@ -37,6 +37,7 @@ export function Shell() {
   const [sheet, setSheet] = useState<SheetState>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [focusMsg, setFocusMsg] = useState<string | null>(null);
+  const [replyMsg, setReplyMsg] = useState<string | null>(null);
   // Sprung aus dem Android-Widget: ?open=event:<id> oder ?open=msg:<id>
   const deep = useRef(new URLSearchParams(location.search).get('open'));
   const toastMsg = useToast();
@@ -62,7 +63,7 @@ export function Shell() {
       if (k === 'bdadd') setSheet({ kind: 'bdays', adding: true });
       // Tag im Widget angetippt: leerer Termin an diesem Datum
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
-      if (k === 'msg') { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
+      if (k === 'msg') { setTab('board'); setFocusMsg(id); if (o.split(':')[2] === 'reply') setReplyMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
     }
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
@@ -97,7 +98,7 @@ export function Shell() {
       <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
         {tab === 'today' && <TodayTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
-        {tab === 'board' && <Board focus={focusMsg} />}
+        {tab === 'board' && <Board focus={focusMsg} reply={replyMsg} />}
         {tab === 'settings' && <Settings />}
       </div>
       <nav className="tabs" aria-label="Bereiche">

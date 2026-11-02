@@ -35,4 +35,21 @@ object Photos {
         }
         return BitmapFactory.decodeFile(f.absolutePath)
     }
+
+    // Avatar: rund ausgeschnitten mit Farbring, wie in der App
+    fun avatar(ctx: Context, path: String, ring: Int): Bitmap? {
+        val src = thumb(ctx, path) ?: return null
+        val n = 96
+        val out = Bitmap.createBitmap(n, n, Bitmap.Config.ARGB_8888)
+        val c = android.graphics.Canvas(out)
+        val side = minOf(src.width, src.height)
+        val crop = Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
+        val scaled = Bitmap.createScaledBitmap(crop, n, n, true)
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        p.shader = android.graphics.BitmapShader(scaled, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
+        c.drawCircle(n / 2f, n / 2f, n / 2f - 5f, p)
+        val r = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { style = android.graphics.Paint.Style.STROKE; strokeWidth = 6f; color = ring }
+        c.drawCircle(n / 2f, n / 2f, n / 2f - 4f, r)
+        return out
+    }
 }

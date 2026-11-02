@@ -6,7 +6,7 @@ import { fail, toast } from './toast';
 import { shrinkPhoto } from '../lib/ai';
 import { boardImg } from '../lib/supabase';
 
-export function Board({ focus }: { focus?: string | null }) {
+export function Board({ focus, reply: replyOpen }: { focus?: string | null; reply?: string | null }) {
   const snap = useSnapshot();
   const s = snap.family!.settings;
   const me = snap.members.find(m => m.id === snap.me)!;
@@ -19,6 +19,8 @@ export function Board({ focus }: { focus?: string | null }) {
   const msgs = liveMsgs(snap.messages, s);
   const member = (id: string) => snap.members.find(m => m.id === id);
   // Aus dem Widget angetippte Nachricht ins Bild holen
+  // „Antworten“ im Widget: Antwortfeld dieser Nachricht gleich öffnen
+  useEffect(() => { if (replyOpen) { setReplyTo(replyOpen); setReply(''); } }, [replyOpen]);
   useEffect(() => { if (focus) document.getElementById(`msg-${focus}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, [focus]);
   const ttl = s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tagen`;
 

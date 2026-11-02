@@ -29,7 +29,9 @@ data class Row(
     val open: String = "",
     // Board-Knöpfe: Nachricht und ob „Mach ich“ noch frei ist
     val msg: String = "",
-    val canTake: Boolean = false
+    val canTake: Boolean = false,
+    // Board-Nachricht: Avatar-Foto des Absenders (Pfad im Speicher), leer = keins
+    val avatar: String = ""
 )
 
 object Feed {
@@ -213,10 +215,13 @@ object Feed {
         val members = feed.optJSONArray("members") ?: JSONArray()
         val color = HashMap<String, Int>()
         val name = HashMap<String, String>()
+        val avatar = HashMap<String, String>()
         for (i in 0 until members.length()) {
             val m = members.getJSONObject(i)
             color[m.getString("id")] = parseColor(m.optString("color"))
             name[m.getString("id")] = m.optString("name")
+            // „off:“ = Avatar ausgeschaltet
+            m.optString("avatar").takeIf { it.isNotEmpty() && it != "null" && !it.startsWith("off:") }?.let { avatar[m.getString("id")] = it }
         }
 
         val out = ArrayList<Row>()
@@ -291,7 +296,7 @@ object Feed {
         for (m in live) {
             val from = m.optString("from_member")
             val open = "msg:" + m.optString("id")
-            out += Row(Kind.MESSAGE, (if (m.optString("image").let { it.isNotEmpty() && it != "null" } && !m.optString("text").startsWith("📷")) "📷 " else "") + m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = open)
+            out += Row(Kind.MESSAGE, (if (m.optString("image").let { it.isNotEmpty() && it != "null" } && !m.optString("text").startsWith("📷")) "📷 " else "") + m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = open, avatar = avatar[from] ?: "")
             // Foto als kleines Vorschaubild unter der Nachricht (r.text = Pfad im Speicher)
             m.optString("image").takeIf { it.isNotEmpty() && it != "null" }?.let { out += Row(Kind.PHOTO, it, open = open) }
             // Reaktionen darunter: wer übernimmt, dann die letzten Antworten
