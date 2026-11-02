@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#1d8657"/><rect x="112" y="136" width="288" height="256" rx="36" fill="#fff"/><rect x="112" y="136" width="288" height="72" rx="36" fill="#dcf0e5"/><rect x="112" y="172" width="288" height="36" fill="#dcf0e5"/><rect x="168" y="104" width="28" height="68" rx="14" fill="#fff"/><rect x="316" y="104" width="28" height="68" rx="14" fill="#fff"/><circle cx="196" cy="276" r="26" fill="#2f5bcc"/><circle cx="256" cy="276" r="26" fill="#0b8584"/><circle cx="316" cy="276" r="26" fill="#c9640f"/><circle cx="226" cy="336" r="22" fill="#8148c9"/><circle cx="286" cy="336" r="22" fill="#b0376c"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#111412"/>
+  <circle cx="256" cy="256" r="206" fill="none" stroke="#34A86E" stroke-width="22"/>
+  <text x="256" y="236" text-anchor="middle" font-family="Familjen Grotesk, Arial, sans-serif" font-weight="700" font-size="132" fill="#ffffff">Fam</text>
+  <text x="256" y="378" text-anchor="middle" font-family="Familjen Grotesk, Arial, sans-serif" font-weight="700" font-size="168" letter-spacing="6" fill="#34A86E">TO</text>
+</svg>
