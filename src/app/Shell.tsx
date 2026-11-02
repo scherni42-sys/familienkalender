@@ -63,6 +63,7 @@ export function Shell() {
       if (k === 'bdadd') setSheet({ kind: 'bdays', adding: true });
       // Tag im Widget angetippt: leerer Termin an diesem Datum
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
+      if (k === 'settings') setTab('settings');
       if (k === 'msg') { setTab('board'); setFocusMsg(id); if (o.split(':')[2] === 'reply') setReplyMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
     }
     if (me.role === 'guest') return;

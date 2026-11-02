@@ -26,6 +26,16 @@
             android:textStyle="bold" />
 
 
+        <!-- Zahnrad: Einstellungen der App -->
+        <ImageView
+            android:id="@+id/settings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="12dp"
+            android:contentDescription="Einstellungen"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_gear" />
+
         <ImageView
             android:id="@+id/home"
             android:layout_width="40dp"

@@ -174,6 +174,9 @@ class TodayWidget : AppWidgetProvider() {
             bdButton(ctx, v)
             v.setOnClickPendingIntent(R.id.weeklabel, broadcast(ctx, TOGGLE_WEEK, 24))
             v.setOnClickPendingIntent(R.id.home, broadcast(ctx, TOGGLE_HOME, 27))
+            // Zahnrad: App direkt in den Einstellungen öffnen
+            val gear = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "settings").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            v.setOnClickPendingIntent(R.id.settings, PendingIntent.getActivity(ctx, 28, gear, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             homeButton(ctx, v)
             v.setOnClickPendingIntent(R.id.weekprev, broadcast(ctx, WEEK_PREV, 25))
             v.setOnClickPendingIntent(R.id.weeknext, broadcast(ctx, WEEK_NEXT, 26))

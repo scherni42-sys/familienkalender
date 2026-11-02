@@ -64,6 +64,8 @@ export function Shell() {
             // Tag im Widget angetippt: leerer Termin an diesem Datum
             if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id))
                 newOn(id);
+            if (k === 'settings')
+                setTab('settings');
             if (k === 'msg') {
                 setTab('board');
                 setFocusMsg(id);
