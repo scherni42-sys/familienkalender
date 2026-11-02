@@ -32,6 +32,14 @@ class TodayWidget : AppWidgetProvider() {
         super.onReceive(ctx, intent)
         when (intent.action) {
             REFRESH, Reminders.REMIND -> { refreshData(ctx); background(ctx) }
+            // Sicherheits-Hinweis bestätigt: Fahrzeit vom Standort für die Abfahrts-Erinnerung übernehmen
+            Reminders.AWAY_OK -> {
+                val key = intent.getStringExtra("key") ?: return
+                Away.setOverride(ctx, key, intent.getIntExtra("min", 0))
+                (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(intent.getIntExtra("nid", 0))
+                Toast.makeText(ctx, "Übernommen: ${intent.getIntExtra("min", 0)} Min. Fahrt", Toast.LENGTH_SHORT).show()
+                background(ctx)
+            }
             // Board-Knopf aus dem Widget: ausführen, kurz melden, neu laden
             ACT -> {
                 val act = intent.getStringExtra(OpenActivity.EXTRA_ACT) ?: return

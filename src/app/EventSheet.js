@@ -69,10 +69,10 @@ export function EventSheet({ draft, fresh, close, back, saved }) {
         }
         setBusy(true);
         try {
-            // Fahrer, Adresse, aber keine Fahrzeit: von zu Hause aus berechnen (für die Abfahrts-Erinnerung)
+            // Fahrer und Adresse: Fahrzeit von zu Hause berechnen, wenn sie fehlt oder die Adresse neu ist (für die Abfahrts-Erinnerung)
             let dd = d;
             const to = d.addr.replace(/^,\s*/, '').trim();
-            if (d.driver && to && !d.travel_min && !d.all_day && s.home) {
+            if (d.driver && to && (!d.travel_min || to !== draft.addr.replace(/^,\s*/, '').trim()) && !d.all_day && s.home) {
                 const r = await Promise.race([travelTime(s.home, to), new Promise(res => setTimeout(() => res(null), 8000))]).catch(() => null);
                 if (r)
                     dd = { ...d, travel_min: r.minutes };

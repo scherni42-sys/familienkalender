@@ -25,6 +25,8 @@ object Reminders {
     private const val CHANNEL = "erinnerungen"
     private const val PREFS = "familien-widget"
     const val LEAD_MIN = 30L
+    const val AWAY_MIN = 120 // so lange vor der Abfahrt beginnt der Sicherheits-Check
+    const val AWAY_OK = "de.familienkalender.widget.AWAY_OK"
     const val REMIND = "de.familienkalender.widget.REMIND"
 
     fun enabled(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("remind", true)
@@ -73,19 +75,47 @@ object Reminders {
         }
 
         for (u in mine(feed)) {
-            val leave = u.start.minusMinutes(u.travel.toLong())
+            val key = "${u.e.optString("id")}:${u.start}"
+            val iDrive = me != null && u.e.optString("driver") == me
+            val travel = (if (iDrive) Away.override(ctx, key) else null) ?: u.travel
+            val leave = u.start.minusMinutes(travel.toLong())
             val at = leave.minusMinutes(LEAD_MIN)
             val mins = ChronoUnit.MINUTES.between(now, u.start).coerceAtLeast(0)
             val title = u.e.optString("title")
-            val text = "um ${hm(u.start)}" + (if (u.travel > 0) " · los um ${hm(leave)}" else "") + (if (mins in 1..120) " · in $mins Min" else "")
+            val text = "um ${hm(u.start)}" + (if (travel > 0) " · los um ${hm(leave)}" else "") + (if (mins in 1..120) " · in $mins Min" else "")
             due("ev:${u.e.optString("id")}:${u.start}", at, u.start, title, text, "event:${u.e.optString("id")}")
+            val addr = u.e.optString("addr")
             // Fahrer: Fahrzeit plus Vorlauf (Einstellung „Erinnerung an den Fahrer“, Standard 10 Min.) vor Beginn
-            if (u.travel > 0 && me != null && u.e.optString("driver") == me && lead > 0) {
-                val go = u.start.minusMinutes((u.travel + lead).toLong())
-                val addr = u.e.optString("addr")
-                due("go:${u.e.optString("id")}:${u.start}", go, u.start.minusMinutes(u.travel.toLong()), "🚗 In $lead Min. losfahren: $title",
-                    "Fahrt ${u.travel} Min. · los um ${hm(u.start.minusMinutes(u.travel.toLong()))} · Beginn ${hm(u.start)}" + (if (addr.isNotBlank()) " · $addr" else ""),
+            if (travel > 0 && iDrive && lead > 0) {
+                due("go:$key", leave.minusMinutes(lead.toLong()), leave, "🚗 In $lead Min. losfahren: $title",
+                    "Fahrt $travel Min. · los um ${hm(leave)} · Beginn ${hm(u.start)}" + (if (addr.isNotBlank()) " · $addr" else ""),
                     "event:${u.e.optString("id")}", addr)
+            }
+            // Sicherheits-Check: zwei Stunden vor der Abfahrt prüfen, ob ich weit weg bin und es vom Standort länger dauert
+            if (iDrive && addr.isNotBlank()) {
+                val from = u.start.minusMinutes((u.travel + AWAY_MIN).toLong())
+                val until = leave.minusMinutes(lead.toLong().coerceAtLeast(0))
+                if (now.isBefore(from)) { val n = next; if (n == null || from.isBefore(n)) next = from }
+                else if (now.isBefore(until)) {
+                    val last = prefs.getLong("awaychk:$key", 0)
+                    if (System.currentTimeMillis() - last > 25 * 60_000) {
+                        prefs.edit().putLong("awaychk:$key", System.currentTimeMillis()).apply()
+                        val loc = Away.here(ctx)
+                        val km = loc?.let { Away.kmFromHome(ctx, it) }
+                        if (loc != null && (km == null || km > Away.FAR_KM)) {
+                            val m = Away.minutes(loc, addr)
+                            if (m != null && m > travel + 10) {
+                                val go = u.start.minusMinutes(m.toLong())
+                                notifyAway(ctx, "away:$key".hashCode(), "⚠️ Fahrt steht bevor: $title",
+                                    "Du bist gerade weiter weg. Von hier brauchst du etwa $m Min. statt $travel Min. Los spätestens um ${hm(go)}, Beginn ${hm(u.start)}." +
+                                        " Mit „Übernehmen“ erinnert dich die App passend dazu.", "event:${u.e.optString("id")}", addr, key, m)
+                            }
+                        }
+                    }
+                    // In 30 Minuten noch einmal nachsehen
+                    val again = now.plusMinutes(30)
+                    if (again.isBefore(until)) { val n = next; if (n == null || again.isBefore(n)) next = again }
+                }
             }
         }
 
@@ -131,5 +161,28 @@ object Reminders {
             n.addAction(android.app.Notification.Action.Builder(null, "Navigation", pi).build())
         }
         nm.notify(id, n.build())
+    }
+
+    // Sicherheits-Hinweis mit „Übernehmen“ (neue Fahrzeit für die Erinnerung) und „Navigation“
+    private fun notifyAway(ctx: Context, id: Int, title: String, text: String, open: String, nav: String, key: String, min: Int) {
+        if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Erinnerungen", NotificationManager.IMPORTANCE_HIGH))
+        val tap = PendingIntent.getActivity(ctx, id, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, open)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val ok = PendingIntent.getBroadcast(ctx, id + 2, Intent(ctx, TodayWidget::class.java).setAction(AWAY_OK)
+            .putExtra("key", key).putExtra("min", min).putExtra("nid", id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val go = PendingIntent.getActivity(ctx, id + 1, Intent(Intent.ACTION_VIEW, android.net.Uri.parse("google.navigation:q=" + android.net.Uri.encode(nav)))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val n = android.app.Notification.Builder(ctx, CHANNEL)
+            .setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(title)
+            .setContentText(text)
+            .setStyle(android.app.Notification.BigTextStyle().bigText(text))
+            .setContentIntent(tap)
+            .addAction(android.app.Notification.Action.Builder(null, "Übernehmen", ok).build())
+            .addAction(android.app.Notification.Action.Builder(null, "Navigation", go).build())
+            .build()
+        nm.notify(id, n)
     }
 }
