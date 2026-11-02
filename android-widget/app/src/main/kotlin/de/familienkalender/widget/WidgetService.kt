@@ -107,6 +107,11 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                     setTextColor(R.id.time, faded)
                     setTextColor(R.id.drive, faded)
                     setInt(R.id.bar, "setBackgroundColor", (r.color and 0x00FFFFFF) or 0x73000000)
+                } else {
+                    // Zeilen werden wiederverwendet: normale Farben ausdrücklich zurücksetzen, sonst bleibt eine Zeile blass
+                    setTextColor(R.id.text, ctx.getColor(R.color.fg))
+                    setTextColor(R.id.time, ctx.getColor(R.color.fg))
+                    setTextColor(R.id.drive, ctx.getColor(R.color.muted))
                 }
                 setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
             }
