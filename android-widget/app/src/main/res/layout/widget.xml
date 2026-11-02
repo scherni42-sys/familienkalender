@@ -15,21 +15,15 @@
         android:orientation="horizontal">
 
         <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Heute"
-            android:textColor="@color/fg"
-            android:textSize="17sp"
-            android:textStyle="bold" />
-
-        <TextView
             android:id="@+id/date"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:paddingStart="8dp"
-            android:textColor="@color/muted"
-            android:textSize="14sp" />
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="@color/fg"
+            android:textSize="17sp"
+            android:textStyle="bold" />
 
         <LinearLayout
             android:id="@+id/bdnav"

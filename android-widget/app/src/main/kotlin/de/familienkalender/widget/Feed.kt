@@ -191,6 +191,10 @@ object Feed {
     fun dateLabel(d: LocalDate): String =
         "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".")} ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
 
+    // Kopfzeile: „Montag, 2. November“
+    fun headLabel(d: LocalDate): String =
+        "${d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.GERMAN)}, ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
+
     private fun hm(min: Int) = "%d:%02d".format(min / 60, min % 60)
 
     private fun parseColor(hex: String?): Int = try {
@@ -268,6 +272,7 @@ object Feed {
             }
             return out
         }
+        out += Row(Kind.SECTION, "Heute")
         day(today, true)
         val tomorrow = LocalDate.now().plusDays(1)
         out += Row(Kind.SECTION, "Morgen · ${dateLabel(tomorrow)}")
