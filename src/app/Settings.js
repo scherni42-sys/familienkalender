@@ -7,7 +7,7 @@ import { Badge, cvar, Icon } from './ui';
 import { fail, toast } from './toast';
 import { micStart, setMicStart } from '../lib/micstart';
 import { SUPA } from '../lib/supabase';
-import { squarePhoto } from '../lib/ai';
+import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
 const MENU = [
     ['family', 'Familie & Mitglieder', 'people'], ['basic', 'Grundeinstellungen', 'gear'], ['colors', 'Farben der Personen', 'palette'],
@@ -16,6 +16,7 @@ const MENU = [
 export function Settings() {
     const snap = useSnapshot();
     const [sub, setSub] = useState(null);
+    const [crop, setCrop] = useState(null);
     const me = snap.members.find(m => m.id === snap.me);
     const s = snap.family.settings;
     const isAdmin = me.role === 'admin';
@@ -45,7 +46,7 @@ export function Settings() {
                     const can = isAdmin || m.id === snap.me;
                     const twin = snap.members.filter(o => o.id !== m.id && o.color.toLowerCase() === m.color.toLowerCase()).map(o => o.name);
                     return _jsxs("div", { className: "colrow", children: [_jsxs("div", { className: "nm", children: [_jsx(Badge, { m: m }), " ", _jsx("b", { children: m.name }), twin.length > 0 && _jsxs("span", { className: "note", children: ["gleiche Farbe wie ", twin.join(', ')] })] }), can && _jsxs("div", { className: "sw", children: [SWATCHES.map(([h, l]) => _jsx("button", { type: "button", className: `swb${m.color.toLowerCase() === h ? ' on' : ''}`, style: cvar(h), "aria-label": l, title: l, onClick: () => store.updateMember(m.id, { color: h }).catch(fail) }, h)), _jsxs("label", { className: "swb own", title: "Eigene Farbe", style: cvar(m.color), children: [_jsx("input", { type: "color", value: m.color, onChange: e => store.updateMember(m.id, { color: e.target.value }).catch(fail), "aria-label": `Eigene Farbe für ${m.name}` }), "+"] })] }), can && _jsxs("div", { className: "av-row", children: [_jsx(Badge, { m: m, size: 44 }), _jsxs("label", { className: "small-btn", children: [_jsx(Icon, { name: "camera" }), " ", m.avatar ? 'Anderes Foto' : 'Foto als Avatar', _jsx("input", { type: "file", accept: "image/*", hidden: true, onChange: e => { const f = e.target.files?.[0]; e.target.value = ''; if (f)
-                                                    squarePhoto(f).then(img => store.setAvatar(m.id, img)).then(() => toast('Avatar gespeichert.'), fail); } })] }), m.avatar && _jsx("button", { type: "button", className: "small-btn danger", onClick: () => store.setAvatar(m.id, null).then(() => toast('Avatar entfernt, wieder der Buchstabe.'), fail), children: "Entfernen" })] })] }, m.id);
+                                                    setCrop({ id: m.id, file: f }); } })] }), m.avatar && _jsx("button", { type: "button", className: "small-btn danger", onClick: () => store.setAvatar(m.id, null).then(() => toast('Avatar entfernt, wieder der Buchstabe.'), fail), children: "Entfernen" })] })] }, m.id);
                 })] });
     if (sub === 'bg')
         content = _jsxs(_Fragment, { children: [_jsxs("div", { className: "colrow", children: [_jsxs("div", { className: "nm", children: [_jsx("b", { children: "App" }), _jsx("span", { className: "note", children: "nur auf deinem Handy" })] }), _jsx(BgPick, { cur: me.app_bg ?? '', pick: h => store.updateMember(me.id, { app_bg: h || null }).catch(fail) })] }), _jsxs("div", { className: "colrow", children: [_jsxs("div", { className: "nm", children: [_jsx("b", { children: "Display im Flur" }), _jsx("span", { className: "note", children: isAdmin ? 'gilt für alle' : 'ändern kann nur der Admin' })] }), isAdmin && _jsx(BgPick, { cur: s.wbg, pick: h => upd({ wbg: h }, 'Display-Hintergrund gespeichert.') })] }), _jsx("p", { className: "note", children: "Helle T\u00F6ne halten Termine und Schrift gut lesbar. Beim E-Ink-Display erscheint die Farbe als Grauton." })] });
@@ -53,7 +54,7 @@ export function Settings() {
         content = _jsx(Bdays, {});
     if (sub === 'displays')
         content = _jsx(Displays, {});
-    return _jsxs(_Fragment, { children: [_jsx("button", { type: "button", className: "back", onClick: () => setSub(null), children: "\u2039 Einstellungen" }), _jsx("div", { className: "day-h", style: { marginTop: 0 }, children: _jsx("span", { style: { fontSize: 17, color: 'var(--ink)' }, children: label }) }), content] });
+    return _jsxs(_Fragment, { children: [_jsx("button", { type: "button", className: "back", onClick: () => setSub(null), children: "\u2039 Einstellungen" }), _jsx("div", { className: "day-h", style: { marginTop: 0 }, children: _jsx("span", { style: { fontSize: 17, color: 'var(--ink)' }, children: label }) }), content, crop && _jsx(AvatarCrop, { file: crop.file, color: snap.members.find(m => m.id === crop.id)?.color ?? '#7a8590', close: () => setCrop(null), done: img => { const id = crop.id; setCrop(null); store.setAvatar(id, img).then(() => toast('Avatar gespeichert.'), fail); } })] });
 }
 function Sel({ isAdmin, icon, text, value, opts, onPick, show }) {
     return (_jsxs("label", { className: "setrow", children: [_jsxs("span", { children: [_jsx(Icon, { name: icon }), " ", text] }), isAdmin

@@ -8,7 +8,7 @@ import { Badge, cvar, Icon, type IconName } from './ui';
 import { fail, toast } from './toast';
 import { micStart, setMicStart } from '../lib/micstart';
 import { SUPA } from '../lib/supabase';
-import { squarePhoto } from '../lib/ai';
+import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
@@ -20,6 +20,7 @@ const MENU: [Exclude<Sub, null>, string, IconName][] = [
 export function Settings() {
   const snap = useSnapshot();
   const [sub, setSub] = useState<Sub>(null);
+  const [crop, setCrop] = useState<{ id: string; file: File } | null>(null);
   const me = snap.members.find(m => m.id === snap.me)!;
   const s = snap.family!.settings;
   const isAdmin = me.role === 'admin';
@@ -77,7 +78,7 @@ export function Settings() {
           <label className="swb own" title="Eigene Farbe" style={cvar(m.color)}><input type="color" value={m.color} onChange={e => store.updateMember(m.id, { color: e.target.value }).catch(fail)} aria-label={`Eigene Farbe für ${m.name}`} />+</label></div>}
         {can && <div className="av-row"><Badge m={m} size={44} />
           <label className="small-btn"><Icon name="camera" /> {m.avatar ? 'Anderes Foto' : 'Foto als Avatar'}
-            <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) squarePhoto(f).then(img => store.setAvatar(m.id, img)).then(() => toast('Avatar gespeichert.'), fail); }} /></label>
+            <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setCrop({ id: m.id, file: f }); }} /></label>
           {m.avatar && <button type="button" className="small-btn danger" onClick={() => store.setAvatar(m.id, null).then(() => toast('Avatar entfernt, wieder der Buchstabe.'), fail)}>Entfernen</button>}</div>}
       </div>;
     })}
@@ -96,6 +97,8 @@ export function Settings() {
     <button type="button" className="back" onClick={() => setSub(null)}>‹ Einstellungen</button>
     <div className="day-h" style={{ marginTop: 0 }}><span style={{ fontSize: 17, color: 'var(--ink)' }}>{label}</span></div>
     {content}
+    {crop && <AvatarCrop file={crop.file} color={snap.members.find(m => m.id === crop.id)?.color ?? '#7a8590'} close={() => setCrop(null)}
+      done={img => { const id = crop.id; setCrop(null); store.setAvatar(id, img).then(() => toast('Avatar gespeichert.'), fail); }} />}
   </>;
 }
 
