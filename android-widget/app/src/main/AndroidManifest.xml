@@ -137,18 +137,7 @@
             android:exported="false"
             android:permission="android.permission.BIND_REMOTEVIEWS" />
 
-        <!-- Erkennt, ob Google Maps navigiert (nur wenn der Nutzer den Zugriff erlaubt) -->
-        <service
-            android:name=".MapsWatch"
-            android:exported="true"
-            android:label="FamTO: Navigation erkennen"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.service.notification.default_filter_types"
-                android:value="ongoing" />
-        </service>
+        <!-- Google-Maps-Erkennung (MapsWatch) ist vorerst aus: Mit Benachrichtigungszugriff blockiert
+             Google Play Protect die Installation als APK. Kommt zurück, sobald die App über den Play Store verteilt wird. -->
     </application>
 </manifest>
