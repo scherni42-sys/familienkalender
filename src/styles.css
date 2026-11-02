@@ -334,3 +334,22 @@ textarea { width: 100%; min-height: 72px; resize: vertical; border: 1px solid va
 .nav-row .nav-wide { grid-column: 1 / -1; }
 .nav-row.one { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 a.addr { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); text-underline-offset: 2px; }
+
+/* Zaubertaste: Claude fragen */
+.magic { width: 34px; height: 34px; border-radius: 999px; border: 1.5px solid color-mix(in srgb, #8a5cf6 55%, transparent); background: color-mix(in srgb, #8a5cf6 12%, var(--surface)); font-size: 17px; line-height: 1; display: inline-grid; place-items: center; cursor: pointer; }
+.ask-in { display: flex; gap: 8px; align-items: stretch; margin: 10px 0; }
+.ask-in textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line, #d0d4d9); background: var(--surface); color: var(--ink); resize: none; }
+.ask-mic { flex: none; width: 48px; padding: 0; display: grid; place-items: center; }
+.ask-mic.on { background: #e53935; color: #fff; border-color: #e53935; }
+.ask-ideas { display: flex; flex-wrap: wrap; gap: 6px; }
+.ask-ideas button { border: 1px solid var(--line, #d0d4d9); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 14px; cursor: pointer; }
+.ask-busy { animation: askp 1.4s ease-in-out infinite; }
+@keyframes askp { 50% { opacity: .45; } }
+.ask-res > p { font-size: 16px; margin: 6px 0 10px; }
+.ask-list { display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow: auto; margin-bottom: 8px; }
+.ask-ev { display: flex; gap: 10px; align-items: center; text-align: left; border: 1px solid var(--line, #d0d4d9); border-left: 4px solid var(--c, #7a8590); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; cursor: pointer; }
+.ask-ev .d { flex: none; width: 64px; font-weight: 700; font-size: 14px; display: flex; flex-direction: column; }
+.ask-ev small { font-weight: 400; font-size: 13px; opacity: .75; }
+.ask-ev .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ask-ev .t b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-edit { flex: none; font-size: 13px; font-weight: 600; color: #8a5cf6; padding: 4px 6px; }

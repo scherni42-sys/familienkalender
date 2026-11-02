@@ -1,5 +1,6 @@
 import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
+import type { CalEvent } from '../lib/types';
 import { fail, toast } from './toast';
 import { hm, nowMin, today } from '../lib/dates';
 import { travelTime } from '../lib/ai';
@@ -12,6 +13,12 @@ import { BdayForm } from './Settings';
 // Links in Notizen anklickbar machen (z. B. Teams-Besprechung)
 const linkify = (t: string) => t.split(/(https?:\/\/[^\s<>"]+)/g).map((p, i) =>
   i % 2 ? <a key={i} href={p} target="_blank" rel="noopener noreferrer">{/teams\.(microsoft|live)\.com/.test(p) ? 'Teams-Besprechung öffnen' : p}</a> : p);
+// Termin als Entwurf zum Bearbeiten
+export const eventDraft = (e: CalEvent): Draft => ({
+    id: e.id, title: e.title, date: e.date, end_date: e.end_date, all_day: e.all_day, start_min: e.start_min, end_min: e.end_min,
+    persons: [...e.persons], driver: e.driver, trip: e.trip, driver2: e.driver2 ?? null, vis: e.vis === 'family' ? 'family' : 'private', busy: e.vis === 'busy', place: e.place, addr: e.addr,
+    travel_min: e.travel_min, notes: e.notes, bring: [...e.bring], discreet: e.discreet, reason: '', suggested: e.vis === 'family' ? 'family' : 'private', timeFound: !e.all_day
+  });
 const Row = ({ k, children }: { k: string; children: ReactNode }) => <div className="r"><span>{k}</span><div>{children}</div></div>;
 
 export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: string; add?: (date: string) => void; close: () => void; edit: (d: Draft) => void }) {
@@ -35,11 +42,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const me = snap.members.find(m => m.id === snap.me)!;
   const canEdit = me.role !== 'guest' && (e.owner === snap.me || e.vis === 'family');
   const tr = travel(e, s), dep = depart(e, s);
-  const toDraft = (): Draft => ({
-    id: e.id, title: e.title, date: e.date, end_date: e.end_date, all_day: e.all_day, start_min: e.start_min, end_min: e.end_min,
-    persons: [...e.persons], driver: e.driver, trip: e.trip, driver2: e.driver2 ?? null, vis: e.vis === 'family' ? 'family' : 'private', busy: e.vis === 'busy', place: e.place, addr: e.addr,
-    travel_min: e.travel_min, notes: e.notes, bring: [...e.bring], discreet: e.discreet, reason: '', suggested: e.vis === 'family' ? 'family' : 'private', timeFound: !e.all_day
-  });
+  const toDraft = () => eventDraft(e);
   const nav = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(e.addr)}`;
   const iDrive = isDriver(e, snap.me);
   const l2 = leg2(e, s);

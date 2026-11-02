@@ -1,7 +1,7 @@
-import type { Member } from './types';
+import type { Birthday, CalEvent, Member } from './types';
 import { parseLocal, type Draft } from './parse';
 import { supabase } from './supabase';
-import { today } from './dates';
+import { addDays, fromIso, hm, nowMin, today, WDS } from './dates';
 
 // Foto verkleinern (längste Seite 1280 px, JPEG), damit es schnell hochlädt
 export async function shrinkPhoto(file: File): Promise<{ type: string; data: string }> {
@@ -89,4 +89,55 @@ export async function suggestPlaces(q: string, home: string, web = false): Promi
   const { data, error } = await supabase.functions.invoke('travel-time', { body: web ? { web: q, home } : { suggest: q, home } });
   if (error) throw new Error('Suche gerade nicht möglich');
   return data?.hits ?? [];
+}
+
+// Zaubertaste: Frage an Claude zu den eigenen Terminen (Edge Function „ask“)
+export type AskResult = { answer: string; events: CalEvent[]; birthdays: Birthday[]; action: 'none' | 'open' | 'edit' | 'new' | 'bdays'; target: CalEvent | null; newText: string | null; local?: boolean };
+export async function askClaude(q: string, me: string, members: Member[], events: CalEvent[], birthdays: Birthday[]): Promise<AskResult> {
+  const t = today(), from = addDays(t, -365), to = addDays(t, 730);
+  const evs = events.filter(e => e.end_date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date) || a.start_min - b.start_min).slice(0, 2500);
+  const nm = (id: string | null) => members.find(m => m.id === id)?.name ?? '';
+  const line = (e: CalEvent) => [
+    `${e.date}${e.end_date !== e.date ? ` bis ${e.end_date}` : ''} ${WDS[fromIso(e.date).getDay()]}`,
+    e.all_day ? 'ganztägig' : `${hm(e.start_min)}-${hm(e.end_min)}`,
+    e.title, e.persons.map(nm).filter(Boolean).join(', '),
+    e.driver ? `Fahrer ${nm(e.driver)}${e.trip === 'beides' && e.driver2 ? `, holt ab ${nm(e.driver2)}` : e.trip === 'ab' ? ' (abholen)' : ''}` : '',
+    [e.place, e.addr].filter(Boolean).join(', '), e.notes ? e.notes.replace(/\s+/g, ' ').slice(0, 80) : ''
+  ].join(' | ');
+  const bdLine = (b: Birthday) => `${b.name}${b.rel ? ` (${b.rel})` : ''}: ${b.day}.${b.month}.${b.year ? b.year : ''}`;
+  const pick = (r: { answer: string; events: number[]; birthdays: number[]; action: AskResult['action']; target: number | null; new_text: string | null }): AskResult => ({
+    answer: r.answer, action: r.action, newText: r.new_text,
+    events: [...new Set(r.events)].map(i => evs[i]).filter(Boolean),
+    birthdays: r.birthdays.map(i => birthdays[i]).filter(Boolean),
+    target: r.target != null ? evs[r.target] ?? null : null
+  });
+  if (!supabase) return { ...askLocal(q, evs, birthdays, members), local: true };
+  const call = supabase.functions.invoke('ask', {
+    body: { q, today: t, now: hm(nowMin()), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), events: evs.map(line), birthdays: birthdays.map(bdLine) }
+  });
+  const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Claude antwortet gerade nicht. Bitte gleich noch einmal.')), 45000));
+  const { data, error } = await Promise.race([call, timeout]);
+  if (error || !data?.result) {
+    const res = (error as { context?: Response } | null)?.context;
+    let why = data?.error ?? (error instanceof Error ? error.message : 'keine Antwort');
+    if (res && typeof res.json === 'function') { try { const b = await res.json(); why = b?.error ?? why; } catch { /* egal */ } }
+    throw new Error(`Claude ist gerade nicht erreichbar (${why}).`);
+  }
+  return pick(data.result);
+}
+
+// Beispielfamilie ohne Server: einfache Stichwortsuche
+function askLocal(q: string, evs: CalEvent[], birthdays: Birthday[], members: Member[]): AskResult {
+  const stop = new Set(['ich', 'mich', 'mir', 'mein', 'meine', 'alle', 'allen', 'termine', 'termin', 'wann', 'das', 'die', 'der', 'den', 'dem', 'mit', 'und', 'oder', 'nächste', 'nächsten', 'mal', 'eine', 'einen', 'über', 'übersicht', 'möchte', 'gerne', 'wissen', 'bearbeiten', 'ändern', 'treffe', 'sehe', 'von', 'zum', 'zur', 'bitte', 'zeig', 'zeige', 'claude']);
+  const words = q.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(w => w.length > 2 && !stop.has(w)).map(w => w.replace(/s$/, ''));
+  const nm = (id: string | null) => members.find(m => m.id === id)?.name ?? '';
+  const hay = (e: CalEvent) => [e.title, e.place, e.notes, ...e.persons.map(nm), nm(e.driver)].join(' ').toLowerCase();
+  const t = today();
+  const hits = words.length ? evs.filter(e => words.some(w => hay(e).includes(w))) : [];
+  const future = hits.filter(e => e.end_date >= t);
+  const bds = words.length ? birthdays.filter(b => words.some(w => b.name.toLowerCase().includes(w))) : [];
+  const edit = /bearbeit|änder|verschieb/i.test(q);
+  if (bds.length && !hits.length) return { answer: `${bds[0].name} hat am ${bds[0].day}.${bds[0].month}. Geburtstag.`, events: [], birthdays: bds, action: edit ? 'bdays' : 'none', target: null, newText: null };
+  if (!future.length) return { answer: 'Dazu habe ich nichts gefunden. (In der Beispielfamilie suche ich nur nach Stichwörtern; mit eurer Familie antwortet Claude.)', events: [], birthdays: [], action: 'none', target: null, newText: null };
+  return { answer: future.length === 1 ? 'Das habe ich gefunden:' : `Ich habe ${future.length} Termine gefunden.`, events: future.slice(0, 30), birthdays: [], action: edit ? 'edit' : 'none', target: edit ? future[0] : null, newText: null };
 }

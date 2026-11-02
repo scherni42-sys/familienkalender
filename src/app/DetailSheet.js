@@ -10,6 +10,12 @@ import { useEffect, useState } from 'react';
 import { BdayForm } from './Settings';
 // Links in Notizen anklickbar machen (z. B. Teams-Besprechung)
 const linkify = (t) => t.split(/(https?:\/\/[^\s<>"]+)/g).map((p, i) => i % 2 ? _jsx("a", { href: p, target: "_blank", rel: "noopener noreferrer", children: /teams\.(microsoft|live)\.com/.test(p) ? 'Teams-Besprechung öffnen' : p }, i) : p);
+// Termin als Entwurf zum Bearbeiten
+export const eventDraft = (e) => ({
+    id: e.id, title: e.title, date: e.date, end_date: e.end_date, all_day: e.all_day, start_min: e.start_min, end_min: e.end_min,
+    persons: [...e.persons], driver: e.driver, trip: e.trip, driver2: e.driver2 ?? null, vis: e.vis === 'family' ? 'family' : 'private', busy: e.vis === 'busy', place: e.place, addr: e.addr,
+    travel_min: e.travel_min, notes: e.notes, bring: [...e.bring], discreet: e.discreet, reason: '', suggested: e.vis === 'family' ? 'family' : 'private', timeFound: !e.all_day
+});
 const Row = ({ k, children }) => _jsxs("div", { className: "r", children: [_jsx("span", { children: k }), _jsx("div", { children: children })] });
 export function DetailSheet({ id, day, add, close, edit }) {
     const snap = useSnapshot();
@@ -36,11 +42,7 @@ export function DetailSheet({ id, day, add, close, edit }) {
     const me = snap.members.find(m => m.id === snap.me);
     const canEdit = me.role !== 'guest' && (e.owner === snap.me || e.vis === 'family');
     const tr = travel(e, s), dep = depart(e, s);
-    const toDraft = () => ({
-        id: e.id, title: e.title, date: e.date, end_date: e.end_date, all_day: e.all_day, start_min: e.start_min, end_min: e.end_min,
-        persons: [...e.persons], driver: e.driver, trip: e.trip, driver2: e.driver2 ?? null, vis: e.vis === 'family' ? 'family' : 'private', busy: e.vis === 'busy', place: e.place, addr: e.addr,
-        travel_min: e.travel_min, notes: e.notes, bring: [...e.bring], discreet: e.discreet, reason: '', suggested: e.vis === 'family' ? 'family' : 'private', timeFound: !e.all_day
-    });
+    const toDraft = () => eventDraft(e);
     const nav = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(e.addr)}`;
     const iDrive = isDriver(e, snap.me);
     const l2 = leg2(e, s);
