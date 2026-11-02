@@ -84,22 +84,25 @@ class AttachActivity : Activity() {
         setOnClickListener { if (!busy) go() }
     }
 
-    // Termine der letzten 7 und nächsten 90 Tage, nächste zuerst
+    // Termine der letzten 7 Tage und des nächsten Jahres, nächste zuerst
     private fun fill(feed: JSONObject) {
         list.removeAllViews()
         val evs = feed.optJSONArray("events") ?: return
         val from = LocalDate.now().minusDays(7).toString()
-        val to = LocalDate.now().plusDays(90).toString()
+        val to = LocalDate.now().plusDays(365).toString()
+        // Familientermine und alle eigenen (auch private und aus dem Handy-Kalender)
+        val me = Feed.me(feed)
         val today = LocalDate.now().toString()
         val items = (0 until evs.length()).mapNotNull { evs.optJSONObject(it) }
-            .filter { it.optString("end_date", it.optString("date")) >= from && it.optString("date") <= to && it.optString("vis") != "busy" }
+            .filter { it.optString("end_date", it.optString("date")) >= from && it.optString("date") <= to && (it.optString("vis") == "family" || it.optString("owner") == me) }
             .sortedWith(compareBy({ it.optString("end_date", it.optString("date")) < today }, { it.optString("date") }, { it.optInt("start_min") }))
         if (items.isEmpty()) { list.addView(TextView(this).apply { text = "Keine Termine gefunden."; textSize = 14f }); return }
-        for (e in items.take(60)) {
+        for (e in items.take(150)) {
             val d = try { LocalDate.parse(e.optString("date")) } catch (x: Exception) { continue }
             val time = if (e.optBoolean("all_day")) "ganztägig" else "%d:%02d".format(e.optInt("start_min") / 60, e.optInt("start_min") % 60)
             val clips = e.optJSONArray("files")?.length() ?: 0
-            list.addView(bigButton("${Feed.dateLabel(d)}, $time\n${e.optString("title")}" + if (clips > 0) "  📎$clips" else "", "#F1F3F4", Color.parseColor("#1B1F23")) {
+            val lock = if (e.optString("vis") != "family") "🔒 " else ""
+            list.addView(bigButton("${Feed.dateLabel(d)}, $time\n$lock${e.optString("title")}" + if (clips > 0) "  📎$clips" else "", "#F1F3F4", Color.parseColor("#1B1F23")) {
                 upload(e.optString("id"), e.optString("title"))
             })
         }

@@ -42,7 +42,7 @@ export function FileList({ files, from, canEdit }: { files?: FileRef[]; from: { 
 }
 
 // „Dokument anhängen“: Datei auswählen und hochladen (an einen Termin oder als Board-Nachricht)
-export function AttachButton({ to, label = 'Dokument anhängen', className = 'btn ghost sm', done }: { to: { event?: string; text?: string }; label?: string; className?: string; done?: () => void }) {
+export function AttachButton({ to, label = 'Dokument anhängen', className = 'btn ghost sm', done, pick: keep }: { to: { event?: string; text?: string }; label?: string; className?: string; done?: () => void; pick?: (f: { name: string; type: string; data: string }) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const pick = async (file?: File) => {
@@ -51,7 +51,10 @@ export function AttachButton({ to, label = 'Dokument anhängen', className = 'bt
     setBusy(true);
     try {
       const data = await new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(file); });
-      await store.attachFile({ name: file.name, type: file.type || 'application/octet-stream', data }, to);
+      const f = { name: file.name, type: file.type || 'application/octet-stream', data };
+      // Neuer Termin: Datei merken, hochgeladen wird nach dem Speichern
+      if (keep) { keep(f); return; }
+      await store.attachFile(f, to);
       toast(to.event ? 'Dokument angehängt.' : 'Dokument hängt jetzt am Board.');
       done?.();
     } catch (x) { fail(x); } finally { setBusy(false); if (input.current) input.current.value = ''; }

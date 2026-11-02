@@ -7,6 +7,7 @@ import { conflicts, nameOf, whenText } from '../lib/model';
 import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
 import { suggestPlaces, travelTime, type PlaceHit } from '../lib/ai';
+import { AttachButton, FileList } from './Files';
 
 // Adresse in zwei Feldern: „Straße Nr“ und „PLZ Ort“, gespeichert als „Straße Nr, PLZ Ort“ (eindeutig für Route und Fahrzeit)
 export const splitAddr = (a: string): [string, string] => { const k = a.lastIndexOf(','); return k < 0 ? [a, ''] : [a.slice(0, k), a.slice(k + 1).trimStart()]; };
@@ -57,6 +58,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
     ? 'Alle in der Familie sehen den Termin, und er erscheint auf dem Display im Flur.'
     : d.busy ? 'Nur du siehst den Termin. Trägt jemand etwas zur selben Zeit ein, warnt die App: „belegt“.' : 'Nur du siehst diesen Termin. Er erscheint nicht auf dem Display.';
 
+  const [pending, setPending] = useState<{ name: string; type: string; data: string }[]>([]);
   const save = async () => {
     if (!d.title.trim()) { toast('Bitte einen Titel eingeben.'); return; }
     if (!d.all_day && d.end_min <= d.start_min) { toast('Das Ende muss nach dem Beginn liegen.'); return; }
@@ -70,6 +72,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
         if (r) dd = { ...d, travel_min: r.minutes };
       }
       const id = await store.saveEvent(toNewEvent(dd, bringTxt), d.id);
+      for (const f of pending) await store.attachFile(f, { event: id }).catch(fail);
       toast(d.vis === 'family' ? 'Gespeichert. Steht jetzt auch auf dem Display.' : 'Gespeichert, nur für dich.');
       saved(id);
     } catch (e) { fail(e); } finally { setBusy(false); }
@@ -154,6 +157,11 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       )}
       <label className="field"><span>Mitbringen (mit Komma trennen)</span><input value={bringTxt} onChange={e => setBringTxt(e.target.value)} placeholder="z. B. Trinkflasche, Schienbeinschoner" /></label>
       <label className="field"><span>Notiz</span><textarea value={d.notes} onChange={e => set({ notes: e.target.value })} placeholder="z. B. Abholen am Vereinsheim" /></label>
+      <div className="field"><span>Dokumente</span>
+        {d.id && <FileList files={snap.events.find(x => x.id === d.id)?.files} from={{ event: d.id }} canEdit />}
+        {pending.length > 0 && <div className="files">{pending.map((f, i) => <div key={i} className="file"><span className="file-open"><Icon name="clip" /><span><b>{f.name}</b><small>wird beim Speichern angehängt</small></span></span><button type="button" className="file-x" aria-label={`${f.name} entfernen`} onClick={() => setPending(p => p.filter((_, j) => j !== i))}>×</button></div>)}</div>}
+        <div style={{ marginTop: 6 }}>{d.id ? <AttachButton to={{ event: d.id }} /> : <AttachButton to={{}} pick={f => setPending(p => [...p, f])} />}</div>
+      </div>
       {d.vis === 'family' && <label className="busyopt"><input type="checkbox" checked={d.discreet} onChange={e => set({ discreet: e.target.checked })} /> Diskret: im Gäste-Modus nur „Termin“ zeigen</label>}
       {cf.length > 0 && <div className="warnbox"><b>Achtung, Überschneidung</b>{cf.map(c => <span key={c}>{c}</span>)}</div>}
       <div className="btn-row">

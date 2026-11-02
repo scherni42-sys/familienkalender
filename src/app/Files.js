@@ -45,7 +45,7 @@ export function FileList({ files, from, canEdit }) {
                     : _jsx("button", { type: "button", className: "file-x", "aria-label": `${f.name} entfernen`, onClick: () => setArmed(f.path), children: "\u00D7" }))] }, f.path))) });
 }
 // „Dokument anhängen“: Datei auswählen und hochladen (an einen Termin oder als Board-Nachricht)
-export function AttachButton({ to, label = 'Dokument anhängen', className = 'btn ghost sm', done }) {
+export function AttachButton({ to, label = 'Dokument anhängen', className = 'btn ghost sm', done, pick: keep }) {
     const input = useRef(null);
     const [busy, setBusy] = useState(false);
     const pick = async (file) => {
@@ -58,7 +58,13 @@ export function AttachButton({ to, label = 'Dokument anhängen', className = 'bt
         setBusy(true);
         try {
             const data = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(file); });
-            await store.attachFile({ name: file.name, type: file.type || 'application/octet-stream', data }, to);
+            const f = { name: file.name, type: file.type || 'application/octet-stream', data };
+            // Neuer Termin: Datei merken, hochgeladen wird nach dem Speichern
+            if (keep) {
+                keep(f);
+                return;
+            }
+            await store.attachFile(f, to);
             toast(to.event ? 'Dokument angehängt.' : 'Dokument hängt jetzt am Board.');
             done?.();
         }
