@@ -7,12 +7,16 @@ import { conflicts, nameOf, whenText } from '../lib/model';
 import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
 
+// Adresse in zwei Feldern: „Straße Nr“ und „PLZ Ort“, gespeichert als „Straße Nr, PLZ Ort“ (eindeutig für Route und Fahrzeit)
+export const splitAddr = (a: string): [string, string] => { const k = a.lastIndexOf(','); return k < 0 ? [a, ''] : [a.slice(0, k), a.slice(k + 1).trimStart()]; };
+export const joinAddr = (street: string, town: string) => street.replace(/,/g, ' ') + (town ? `, ${town}` : '');
+
 // Entwurf in einen speicherbaren Termin umwandeln (auch für die Direkteingabe ohne Bestätigung)
 export const toNewEvent = (d: Draft, bringTxt = d.bring.join(', ')): NewEvent => ({
   title: d.title.trim(), date: d.date, end_date: d.all_day ? (d.end_date < d.date ? d.date : d.end_date) : d.date,
   all_day: d.all_day, start_min: d.all_day ? 0 : d.start_min, end_min: d.all_day ? 1440 : d.end_min,
   persons: d.persons, driver: d.driver, vis: d.vis === 'family' ? 'family' : d.busy ? 'busy' : 'private',
-  place: d.place.trim(), addr: d.addr.trim(), travel_min: d.driver && d.travel_min ? d.travel_min : null,
+  place: d.place.trim(), addr: d.addr.trim().replace(/^,\s*/, ''), travel_min: d.driver && d.travel_min ? d.travel_min : null,
   notes: d.notes.trim(), bring: bringTxt.split(',').map(x => x.trim()).filter(Boolean), discreet: d.vis === 'family' && d.discreet
 });
 
@@ -87,8 +91,11 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
           {drivers.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </label>
-      <label className="field"><span>Ort</span><input value={d.place} onChange={e => set({ place: e.target.value })} placeholder="z. B. Sportplatz Nord" /></label>
-      <label className="field"><span>Adresse</span><input value={d.addr} onChange={e => set({ addr: e.target.value })} placeholder="Straße, Ort" /></label>
+      <label className="field"><span>Name des Ortes</span><input value={d.place} onChange={e => set({ place: e.target.value })} placeholder="z. B. Sportplatz Nord" /></label>
+      <div className="row2">
+        <label className="field"><span>Straße und Hausnummer</span><input value={splitAddr(d.addr)[0]} onChange={e => set({ addr: joinAddr(e.target.value, splitAddr(d.addr)[1]) })} placeholder="z. B. Projensdorfer Str. 300" autoComplete="street-address" /></label>
+        <label className="field"><span>PLZ und Ort</span><input value={splitAddr(d.addr)[1]} onChange={e => set({ addr: joinAddr(splitAddr(d.addr)[0], e.target.value) })} placeholder="z. B. 24106 Kiel" /></label>
+      </div>
       {d.driver && s.showTravel && !d.all_day && (
         <div className="row2">
           <label className="field"><span>Fahrzeit (Min.)</span><input type="number" inputMode="numeric" min={0} max={240} value={d.travel_min ?? ''} onChange={e => set({ travel_min: e.target.value ? Math.max(0, Math.min(240, Number(e.target.value))) : null })} placeholder="z. B. 15" /></label>
