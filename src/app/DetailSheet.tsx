@@ -9,6 +9,7 @@ import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
 import { useEffect, useState, type ReactNode } from 'react';
 import { BdayForm } from './Settings';
+import { AttachButton, FileList } from './Files';
 
 // Links in Notizen anklickbar machen (z. B. Teams-Besprechung)
 const linkify = (t: string) => t.split(/(https?:\/\/[^\s<>"]+)/g).map((p, i) =>
@@ -101,6 +102,10 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nm(etaDriver(e))} fährt · Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}
         {e.notes && <Row k="Notiz">{linkify(e.notes)}</Row>}
+        {(e.files?.length || canEdit) ? <Row k="Dokumente">
+          <FileList files={e.files} from={{ event: e.id }} canEdit={canEdit} />
+          {canEdit && <div style={{ marginTop: e.files?.length ? 8 : 0 }}><AttachButton to={{ event: e.id }} /></div>}
+        </Row> : null}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>
         <Row k="Angelegt von">{nameOf(snap.members, e.owner)}</Row>
       </div>

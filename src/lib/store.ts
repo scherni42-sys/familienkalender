@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { Birthday, CalEvent, DisplayFeed, Member, Message, NewEvent, Role, Settings, Snapshot } from './types';
+import type { Birthday, CalEvent, FileRef, DisplayFeed, Member, Message, NewEvent, Role, Settings, Snapshot } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import { supabase } from './supabase';
 import { seed } from './seed';
@@ -25,6 +25,10 @@ export interface Store {
   driverAnswer(id: string, ok: boolean): Promise<void>;
   deleteEvent(id: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
+  // Dokumente: an einen Termin (event) oder als neue Board-Nachricht (ohne event)
+  attachFile(file: { name: string; type: string; data: string }, to: { event?: string; text?: string }): Promise<void>;
+  fileUrl(f: FileRef): Promise<string>;
+  removeFile(f: FileRef, from: { event?: string; message?: string }): Promise<void>;
   postMessage(text: string, image?: { type: string; data: string }): Promise<void>;
   setAvatar(id: string, image: { type: string; data: string } | null): Promise<void>;
   useAvatar(id: string, on: boolean): Promise<void>;
@@ -114,6 +118,19 @@ class LocalStore extends Base implements Store {
       : (ok ? { ...x, driver2_ok: true } : { ...x, driver2: null, driver2_ok: null, declined_by: s.me })) }));
   }
   async deleteMessage(id: string) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
+  async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; text?: string }) {
+    if (file.data.length > 3_000_000) throw new Error('In der Beispielfamilie gehen nur kleine Dateien (bis 2 MB).');
+    const ref: FileRef = { path: `data:${file.type};base64,${file.data}`, name: file.name, type: file.type, size: Math.round(file.data.length * 0.75) };
+    if (to.event) this.patch(s => ({ events: s.events.map(x => x.id === to.event ? { ...x, files: [...(x.files ?? []), ref] } : x) }));
+    else this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me!, text: to.text?.trim() || `📎 ${file.name}`, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, files: [ref], replies: [] }] }));
+  }
+  async fileUrl(f: FileRef) { return f.path; }
+  async removeFile(f: FileRef, from: { event?: string; message?: string }) {
+    this.patch(s => ({
+      events: s.events.map(x => x.id === from.event ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x),
+      messages: s.messages.map(x => x.id === from.message ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x)
+    }));
+  }
   async postMessage(text: string, image?: { type: string; data: string }) {
     const img = image ? `data:${image.type};base64,${image.data}` : null;
     this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me!, text, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, image: img, replies: [] }] }));
@@ -265,7 +282,12 @@ class SupabaseStore extends Base implements Store {
     await this.refresh();
     return row.id;
   }
-  async deleteEvent(id: string) { this.ok(await this.sb.from('events').delete().eq('id', id)); await this.refresh(); }
+  async deleteEvent(id: string) {
+    const fs = this.snap.events.find(x => x.id === id)?.files ?? [];
+    this.ok(await this.sb.from('events').delete().eq('id', id));
+    for (const f of fs) await this.files({ action: 'remove', path: f.path }).catch(() => {});
+    await this.refresh();
+  }
   async setEta(id: string, eta: string | null, driver?: string | null) {
     const base = driver ? { eta, driver } : { eta };
     const was = this.snap.events.find(x => x.id === id);
@@ -275,7 +297,27 @@ class SupabaseStore extends Base implements Store {
     await this.refresh();
   }
   async driverAnswer(id: string, ok: boolean) { this.ok(await this.sb.rpc('driver_answer', { p_event: id, p_ok: ok })); await this.refresh(); }
+  private async files(body: object) {
+    const { data, error } = await this.sb.functions.invoke('files', { body });
+    if (error || data?.error) {
+      let why = data?.error ?? error?.message ?? 'Fehler';
+      const res = (error as { context?: Response } | null)?.context;
+      if (res && typeof res.json === 'function') { try { why = (await res.json())?.error ?? why; } catch { /* egal */ } }
+      throw new Error(why);
+    }
+    return data;
+  }
+  async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; text?: string }) {
+    await this.files({ action: 'upload', name: file.name, type: file.type, data: file.data, event_id: to.event, text: to.text });
+    await this.refresh();
+  }
+  async fileUrl(f: FileRef) { return (await this.files({ action: 'sign', path: f.path })).url as string; }
+  async removeFile(f: FileRef, from: { event?: string; message?: string }) {
+    await this.files({ action: 'remove', path: f.path, event_id: from.event, message_id: from.message });
+    await this.refresh();
+  }
   async deleteMessage(id: string) {
+    for (const f of this.snap.messages.find(m => m.id === id)?.files ?? []) await this.files({ action: 'remove', path: f.path }).catch(() => {});
     const img = this.snap.messages.find(m => m.id === id)?.image;
     this.ok(await this.sb.from('messages').delete().eq('id', id));
     if (img && !/^(data:|https?:)/.test(img)) await this.sb.storage.from('board').remove([img]);

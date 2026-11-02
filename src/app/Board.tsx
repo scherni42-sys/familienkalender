@@ -5,6 +5,7 @@ import { Badge, Icon } from './ui';
 import { fail, toast } from './toast';
 import { shrinkPhoto } from '../lib/ai';
 import { boardImg } from '../lib/supabase';
+import { AttachButton, FileList } from './Files';
 
 export function Board({ focus, reply: replyOpen }: { focus?: string | null; reply?: string | null }) {
   const snap = useSnapshot();
@@ -44,6 +45,7 @@ export function Board({ focus, reply: replyOpen }: { focus?: string | null; repl
           </form>
         ) : <div>{m.image && m.text === '📷 Foto' ? null : m.text}</div>}
         {m.image && <a href={boardImg(m.image)} target="_blank" rel="noreferrer" className="msg-img"><img src={boardImg(m.image)} alt={m.text} loading="lazy" /></a>}
+        <FileList files={m.files} from={{ message: m.id }} canEdit={m.from_member === snap.me || me.role === 'admin'} />
         {m.taker && <div className="note"><b>Übernimmt: {nameOf(snap.members, m.taker)}</b></div>}
         {m.replies.length > 0 && <div className="replies">{m.replies.map(r => <div key={r.id} className="rp"><Badge m={member(r.from_member)} /><span>{r.text}</span></div>)}</div>}
         {canAct && <div className="quick">
@@ -81,6 +83,7 @@ export function Board({ focus, reply: replyOpen }: { focus?: string | null; repl
         <div className="cam-row">
           <label className="cam-big"><Icon name="camera" /><span>Foto aufnehmen</span><input type="file" accept="image/*" capture="environment" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} /></label>
           <label className="cam-big"><Icon name="image" /><span>Aus Galerie</span><input type="file" accept="image/*" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} /></label>
+          <AttachButton to={{ text: text.trim() || undefined }} label="Dokument" className="cam-big" done={() => setText('')} />
         </div>
       </>
     )}

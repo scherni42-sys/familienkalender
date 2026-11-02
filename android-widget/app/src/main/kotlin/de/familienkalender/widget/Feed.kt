@@ -318,7 +318,7 @@ object Feed {
                 val d2 = if (trip == "beides") id(e, "driver2") else null
                 out += Row(
                     // Eigene private Termine (nur mit persönlichem Widget-Code) mit Schloss kennzeichnen
-                    Kind.EVENT, (if (e.optString("vis", "family") != "family") "🔒 " else "") + e.optString("title"),
+                    Kind.EVENT, (if (e.optString("vis", "family") != "family") "🔒 " else "") + e.optString("title") + if ((e.optJSONArray("files")?.length() ?: 0) > 0) " 📎" else "",
                     time = if (allDay) "ganzt." else hm(e.optInt("start_min")),
                     drive = drv?.let { who0 ->
                         val who = name[who0] ?: ""

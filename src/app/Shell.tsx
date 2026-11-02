@@ -13,6 +13,7 @@ import { Board } from './Board';
 import { Settings } from './Settings';
 import { MicSheet } from './MicSheet';
 import { AskSheet } from './AskSheet';
+import { Clip } from './Files';
 import { EventSheet } from './EventSheet';
 import { DetailSheet, BdaySheet } from './DetailSheet';
 import { PushBanner } from './PushBanner';
@@ -165,7 +166,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
     } catch (x) { fail(x); setArmed(false); }
   };
   return (
-    <div className={`ev${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))}
+    <div className={`ev${e.files?.length ? ' has-clip' : ''}${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))}
       data-ev role="button" tabIndex={0}
       onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (mayDelete) x.preventDefault(); }}
       onClick={() => { if (longed.current) { longed.current = false; return; } if (armed) { setArmed(false); return; } open(e.id); }}
@@ -189,6 +190,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
           <div className={`go${soon2 ? ' soon' : ''}`}><Icon name="car" /><b>{nameOf(snap.members, l2.who)}: {soon2 ? `in ${l2.leave - now} Min. zum Abholen los` : `zum Abholen los um ${hm(l2.leave)}`}</b><span>ca. {tr} Min. Fahrt</span></div>
         ) : null}
       </div>
+      <Clip files={e.files} more={() => open(e.id)} />
     </div>
   );
 }

@@ -73,6 +73,25 @@
             android:theme="@style/QuickTheme"
             android:windowSoftInputMode="adjustResize" />
 
+        <!-- Teilen → „FamTO: Anhängen“: Dokument an einen Termin oder ans Board -->
+        <activity
+            android:name=".AttachActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:label="FamTO: Anhängen"
+            android:taskAffinity=""
+            android:theme="@style/QuickTheme"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/*" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="text/csv" />
+                <data android:mimeType="text/calendar" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".ShareActivity"
             android:exported="true"

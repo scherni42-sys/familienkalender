@@ -32,6 +32,7 @@ export interface CalEvent {
   travel_min: number | null;
   eta?: string | null; // Fahrer ist unterwegs: voraussichtliche Ankunft
   eta_by?: string | null; // wer gerade fährt (Hinfahrt oder Abholung)
+  files?: FileRef[]; // angehängte Dokumente
   arrived_at?: string | null; // „Angekommen“ gemeldet
   trip?: Trip; // hin: zum Beginn bringen · ab: zum Ende abholen · beides: driver bringt, driver2 holt ab
   driver2?: string | null;
@@ -57,6 +58,9 @@ export interface BusySlot {
 
 export interface Reply { id: string; from_member: string; text: string; created_at: string }
 
+// Angehängtes Dokument: liegt im privaten Speicher „files“ (in der Beispielfamilie als data:-URL)
+export type FileRef = { path: string; name: string; type: string; size: number };
+
 export interface Message {
   id: string;
   from_member: string;
@@ -66,6 +70,7 @@ export interface Message {
   done: boolean;
   taker: string | null;
   via: string | null;
+  files?: FileRef[];
   image?: string | null; // Foto am Board: Pfad im Speicher (oder data:-URL in der Demo)
   replies: Reply[];
 }
