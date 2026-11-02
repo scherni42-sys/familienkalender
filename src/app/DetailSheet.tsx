@@ -60,8 +60,9 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
         {e.driver && <Row k="Fahrdienst">{nameOf(snap.members, e.driver)} fährt</Row>}
         {(e.place || e.addr) && <Row k="Ort">{e.place}{e.addr && <small className="addr">{e.addr}</small>}</Row>}
         {tr > 0 && <Row k="Fahrt"><div className="route" style={cvar(snap.members.find(m => m.id === e.driver)?.color ?? '#7a8590')}>
+          {eta !== null ? <div className="rt-times"><span><b>{nameOf(snap.members, e.driver)} fährt</b></span><span>Ankunft ca. <b>{hm(eta)}</b></span></div> : <>
           <div className="rt-bar"><span className="rt-drive" style={{ flex: tr }}><Icon name="car" /> {tr} Min.</span>{s.buffer > 0 && <span className="rt-buf" style={{ flex: Math.max(s.buffer, 4) }}>{s.buffer}</span>}</div>
-          <div className="rt-times"><span><b>{hm(dep)}</b> losfahren</span><span><b>{hm(e.start_min)}</b> Beginn</span></div>
+          <div className="rt-times"><span><b>{hm(dep)}</b> losfahren</span><span><b>{hm(e.start_min)}</b> Beginn</span></div></>}
           {e.addr && <a className="btn ghost sm" href={maps} target="_blank" rel="noreferrer">Route von zu Hause</a>}
         </div></Row>}
         {e.addr && <Row k="Von hier">{here ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km{!e.all_day && e.date === today() ? <> · los spätestens <b>{hm(e.start_min - here.minutes - s.buffer)}</b></> : null}</> : null}
@@ -70,7 +71,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
             <button type="button" className="btn sm" onClick={startNav}><Icon name="car" /> Navigation starten</button>
             {iDrive && eta !== null && <button type="button" className="btn ghost sm" onClick={() => store.setEta(e.id, null).catch(fail)}>Angekommen</button>}
           </div>
-          {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nameOf(snap.members, e.driver)} ist unterwegs, Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
+          {eta !== null && <div className="note" style={{ marginTop: 6 }}>{nameOf(snap.members, e.driver)} fährt · Ankunft ca. <b>{hm(eta)}</b>{iDrive ? ' (sieht die Familie auch auf dem Display)' : ''}</div>}</Row>}
         {e.bring.length > 0 && <Row k="Mitbringen"><div className="bring">{e.bring.map(b => <span key={b}>{b}</span>)}</div></Row>}
         {e.notes && <Row k="Notiz">{linkify(e.notes)}</Row>}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>

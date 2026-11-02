@@ -5,7 +5,7 @@ import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
-import { bdOn, colorOf, depart, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
+import { bdOn, colorOf, depart, etaMin, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
 import type { Draft } from '../lib/parse';
 import { Badge, Badges, cvar, Icon } from './ui';
 import { fail, toast, useToast } from './toast';
@@ -143,6 +143,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
     : <span className="vis-tag private"><Icon name="lock" /> Privat</span>;
   const tr = travel(e, s), dep = depart(e, s);
   const soon = tr && isToday && dep > now && dep - now <= 30;
+  const eta = e.driver ? etaMin(e) : null;
   // Lange drücken: Papierkorb erscheint, ein Tipp darauf löscht sofort
   const [armed, setArmed] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -173,7 +174,9 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
           {e.driver && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} fährt</span>}
           {e.place && <span className="pl">{e.place}</span>}
         </div>
-        {tr > 0 && !(isToday && e.start_min <= now) && (
+        {eta !== null ? (
+          <div className="go"><Icon name="car" /><b>{nameOf(snap.members, e.driver)} fährt · Ankunft ca. {hm(eta)}</b></div>
+        ) : tr > 0 && !(isToday && e.start_min <= now) && (
           <div className={`go${soon ? ' soon' : ''}`}><Icon name="car" /><b>{soon ? `In ${dep - now} Min. losfahren` : `Los um ${hm(dep)}`}</b><span>ca. {tr} Min. Fahrt{s.buffer ? ` + ${s.buffer} Min. Puffer` : ''}</span></div>
         )}
       </div>

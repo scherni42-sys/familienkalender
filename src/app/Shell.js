@@ -5,7 +5,7 @@ import { micStart } from '../lib/micstart';
 import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
-import { bdOn, colorOf, depart, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
+import { bdOn, colorOf, depart, etaMin, nameOf, travel, upcoming, visibleOnDay } from '../lib/model';
 import { Badge, Badges, cvar, Icon } from './ui';
 import { fail, toast, useToast } from './toast';
 import { Board } from './Board';
@@ -131,6 +131,7 @@ export function EvCard({ e, d, snap, now, open, flash }) {
             : _jsxs("span", { className: "vis-tag private", children: [_jsx(Icon, { name: "lock" }), " Privat"] });
     const tr = travel(e, s), dep = depart(e, s);
     const soon = tr && isToday && dep > now && dep - now <= 30;
+    const eta = e.driver ? etaMin(e) : null;
     // Lange drücken: Papierkorb erscheint, ein Tipp darauf löscht sofort
     const [armed, setArmed] = useState(false);
     const timer = useRef(undefined);
@@ -159,7 +160,7 @@ export function EvCard({ e, d, snap, now, open, flash }) {
             return;
         } open(e.id); }, onKeyDown: k => { if (k.key === 'Enter')
             open(e.id); if (k.key === 'Delete' && mayDelete)
-            setArmed(true); }, "aria-label": `${e.title}, Details öffnen, lange drücken zum Löschen`, children: [armed && _jsx("button", { type: "button", className: "ev-del", onClick: del, "aria-label": `${e.title} löschen`, children: _jsx(Icon, { name: "trash" }) }), _jsx(Time, { e: e, d: d }), _jsxs("div", { style: { minWidth: 0 }, children: [_jsx("div", { className: "t", children: _jsx("span", { children: e.title }) }), _jsxs("div", { className: "meta", children: [e.persons.length > 0 && _jsx(Badges, { ids: e.persons, members: snap.members }), tag, e.driver && _jsxs("span", { children: [_jsx(Icon, { name: "car" }), " ", nameOf(snap.members, e.driver), " f\u00E4hrt"] }), e.place && _jsx("span", { className: "pl", children: e.place })] }), tr > 0 && !(isToday && e.start_min <= now) && (_jsxs("div", { className: `go${soon ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), _jsx("b", { children: soon ? `In ${dep - now} Min. losfahren` : `Los um ${hm(dep)}` }), _jsxs("span", { children: ["ca. ", tr, " Min. Fahrt", s.buffer ? ` + ${s.buffer} Min. Puffer` : ''] })] }))] })] }));
+            setArmed(true); }, "aria-label": `${e.title}, Details öffnen, lange drücken zum Löschen`, children: [armed && _jsx("button", { type: "button", className: "ev-del", onClick: del, "aria-label": `${e.title} löschen`, children: _jsx(Icon, { name: "trash" }) }), _jsx(Time, { e: e, d: d }), _jsxs("div", { style: { minWidth: 0 }, children: [_jsx("div", { className: "t", children: _jsx("span", { children: e.title }) }), _jsxs("div", { className: "meta", children: [e.persons.length > 0 && _jsx(Badges, { ids: e.persons, members: snap.members }), tag, e.driver && _jsxs("span", { children: [_jsx(Icon, { name: "car" }), " ", nameOf(snap.members, e.driver), " f\u00E4hrt"] }), e.place && _jsx("span", { className: "pl", children: e.place })] }), eta !== null ? (_jsxs("div", { className: "go", children: [_jsx(Icon, { name: "car" }), _jsxs("b", { children: [nameOf(snap.members, e.driver), " f\u00E4hrt \u00B7 Ankunft ca. ", hm(eta)] })] })) : tr > 0 && !(isToday && e.start_min <= now) && (_jsxs("div", { className: `go${soon ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), _jsx("b", { children: soon ? `In ${dep - now} Min. losfahren` : `Los um ${hm(dep)}` }), _jsxs("span", { children: ["ca. ", tr, " Min. Fahrt", s.buffer ? ` + ${s.buffer} Min. Puffer` : ''] })] }))] })] }));
 }
 function Time({ e, d }) {
     if (e.all_day)

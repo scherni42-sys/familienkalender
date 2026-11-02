@@ -10,7 +10,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 const UA = 'FamTO-Familienkalender/1.0 (https://scherni42-sys.github.io/familienkalender/)';
-const GKEY = Deno.env.get('GOOGLE_MAPS_KEY') ?? '';
+const GKEY = (Deno.env.get('GOOGLE_MAPS_KEY') ?? '').trim();
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 async function geocode(q: string): Promise<[number, number] | null> {
@@ -138,8 +138,9 @@ Deno.serve(async req => {
       ok = !!u?.user;
     }
     if (!ok) return json({ error: 'nicht angemeldet' }, 401);
+    console.log('anfrage', body.suggest ? 'suche' : body.web ? 'internet' : 'route', GKEY ? `google-key ${GKEY.length} Zeichen` : 'ohne google-key');
 
-    if (body.suggest && GKEY) { const g = await gSearch(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined); if (g) return json({ hits: g, src: 'google' }); }
+    if (body.suggest && GKEY) { const g = await gSearch(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined); if (g) { console.log('google places ok', g.length); return json({ hits: g, src: 'google' }); } }
     if (body.suggest) return json({ hits: await suggest(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined) });
     if (body.web) return json({ hits: await webFind(String(body.web).slice(0, 160), body.home ? String(body.home).slice(0, 200) : undefined) });
     // Adresse zu einem Ortsnamen suchen, z. B. „Mediamarkt Kiel Citti-Park“
@@ -155,7 +156,7 @@ Deno.serve(async req => {
     }
     const { from, to } = body;
     if (!from || !to) return json({ error: 'Zuhause-Adresse oder Ziel fehlt' }, 400);
-    if (GKEY) { const g = await gRoute(String(from).slice(0, 200), String(to).slice(0, 200)); if (g) return json({ ...g, src: 'google' }); }
+    if (GKEY) { const g = await gRoute(String(from).slice(0, 200), String(to).slice(0, 200)); if (g) { console.log('google routes ok', g.minutes); return json({ ...g, src: 'google' }); } }
     const a = await geocode(String(from).slice(0, 200));
     const b = await geocode(String(to).slice(0, 200));
     if (!a) return json({ error: 'Zuhause-Adresse nicht gefunden' }, 404);
