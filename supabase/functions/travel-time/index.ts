@@ -1,6 +1,7 @@
-// Edge Function: Fahrzeit mit dem Auto von zu Hause zur Termin-Adresse.
-// Adressen werden über OpenStreetMap (Nominatim) gefunden, die Route über OSRM berechnet. Kein Schlüssel nötig.
-// Nur angemeldete Nutzer dürfen die Funktion verwenden.
+// Edge Function: Fahrzeit mit dem Auto und Ortssuche.
+// Mit Secret GOOGLE_MAPS_KEY: Google Routes (mit aktuellem Verkehr) und Google Places (Ortssuche).
+// Ohne Schlüssel: OpenStreetMap (Photon, Nominatim) und OSRM.
+// Zugriff: angemeldete Nutzer (Web-App) oder ein persönlicher Widget-Code (Android-App).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import Anthropic from 'npm:@anthropic-ai/sdk';
 
@@ -9,6 +10,7 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 const UA = 'FamTO-Familienkalender/1.0 (https://scherni42-sys.github.io/familienkalender/)';
+const GKEY = Deno.env.get('GOOGLE_MAPS_KEY') ?? '';
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 async function geocode(q: string): Promise<[number, number] | null> {
@@ -85,15 +87,59 @@ async function webFind(q: string, home?: string): Promise<Hit[]> {
   return [];
 }
 
+// Google: Fahrzeit mit Verkehr; Ziel und Start als Adresse oder „lat,lon“
+const gPoint = (x: string) => { const c = x.match(/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/); return c ? { location: { latLng: { latitude: Number(c[1]), longitude: Number(c[2]) } } } : { address: x }; };
+async function gRoute(from: string, to: string): Promise<{ minutes: number; km: number } | null> {
+  const r = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GKEY, 'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters' },
+    body: JSON.stringify({ origin: gPoint(from), destination: gPoint(to), travelMode: 'DRIVE', routingPreference: 'TRAFFIC_AWARE', languageCode: 'de-DE', regionCode: 'DE' })
+  });
+  if (!r.ok) { console.log('google routes', r.status, (await r.text()).slice(0, 300)); return null; }
+  const x = (await r.json())?.routes?.[0];
+  if (!x?.duration) return null;
+  return { minutes: Math.max(1, Math.ceil(parseInt(x.duration) / 60)), km: Math.round((x.distanceMeters ?? 0) / 100) / 10 };
+}
+async function gSearch(q: string, home?: string): Promise<Hit[] | null> {
+  let bias: unknown = undefined;
+  if (home) {
+    if (!near.has(home)) {
+      const h = await fetch(`https://photon.komoot.io/api/?limit=1&lang=de&q=${encodeURIComponent(home)}`, { headers: { 'User-Agent': UA } }).then(r => r.json()).catch(() => null);
+      const c = h?.features?.[0]?.geometry?.coordinates;
+      near.set(home, c ? [c[0], c[1]] : null);
+    }
+    const c = near.get(home);
+    if (c) bias = { circle: { center: { latitude: c[1], longitude: c[0] }, radius: 50000 } };
+  }
+  const r = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': GKEY, 'X-Goog-FieldMask': 'places.displayName,places.formattedAddress' },
+    body: JSON.stringify({ textQuery: q, languageCode: 'de', regionCode: 'DE', pageSize: 5, ...(bias ? { locationBias: bias } : {}) })
+  });
+  if (!r.ok) { console.log('google places', r.status, (await r.text()).slice(0, 300)); return null; }
+  return ((await r.json())?.places ?? []).map((p: { displayName?: { text?: string }; formattedAddress?: string }) => ({
+    name: p.displayName?.text ?? '', addr: (p.formattedAddress ?? '').replace(/,\s*(Deutschland|Germany)$/, '')
+  })).filter((h: Hit) => h.addr);
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const auth = req.headers.get('Authorization') ?? '';
-    const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
-    const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
-    if (!u?.user) return json({ error: 'nicht angemeldet' }, 401);
-
     const body = await req.json();
+    const auth = req.headers.get('Authorization') ?? '';
+    let ok = false;
+    if (body.widget_token) {
+      const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data } = await admin.from('widget_tokens').select('member_id').eq('token', String(body.widget_token)).maybeSingle();
+      ok = !!data;
+    } else if (auth) {
+      const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
+      const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
+      ok = !!u?.user;
+    }
+    if (!ok) return json({ error: 'nicht angemeldet' }, 401);
+
+    if (body.suggest && GKEY) { const g = await gSearch(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined); if (g) return json({ hits: g, src: 'google' }); }
     if (body.suggest) return json({ hits: await suggest(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined) });
     if (body.web) return json({ hits: await webFind(String(body.web).slice(0, 160), body.home ? String(body.home).slice(0, 200) : undefined) });
     // Adresse zu einem Ortsnamen suchen, z. B. „Mediamarkt Kiel Citti-Park“
@@ -109,6 +155,7 @@ Deno.serve(async req => {
     }
     const { from, to } = body;
     if (!from || !to) return json({ error: 'Zuhause-Adresse oder Ziel fehlt' }, 400);
+    if (GKEY) { const g = await gRoute(String(from).slice(0, 200), String(to).slice(0, 200)); if (g) return json({ ...g, src: 'google' }); }
     const a = await geocode(String(from).slice(0, 200));
     const b = await geocode(String(to).slice(0, 200));
     if (!a) return json({ error: 'Zuhause-Adresse nicht gefunden' }, 404);

@@ -53,7 +53,19 @@ object Away {
         return null
     }
 
-    // Fahrzeit in Minuten mit dem Auto vom Standort zur Adresse
+    // Fahrzeit in Minuten mit dem Auto vom Standort zur Adresse: erst über FamTO (Google mit Verkehr, falls eingerichtet), sonst direkt OSRM
+    fun minutes(ctx: Context, from: Location, addr: String): Int? = viaServer(ctx, from, addr) ?: minutes(from, addr)
+
+    private fun viaServer(ctx: Context, from: Location, addr: String): Int? = try {
+        val c = Feed.config(ctx) ?: throw Exception()
+        val conn = URL("${c.url}/functions/v1/travel-time").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"; conn.connectTimeout = 10000; conn.readTimeout = 20000; conn.doOutput = true
+        conn.setRequestProperty("apikey", c.key)
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.outputStream.use { it.write(JSONObject().put("widget_token", c.token).put("from", "%.5f,%.5f".format(java.util.Locale.US, from.latitude, from.longitude)).put("to", addr).toString().toByteArray()) }
+        if (conn.responseCode == 200) JSONObject(conn.inputStream.bufferedReader().readText()).optInt("minutes", 0).takeIf { it > 0 } else null
+    } catch (e: Exception) { null }
+
     fun minutes(from: Location, addr: String): Int? {
         val to = geocode(addr) ?: return null
         val r = get("https://router.project-osrm.org/route/v1/driving/${from.longitude},${from.latitude};${to.first},${to.second}?overview=false")

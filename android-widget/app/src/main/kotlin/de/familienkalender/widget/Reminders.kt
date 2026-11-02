@@ -100,7 +100,7 @@ object Reminders {
                     if (System.currentTimeMillis() - last > 9 * 60_000) {
                         prefs.edit().putLong("etachk:$key", System.currentTimeMillis()).apply()
                         Away.here(ctx)?.let { loc ->
-                            val m = Away.minutes(loc, addr)
+                            val m = Away.minutes(ctx, loc, addr)
                             if (m != null) Feed.eta(ctx, u.e.optString("id"), java.time.OffsetDateTime.now().plusMinutes(m.toLong()).toString())
                         }
                     }
@@ -120,7 +120,7 @@ object Reminders {
                         val loc = Away.here(ctx)
                         val km = loc?.let { Away.kmFromHome(ctx, it) }
                         if (loc != null && (km == null || km > Away.FAR_KM)) {
-                            val m = Away.minutes(loc, addr)
+                            val m = Away.minutes(ctx, loc, addr)
                             if (m != null && m > travel + 10) {
                                 val go = u.start.minusMinutes(m.toLong())
                                 notifyAway(ctx, "away:$key".hashCode(), "⚠️ Fahrt steht bevor: $title",
