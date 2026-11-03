@@ -1,6 +1,6 @@
 import { jsxs as _jsxs, jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
 import { addDays, dayLabel, hm, longDate, today } from '../lib/dates';
-import { bdOn, colorOf, depart, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
+import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, cvar, Icon } from './ui';
 // Geburtstagsfarbe wie im Widget: private in der Farbe des Besitzers, gemeinsame in Torten-Gold
@@ -16,7 +16,7 @@ function Row({ e, d, snap, now, go }) {
     const past = isToday && !e.all_day && e.end_min <= now;
     const nm = (id) => nameOf(snap.members, id ?? '');
     const eta = e.driver || e.driver2 ? etaMin(e) : null;
-    const arrived = eta === null && !!e.arrived_at && e.trip !== 'beides';
+    const arrived = eta === null && (driveDone(e) || past);
     const tr = travel(e, s), dep = depart(e, s);
     let drive = '', soon = false;
     if (eta !== null)

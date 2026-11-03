@@ -1,6 +1,6 @@
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, hm, longDate, today } from '../lib/dates';
-import { bdOn, colorOf, depart, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
+import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, cvar, Icon } from './ui';
 
@@ -23,7 +23,7 @@ function Row({ e, d, snap, now, go }: { e: CalEvent; d: string; snap: Snapshot; 
   const past = isToday && !e.all_day && e.end_min <= now;
   const nm = (id?: string | null) => nameOf(snap.members, id ?? '');
   const eta = e.driver || e.driver2 ? etaMin(e) : null;
-  const arrived = eta === null && !!e.arrived_at && e.trip !== 'beides';
+  const arrived = eta === null && (driveDone(e) || past);
   const tr = travel(e, s), dep = depart(e, s);
   let drive = '', soon = false;
   if (eta !== null) drive = `${nm(etaDriver(e))} fährt · Ankunft ${hm(eta)}`;

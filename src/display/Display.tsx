@@ -4,7 +4,7 @@ import './display.css';
 import { store } from '../lib/store';
 import type { CalEvent, DisplayFeed, Member } from '../lib/types';
 import { addDays, fromIso, hm, inDays, isoWeek, longDate, mondayOf, MON, nowMin, today, WD, WDS } from '../lib/dates';
-import { bdOn, byTime, dayOfN, depart, etaDriver, etaMin, leg2, liveMsgs, onDay, target, travel, upcoming, whenM, whenText } from '../lib/model';
+import { bdOn, byTime, driveDone, dayOfN, depart, etaDriver, etaMin, leg2, liveMsgs, onDay, target, travel, upcoming, whenM, whenText } from '../lib/model';
 import { cvar, Icon } from '../app/ui';
 import { DisplayInput } from './DisplayInput';
 import { DisplayEdit } from './DisplayEdit';
@@ -82,7 +82,7 @@ export function Display({ token }: { token: string }) {
   const row = (e: CalEvent, past: boolean, noGo = false) => (
     <div key={e.id} className={`w-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>
       <time>{hm(e.start_min)}</time>
-      <div><div className="tt">{e.title}</div>{e.driver && <div className="dr"><Icon name="car" /> {nm(e.driver)} {etaMin(e) !== null ? <>fährt · <b>Ankunft {hm(etaMin(e)!)}</b></> : <>fährt{travel(e, s) && !noGo ? <> · <b>los {hm(depart(e, s))}</b></> : null}</>}{e.place ? ` · ${e.place}` : ''}</div>}</div>
+      <div><div className="tt">{e.title}</div>{e.driver && !(etaMin(e) === null && driveDone(e)) && <div className="dr"><Icon name="car" /> {nm(e.driver)} {etaMin(e) !== null ? <>fährt · <b>Ankunft {hm(etaMin(e)!)}</b></> : <>fährt{travel(e, s) && !noGo ? <> · <b>los {hm(depart(e, s))}</b></> : null}</>}{e.place ? ` · ${e.place}` : ''}</div>}</div>
       <span className="wb">{e.persons.map(sb)}</span>
     </div>
   );
@@ -218,7 +218,7 @@ export function Display({ token }: { token: string }) {
       if (d === day && hidePast(e)) return null;
       return <div key={e.id + d} className={`t-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>
         <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
-        <div className="tt"><b>{e.title}</b>{e.driver ? <small> · {nm(e.driver)} {etaMin(e) !== null ? `fährt · Ankunft ${hm(etaMin(e)!)}` : `fährt${travel(e, s) && d === day && !past ? ` · los ${hm(depart(e, s))}` : ''}`}</small> : e.place ? <small> · {e.place}</small> : null}</div>
+        <div className="tt"><b>{e.title}</b>{e.driver && !(etaMin(e) === null && driveDone(e)) ? <small> · {nm(e.driver)} {etaMin(e) !== null ? `fährt · Ankunft ${hm(etaMin(e)!)}` : `fährt${travel(e, s) && d === day && !past ? ` · los ${hm(depart(e, s))}` : ''}`}</small> : e.place ? <small> · {e.place}</small> : null}</div>
         <span className="wb">{e.persons.map(sb)}</span></div>;
     };
     const days = Array.from({ length: n }, (_, i) => addDays(start, i)).map(d => {
@@ -279,7 +279,7 @@ function Mini({ feed, day, now }: { feed: DisplayFeed; day: string; now: number 
       {evs.map(e => (
         <div key={e.id} className={`mini-ev${!e.all_day && e.end_min <= now ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')}>
           <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
-          <span className="t">{e.title}{e.driver ? <small> · {nm(e.driver)} fährt</small> : null}</span>
+          <span className="t">{e.title}{e.driver && !(etaMin(e) === null && driveDone(e)) ? <small> · {nm(e.driver)} fährt</small> : null}</span>
         </div>
       ))}
       <div className="mini-h board"><b>Board</b>{msgs.length > 0 && <span>{msgs.length}</span>}</div>

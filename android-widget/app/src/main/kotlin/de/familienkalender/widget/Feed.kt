@@ -280,6 +280,12 @@ object Feed {
         } catch (x: Exception) { null }
     }
 
+    // Ankunftszeit liegt über 30 Minuten zurück: Fahrt ist vorbei, auch wenn niemand „Angekommen“ getippt hat
+    private fun etaGone(e: JSONObject): Boolean {
+        if (e.isNull("eta")) return false
+        return try { java.time.OffsetDateTime.parse(e.optString("eta")).toInstant().isBefore(java.time.Instant.now().minusSeconds(1800)) } catch (x: Exception) { false }
+    }
+
     fun rows(feed: JSONObject, week: Int? = null, flights: Map<String, String> = emptyMap()): List<Row> {
         val today = LocalDate.now().toString()
         val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
@@ -330,7 +336,7 @@ object Feed {
                 val eta = etaOf(e)
                 // Unterwegs ist, wer die Ankunftszeit gesetzt hat (bei „beides“ auch der Abholer)
                 // Nach „Angekommen“ ist die Fahrt erledigt: keine Fahrer-Zeile mehr (bei „beides“ bleibt das Abholen)
-                val arrived = eta == null && !e.isNull("arrived_at") && e.optString("arrived_at").isNotEmpty() && trip != "beides"
+                val arrived = eta == null && ((!e.isNull("arrived_at") && e.optString("arrived_at").isNotEmpty() && trip != "beides") || etaGone(e) || past)
                 val drv = if (arrived) null else if (eta != null) id(e, "eta_by") ?: driver else driver
                 val d2 = if (trip == "beides") id(e, "driver2") else null
                 out += Row(

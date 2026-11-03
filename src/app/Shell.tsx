@@ -5,7 +5,7 @@ import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
-import { bdOn, colorOf, depart, etaDriver, etaMin, leg2, nameOf, target, travel, upcoming, visibleOnDay } from '../lib/model';
+import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, leg2, nameOf, target, travel, upcoming, visibleOnDay } from '../lib/model';
 import type { Draft } from '../lib/parse';
 import { Badge, Badges, cvar, Icon } from './ui';
 import { fail, toast, useToast } from './toast';
@@ -198,7 +198,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
         <div className="meta">
           {e.persons.length > 0 && <Badges ids={e.persons} members={snap.members} />}
           {tag}
-          {e.driver && !(e.arrived_at && eta === null && e.trip !== 'beides') && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}</span>}
+          {e.driver && !(eta === null && driveDone(e)) && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}</span>}
           {e.trip === 'beides' && e.driver2 && <span><Icon name="car" /> {nameOf(snap.members, e.driver2)} holt ab</span>}
           {e.place && <span className="pl">{e.place}</span>}
         </div>

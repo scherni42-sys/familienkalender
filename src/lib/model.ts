@@ -106,6 +106,10 @@ export const etaMin = (e: { eta?: string | null; start_min: number; date: string
   return t.getHours() * 60 + t.getMinutes();
 };
 
+// Fahrt erledigt: „Angekommen“ getippt, oder die Ankunftszeit liegt über 30 Minuten zurück (Ankommen vergessen)
+export const driveDone = (e: { eta?: string | null; arrived_at?: string | null; trip?: string | null }) =>
+  (!!e.arrived_at && e.trip !== 'beides') || (!!e.eta && new Date(e.eta).getTime() < Date.now() - 30 * 60000);
+
 // Online-Termine (Teams, Zoom, Meet …): kein Ort zum Hinfahren, also keine Navigation und keine Fahrzeit
 const ONLINE = /teams|zoom|webex|google meet|meet\.google|skype|gotomeeting|jitsi|online|videokonferenz|videocall|telefonkonferenz|https?:\/\//i;
 export const isOnline = (e: { place?: string; addr?: string }) => !(e.addr ?? '').replace(/^,\s*/, '').trim() && ONLINE.test(e.place ?? '');
