@@ -133,6 +133,8 @@ class TodayWidget : AppWidgetProvider() {
             thread {
                 Feed.load(ctx, 20_000).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it); CalSync.sync(ctx, it) }
                 try { CalImport.maybeSync(ctx) } catch (e: Exception) { }
+                // Flugstatus (Gate, Verspätung) für heutige und morgige Flüge
+                try { Feed.cached(ctx)?.let { Flights.refresh(ctx, it) }; TodayWidget.refreshData(ctx) } catch (e: Exception) { }
             }
         }
 

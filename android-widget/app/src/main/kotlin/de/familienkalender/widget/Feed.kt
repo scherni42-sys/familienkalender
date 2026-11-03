@@ -280,7 +280,7 @@ object Feed {
         } catch (x: Exception) { null }
     }
 
-    fun rows(feed: JSONObject, week: Int? = null): List<Row> {
+    fun rows(feed: JSONObject, week: Int? = null, flights: Map<String, String> = emptyMap()): List<Row> {
         val today = LocalDate.now().toString()
         val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
         val settings = feed.optJSONObject("family")?.optJSONObject("settings") ?: JSONObject()
@@ -347,7 +347,7 @@ object Feed {
                                 (if (isToday && !allDay && tr > 0 && at > nowMin) " · los ${hm(at - tr)}" else "") +
                                 (d2?.let { " · ${name[it] ?: ""} holt ab" } ?: "")
                         }
-                    } ?: "",
+                    }.let { dl -> flights[e.optString("id")]?.let { fl -> "✈ $fl" + (dl?.let { " · $it" } ?: "") } ?: dl } ?: "",
                     color = first?.let { color[it] } ?: Color.GRAY,
                     faded = past,
                     open = "event:" + e.optString("id") + ":" + d

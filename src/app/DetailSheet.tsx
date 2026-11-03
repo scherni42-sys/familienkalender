@@ -1,4 +1,5 @@
 import { store, useSnapshot } from '../lib/store';
+import { useFlight } from '../lib/flight';
 import { alarmOn, evAlarm, hasEvAlarm, LEADS, setEvAlarm, toggleAlarm, useAlarm } from '../lib/bdalarm';
 import type { Draft } from '../lib/parse';
 import type { CalEvent } from '../lib/types';
@@ -30,6 +31,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const [here, setHere] = useState<{ minutes: number; km: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [lead, setLead] = useState(() => evAlarm(e?.id));
+  const fl = useFlight(e);
   // Fahrer öffnet den Termin am selben Tag: Fahrzeit vom aktuellen Standort automatisch berechnen
   const myTarget = e ? (e.driver === snap.me ? target(e) : e.end_min) : 0;
   const auto = !!e && !!(e.addr || e.place) && isDriver(e, snap.me) && !e.all_day && e.date === today() && myTarget > nowMin() && etaMin(e) === null;
@@ -105,6 +107,14 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           </div>}
         </Row>}
         {(e.place || e.addr) && <Row k="Ort">{e.addr ? <>{e.place}<a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a></> : <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.place}</a>}</Row>}
+        {fl.flight && <Row k="Flug"><div className="flight">
+          <div><b>{fl.flight.number}</b>{fl.flight.airline ? ` · ${fl.flight.airline}` : ''}{fl.flight.status ? <> · <span className={fl.flight.canceled || (fl.flight.dep?.delay ?? 0) >= 15 ? 'fl-bad' : 'fl-ok'}>{fl.flight.status}</span></> : null}</div>
+          {fl.flight.dep && <div>Abflug {fl.flight.dep.airport} <b>{fl.flight.dep.sched}</b>{fl.flight.dep.revised && fl.flight.dep.revised !== fl.flight.dep.sched ? <> → <b className="fl-bad">{fl.flight.dep.revised}</b></> : null}{fl.flight.dep.delay && fl.flight.dep.delay >= 5 ? ` (+${fl.flight.dep.delay} Min.)` : ''}
+            {[fl.flight.dep.terminal && `Terminal ${fl.flight.dep.terminal}`, fl.flight.dep.gate && `Gate ${fl.flight.dep.gate}`, fl.flight.dep.checkIn && `Check-in ${fl.flight.dep.checkIn}`].filter(Boolean).map(x => <span key={x as string} className="fl-chip">{x}</span>)}</div>}
+          {fl.flight.arr && <div>Ankunft {fl.flight.arr.airport} <b>{fl.flight.arr.sched}</b>{fl.flight.arr.revised && fl.flight.arr.revised !== fl.flight.arr.sched ? <> → <b>{fl.flight.arr.revised}</b></> : null}{fl.flight.arr.belt ? <span className="fl-chip">Gepäckband {fl.flight.arr.belt}</span> : null}</div>}
+          <button type="button" className="small-btn" onClick={fl.refresh}>Aktualisieren</button>
+          <span className="note">Stand {fl.flight.at ? new Date(fl.flight.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : ''} · Angaben ohne Gewähr</span>
+        </div></Row>}
         {tr > 0 && <Row k="Fahrt"><div className="route" style={cvar(snap.members.find(m => m.id === e.driver)?.color ?? '#7a8590')}>
           {eta !== null ? <div className="rt-times"><span><b>{nm(etaDriver(e))} fährt</b></span><span>Ankunft ca. <b>{hm(eta)}</b></span></div> : <>
           <div className="rt-bar"><span className="rt-drive" style={{ flex: tr }}><Icon name="car" /> {tr} Min.</span>{s.buffer > 0 && <span className="rt-buf" style={{ flex: Math.max(s.buffer, 4) }}>{s.buffer}</span>}</div>

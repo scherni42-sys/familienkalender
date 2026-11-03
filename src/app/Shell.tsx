@@ -16,6 +16,7 @@ import { AskSheet } from './AskSheet';
 import { Clip } from './Files';
 import { EventSheet } from './EventSheet';
 import { DetailSheet, BdaySheet } from './DetailSheet';
+import { flightShort, useFlight } from '../lib/flight';
 import { PushBanner } from './PushBanner';
 
 type Tab = 'today' | 'week' | 'board' | 'settings';
@@ -148,6 +149,14 @@ function TabBtn({ on, icon, label, go }: { on: boolean; icon: 'today' | 'week' |
 }
 
 /* ---------- Terminkarte ---------- */
+// Flugstatus unter dem Termin (nur rund um den Flugtag)
+function FlightLine({ e }: { e: CalEvent }) {
+  const { flight } = useFlight(e);
+  if (!flight) return null;
+  const txt = flightShort(flight);
+  return txt ? <div className={`fl-line${flight.canceled || (flight.dep?.delay ?? 0) >= 15 ? ' bad' : ''}`}>✈ {txt}</div> : null;
+}
+
 export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: string; snap: Snapshot; now: number; open: (id: string) => void; flash?: string | null }) {
   const s = snap.family!.settings;
   const isToday = d === today();
@@ -191,6 +200,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
           {e.trip === 'beides' && e.driver2 && <span><Icon name="car" /> {nameOf(snap.members, e.driver2)} holt ab</span>}
           {e.place && <span className="pl">{e.place}</span>}
         </div>
+        <FlightLine e={e} />
         {eta !== null ? (
           <div className="go"><Icon name="car" /><b>{nameOf(snap.members, etaDriver(e))} fährt · Ankunft ca. {hm(eta)}</b></div>
         ) : tr > 0 && !(isToday && target(e) <= now) ? (
