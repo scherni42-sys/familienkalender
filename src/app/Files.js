@@ -65,7 +65,7 @@ export function AttachButton({ to, label = 'Dokument anhängen', className = 'bt
                 return;
             }
             await store.attachFile(f, to);
-            toast(to.event ? 'Dokument angehängt.' : 'Dokument hängt jetzt am Board.');
+            toast(to.event || to.birthday ? 'Dokument angehängt.' : 'Dokument hängt jetzt am Board.');
             done?.();
         }
         catch (x) {

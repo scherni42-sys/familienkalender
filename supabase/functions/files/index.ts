@@ -38,6 +38,13 @@ async function myEvent(fam: string, me: string, id: string) {
   return e as { id: string; files: FileRef[] | null };
 }
 
+// Geburtstag, den ich sehen darf (gemeinsam oder mein privater)
+async function myBirthday(fam: string, me: string, id: string) {
+  const { data: b } = await admin.from('birthdays').select('id, family_id, owner, files').eq('id', id).maybeSingle();
+  if (!b || b.family_id !== fam || (b.owner && b.owner !== me)) throw new Error('Geburtstag nicht gefunden');
+  return b as { id: string; files: FileRef[] | null };
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -51,6 +58,7 @@ Deno.serve(async req => {
       if (!bytes.length) throw new Error('Leere Datei');
       if (bytes.length > MAX) throw new Error('Die Datei ist zu groß (höchstens 15 MB).');
       const ev = b.event_id ? await myEvent(fam, me, String(b.event_id)) : null;
+      const bd = !ev && b.birthday_id ? await myBirthday(fam, me, String(b.birthday_id)) : null;
       const safe = name.normalize('NFKD').replace(/[^\w.-]+/g, '_').slice(-60);
       const path = `${fam}/${crypto.randomUUID()}-${safe}`;
       const up = await admin.storage.from('files').upload(path, bytes, { contentType: type });
@@ -58,6 +66,9 @@ Deno.serve(async req => {
       const ref: FileRef = { path, name, type, size: bytes.length };
       if (ev) {
         const { error } = await admin.from('events').update({ files: [...(ev.files ?? []), ref] }).eq('id', ev.id);
+        if (error) throw new Error(error.message);
+      } else if (bd) {
+        const { error } = await admin.from('birthdays').update({ files: [...(bd.files ?? []), ref] }).eq('id', bd.id);
         if (error) throw new Error(error.message);
       } else {
         const text = String(b.text ?? '').trim().slice(0, 500) || `📎 ${name}`;
@@ -81,6 +92,9 @@ Deno.serve(async req => {
       if (b.event_id) {
         const ev = await myEvent(fam, me, String(b.event_id));
         await admin.from('events').update({ files: (ev.files ?? []).filter(f => f.path !== path) }).eq('id', ev.id);
+      } else if (b.birthday_id) {
+        const bd = await myBirthday(fam, me, String(b.birthday_id));
+        await admin.from('birthdays').update({ files: (bd.files ?? []).filter(f => f.path !== path) }).eq('id', bd.id);
       } else if (b.message_id) {
         const { data: m } = await admin.from('messages').select('id, family_id, files').eq('id', String(b.message_id)).maybeSingle();
         if (!m || m.family_id !== fam) throw new Error('Nachricht nicht gefunden');

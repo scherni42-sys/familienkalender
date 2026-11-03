@@ -1,6 +1,6 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { store, useSnapshot } from '../lib/store';
-import { evAlarm, hasEvAlarm, LEADS, setEvAlarm } from '../lib/bdalarm';
+import { alarmOn, evAlarm, hasEvAlarm, LEADS, setEvAlarm, toggleAlarm, useAlarm } from '../lib/bdalarm';
 import { fail, toast } from './toast';
 import { hm, nowMin, today } from '../lib/dates';
 import { travelTime } from '../lib/ai';
@@ -104,8 +104,24 @@ export function DetailSheet({ id, day, add, close, edit }) {
                             }
                         }, children: _jsx(Icon, { name: "trash" }) })] }), add && me.role !== 'guest' && _jsx("button", { type: "button", className: "btn ghost", style: { width: '100%', marginTop: 8 }, onClick: () => add(day ?? e.date), children: "\uFF0B Weiterer Termin an diesem Tag" })] }));
 }
-export function BdaySheet({ close, adding }) {
+export function BdaySheet({ close, adding, open: first }) {
     const snap = useSnapshot();
     const s = snap.family.settings;
-    return (_jsxs(Sheet, { onClose: close, label: "N\u00E4chste Geburtstage", children: [_jsx("h2", { children: "N\u00E4chste Geburtstage" }), _jsxs("p", { children: ["Erinnerung ", s.bdLead, " Tage vorher. \u00C4ndern kann das der Admin unter Einstellungen."] }), adding && snap.members.find(m => m.id === snap.me)?.role !== 'guest' && _jsx(BdayForm, { focus: true }), _jsx("div", { children: upcoming(snap.birthdays).map(b => _jsxs("div", { className: `bdrow${b.days <= s.bdLead ? ' soon' : ''}`, children: [_jsxs("div", { children: [_jsxs("b", { children: [b.owner ? _jsxs(_Fragment, { children: [_jsx(Icon, { name: "lock" }), " "] }) : '', b.name] }), _jsxs("small", { children: [b.rel ? `${b.rel} · ` : '', bdLabel(b), b.age ? ` · wird ${b.age}` : ''] })] }), _jsx("span", { className: "dd", children: inDays(b.days) })] }, b.id)) }), _jsx("div", { className: "btn-row", children: _jsx("button", { type: "button", className: "btn ghost", onClick: close, children: "Schlie\u00DFen" }) })] }));
+    const [sel, setSel] = useState(first ?? null);
+    const b = sel ? upcoming(snap.birthdays).find(x => x.id === sel) : undefined;
+    if (b)
+        return _jsx(BdayDetail, { b: b, back: () => setSel(null), close: close });
+    return (_jsxs(Sheet, { onClose: close, label: "N\u00E4chste Geburtstage", children: [_jsx("h2", { children: "N\u00E4chste Geburtstage" }), _jsxs("p", { children: ["Erinnerung ", s.bdLead, " Tage vorher. \u00C4ndern kann das der Admin unter Einstellungen. Antippen zeigt Details, Dokumente und Wecker."] }), adding && snap.members.find(m => m.id === snap.me)?.role !== 'guest' && _jsx(BdayForm, { focus: true }), _jsx("div", { children: upcoming(snap.birthdays).map(x => _jsxs("button", { type: "button", className: `bdrow tap${x.days <= s.bdLead ? ' soon' : ''}`, onClick: () => setSel(x.id), children: [_jsxs("div", { children: [_jsxs("b", { children: [x.owner ? _jsxs(_Fragment, { children: [_jsx(Icon, { name: "lock" }), " "] }) : '', x.name, x.files?.length ? _jsxs(_Fragment, { children: [" ", _jsx(Icon, { name: "clip" })] }) : null] }), _jsxs("small", { children: [x.rel ? `${x.rel} · ` : '', bdLabel(x), x.age ? ` · wird ${x.age}` : ''] })] }), _jsx("span", { className: "dd", children: inDays(x.days) })] }, x.id)) }), _jsx("div", { className: "btn-row", children: _jsx("button", { type: "button", className: "btn ghost", onClick: close, children: "Schlie\u00DFen" }) })] }));
+}
+// Ein Geburtstag: Angaben, Dokumente (z. B. Einladungskarte), Wecker, Bearbeiten
+function BdayDetail({ b, back, close }) {
+    const snap = useSnapshot();
+    const me = snap.members.find(m => m.id === snap.me);
+    const can = me.role !== 'guest' && (!b.owner || b.owner === snap.me);
+    const [edit, setEdit] = useState(false);
+    const alarm = useAlarm();
+    const raw = snap.birthdays.find(x => x.id === b.id);
+    if (edit)
+        return _jsx(Sheet, { onClose: close, label: `${b.name} bearbeiten`, children: _jsx(BdayForm, { edit: raw, done: () => setEdit(false) }, b.id) });
+    return (_jsxs(Sheet, { onClose: close, label: `Geburtstag ${b.name}`, children: [_jsxs("h2", { children: ["\uD83C\uDF82 ", b.name] }), _jsxs("div", { className: "dl", children: [_jsxs(Row, { k: "Wann", children: [bdLabel(b), " \u00B7 ", inDays(b.days)] }), b.age ? _jsxs(Row, { k: "Alter", children: ["wird ", b.age] }) : null, b.rel && _jsx(Row, { k: "Wer", children: b.rel }), (raw.files?.length || can) ? _jsxs(Row, { k: "Dokumente", children: [_jsx(FileList, { files: raw.files, from: { birthday: b.id }, canEdit: can }), can && _jsx("div", { style: { marginTop: raw.files?.length ? 8 : 0 }, children: _jsx(AttachButton, { to: { birthday: b.id }, label: "Einladung oder Dokument anh\u00E4ngen" }) })] }) : null, alarm && _jsx(Row, { k: "Wecker", children: _jsx("label", { className: "alarm-pick", children: _jsxs("span", { className: "busyopt", children: [_jsx("input", { type: "checkbox", checked: alarmOn(alarm, b), onChange: e => { toggleAlarm(b, e.target.checked, snap.birthdays); toast(e.target.checked ? `Wecker für ${b.name} an.` : `Wecker für ${b.name} aus.`); } }), " ", _jsx(Icon, { name: "alarm" }), " um ", hm(alarm.min), " Uhr klingeln"] }) }) }), _jsx(Row, { k: "Sichtbar", children: b.owner ? _jsxs(_Fragment, { children: [_jsx(Icon, { name: "lock" }), " nur f\u00FCr ", nameOf(snap.members, b.owner)] }) : 'ganze Familie' }), raw.ext_id && _jsx(Row, { k: "Quelle", children: "aus dem Handy-Kalender" })] }), _jsxs("div", { className: "btn-row", children: [_jsx("button", { type: "button", className: "btn ghost", onClick: back, children: "Alle Geburtstage" }), can && _jsx("button", { type: "button", className: "btn", onClick: () => setEdit(true), children: "Bearbeiten" })] })] }));
 }

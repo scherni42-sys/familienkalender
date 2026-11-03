@@ -26,9 +26,9 @@ export interface Store {
   deleteEvent(id: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
   // Dokumente: an einen Termin (event) oder als neue Board-Nachricht (ohne event)
-  attachFile(file: { name: string; type: string; data: string }, to: { event?: string; text?: string }): Promise<void>;
+  attachFile(file: { name: string; type: string; data: string }, to: { event?: string; birthday?: string; text?: string }): Promise<void>;
   fileUrl(f: FileRef): Promise<string>;
-  removeFile(f: FileRef, from: { event?: string; message?: string }): Promise<void>;
+  removeFile(f: FileRef, from: { event?: string; message?: string; birthday?: string }): Promise<void>;
   postMessage(text: string, image?: { type: string; data: string }): Promise<void>;
   setAvatar(id: string, image: { type: string; data: string } | null): Promise<void>;
   useAvatar(id: string, on: boolean): Promise<void>;
@@ -118,15 +118,17 @@ class LocalStore extends Base implements Store {
       : (ok ? { ...x, driver2_ok: true } : { ...x, driver2: null, driver2_ok: null, declined_by: s.me })) }));
   }
   async deleteMessage(id: string) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
-  async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; text?: string }) {
+  async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; birthday?: string; text?: string }) {
     if (file.data.length > 3_000_000) throw new Error('In der Beispielfamilie gehen nur kleine Dateien (bis 2 MB).');
     const ref: FileRef = { path: `data:${file.type};base64,${file.data}`, name: file.name, type: file.type, size: Math.round(file.data.length * 0.75) };
     if (to.event) this.patch(s => ({ events: s.events.map(x => x.id === to.event ? { ...x, files: [...(x.files ?? []), ref] } : x) }));
+    else if (to.birthday) this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === to.birthday ? { ...x, files: [...(x.files ?? []), ref] } : x) }));
     else this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me!, text: to.text?.trim() || `📎 ${file.name}`, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, files: [ref], replies: [] }] }));
   }
   async fileUrl(f: FileRef) { return f.path; }
-  async removeFile(f: FileRef, from: { event?: string; message?: string }) {
+  async removeFile(f: FileRef, from: { event?: string; message?: string; birthday?: string }) {
     this.patch(s => ({
+      birthdays: s.birthdays.map(x => x.id === from.birthday ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x),
       events: s.events.map(x => x.id === from.event ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x),
       messages: s.messages.map(x => x.id === from.message ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x)
     }));
@@ -153,7 +155,7 @@ class LocalStore extends Base implements Store {
   async createInvite(memberId: string) { const c = code6(); this.invites[c] = memberId; this.save(this.snap); return c; }
   async addBirthday(b: Omit<Birthday, 'id'>) { this.patch(s => ({ birthdays: [...s.birthdays, { ...b, id: uid() }] })); }
   async removeBirthday(id: string) { this.patch(s => ({ birthdays: s.birthdays.filter(b => b.id !== id) })); }
-  async updateBirthday(old: Birthday, b: Omit<Birthday, 'id'>) { this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === old.id ? { ...b, id: old.id } : x) })); }
+  async updateBirthday(old: Birthday, b: Omit<Birthday, 'id'>) { this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === old.id ? { ...x, ...b, id: old.id } : x) })); }
   async updateSettings(patch: Partial<Settings>) { this.patch(s => ({ family: s.family && { ...s.family, settings: { ...s.family.settings, ...patch } } })); }
   async widgetToken() { return 'demo'; }
   async addDisplay(name: string) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
@@ -307,13 +309,13 @@ class SupabaseStore extends Base implements Store {
     }
     return data;
   }
-  async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; text?: string }) {
-    await this.files({ action: 'upload', name: file.name, type: file.type, data: file.data, event_id: to.event, text: to.text });
+  async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; birthday?: string; text?: string }) {
+    await this.files({ action: 'upload', name: file.name, type: file.type, data: file.data, event_id: to.event, birthday_id: to.birthday, text: to.text });
     await this.refresh();
   }
   async fileUrl(f: FileRef) { return (await this.files({ action: 'sign', path: f.path })).url as string; }
-  async removeFile(f: FileRef, from: { event?: string; message?: string }) {
-    await this.files({ action: 'remove', path: f.path, event_id: from.event, message_id: from.message });
+  async removeFile(f: FileRef, from: { event?: string; message?: string; birthday?: string }) {
+    await this.files({ action: 'remove', path: f.path, event_id: from.event, message_id: from.message, birthday_id: from.birthday });
     await this.refresh();
   }
   async deleteMessage(id: string) {
@@ -385,7 +387,7 @@ class SupabaseStore extends Base implements Store {
   async updateBirthday(old: Birthday, { owner, ...b }: Omit<Birthday, 'id'>) {
     const keep = old.ext_id && old.owner === owner ? { ext_id: old.ext_id } : {};
     if (old.ext_id) this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
-    this.ok(await this.sb.from('birthdays').insert({ ...b, ...keep, ...(owner ? { owner } : {}), family_id: this.familyId }));
+    this.ok(await this.sb.from('birthdays').insert({ ...b, ...keep, ...(old.files ? { files: old.files } : {}), ...(owner ? { owner } : {}), family_id: this.familyId }));
     if (!old.ext_id) this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
     await this.refresh();
   }

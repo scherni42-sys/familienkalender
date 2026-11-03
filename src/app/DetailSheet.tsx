@@ -1,5 +1,5 @@
 import { store, useSnapshot } from '../lib/store';
-import { evAlarm, hasEvAlarm, LEADS, setEvAlarm } from '../lib/bdalarm';
+import { alarmOn, evAlarm, hasEvAlarm, LEADS, setEvAlarm, toggleAlarm, useAlarm } from '../lib/bdalarm';
 import type { Draft } from '../lib/parse';
 import type { CalEvent } from '../lib/types';
 import { fail, toast } from './toast';
@@ -138,16 +138,51 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   );
 }
 
-export function BdaySheet({ close, adding }: { close: () => void; adding?: boolean }) {
+export function BdaySheet({ close, adding, open: first }: { close: () => void; adding?: boolean; open?: string }) {
   const snap = useSnapshot();
   const s = snap.family!.settings;
+  const [sel, setSel] = useState<string | null>(first ?? null);
+  const b = sel ? upcoming(snap.birthdays).find(x => x.id === sel) : undefined;
+  if (b) return <BdayDetail b={b} back={() => setSel(null)} close={close} />;
   return (
     <Sheet onClose={close} label="Nächste Geburtstage">
       <h2>Nächste Geburtstage</h2>
-      <p>Erinnerung {s.bdLead} Tage vorher. Ändern kann das der Admin unter Einstellungen.</p>
+      <p>Erinnerung {s.bdLead} Tage vorher. Ändern kann das der Admin unter Einstellungen. Antippen zeigt Details, Dokumente und Wecker.</p>
       {adding && snap.members.find(m => m.id === snap.me)?.role !== 'guest' && <BdayForm focus />}
-      <div>{upcoming(snap.birthdays).map(b => <div key={b.id} className={`bdrow${b.days <= s.bdLead ? ' soon' : ''}`}><div><b>{b.owner ? <><Icon name="lock" /> </> : ''}{b.name}</b><small>{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div><span className="dd">{inDays(b.days)}</span></div>)}</div>
+      <div>{upcoming(snap.birthdays).map(x => <button type="button" key={x.id} className={`bdrow tap${x.days <= s.bdLead ? ' soon' : ''}`} onClick={() => setSel(x.id)}><div><b>{x.owner ? <><Icon name="lock" /> </> : ''}{x.name}{x.files?.length ? <> <Icon name="clip" /></> : null}</b><small>{x.rel ? `${x.rel} · ` : ''}{bdLabel(x)}{x.age ? ` · wird ${x.age}` : ''}</small></div><span className="dd">{inDays(x.days)}</span></button>)}</div>
       <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Schließen</button></div>
+    </Sheet>
+  );
+}
+
+// Ein Geburtstag: Angaben, Dokumente (z. B. Einladungskarte), Wecker, Bearbeiten
+function BdayDetail({ b, back, close }: { b: ReturnType<typeof upcoming>[number]; back: () => void; close: () => void }) {
+  const snap = useSnapshot();
+  const me = snap.members.find(m => m.id === snap.me)!;
+  const can = me.role !== 'guest' && (!b.owner || b.owner === snap.me);
+  const [edit, setEdit] = useState(false);
+  const alarm = useAlarm();
+  const raw = snap.birthdays.find(x => x.id === b.id)!;
+  if (edit) return <Sheet onClose={close} label={`${b.name} bearbeiten`}><BdayForm key={b.id} edit={raw} done={() => setEdit(false)} /></Sheet>;
+  return (
+    <Sheet onClose={close} label={`Geburtstag ${b.name}`}>
+      <h2>🎂 {b.name}</h2>
+      <div className="dl">
+        <Row k="Wann">{bdLabel(b)} · {inDays(b.days)}</Row>
+        {b.age ? <Row k="Alter">wird {b.age}</Row> : null}
+        {b.rel && <Row k="Wer">{b.rel}</Row>}
+        {(raw.files?.length || can) ? <Row k="Dokumente">
+          <FileList files={raw.files} from={{ birthday: b.id }} canEdit={can} />
+          {can && <div style={{ marginTop: raw.files?.length ? 8 : 0 }}><AttachButton to={{ birthday: b.id }} label="Einladung oder Dokument anhängen" /></div>}
+        </Row> : null}
+        {alarm && <Row k="Wecker"><label className="alarm-pick"><span className="busyopt"><input type="checkbox" checked={alarmOn(alarm, b)} onChange={e => { toggleAlarm(b, e.target.checked, snap.birthdays); toast(e.target.checked ? `Wecker für ${b.name} an.` : `Wecker für ${b.name} aus.`); }} /> <Icon name="alarm" /> um {hm(alarm.min)} Uhr klingeln</span></label></Row>}
+        <Row k="Sichtbar">{b.owner ? <><Icon name="lock" /> nur für {nameOf(snap.members, b.owner)}</> : 'ganze Familie'}</Row>
+        {raw.ext_id && <Row k="Quelle">aus dem Handy-Kalender</Row>}
+      </div>
+      <div className="btn-row">
+        <button type="button" className="btn ghost" onClick={back}>Alle Geburtstage</button>
+        {can && <button type="button" className="btn" onClick={() => setEdit(true)}>Bearbeiten</button>}
+      </div>
     </Sheet>
   );
 }

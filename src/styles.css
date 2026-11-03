@@ -383,3 +383,5 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .alarm-pick select{flex:1;min-width:150px}
 .ico-lock{color:var(--accent)}
 .menu-item.upd{border:1px solid var(--accent)}
+.bdrow.tap{width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:inherit;font:inherit;text-align:left;cursor:pointer;padding:10px 0}
+.bdrow.tap .ico{width:14px;height:14px;vertical-align:-2px}

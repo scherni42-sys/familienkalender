@@ -29,7 +29,7 @@ export function Clip({ files, more }: { files?: FileRef[]; more: () => void }) {
 }
 
 // Liste der angehängten Dokumente mit Öffnen und (wer darf) Entfernen
-export function FileList({ files, from, canEdit }: { files?: FileRef[]; from: { event?: string; message?: string }; canEdit: boolean }) {
+export function FileList({ files, from, canEdit }: { files?: FileRef[]; from: { event?: string; message?: string; birthday?: string }; canEdit: boolean }) {
   const [armed, setArmed] = useState<string | null>(null);
   if (!files?.length) return null;
   return <div className="files">{files.map(f => (
@@ -42,7 +42,7 @@ export function FileList({ files, from, canEdit }: { files?: FileRef[]; from: { 
 }
 
 // „Dokument anhängen“: Datei auswählen und hochladen (an einen Termin oder als Board-Nachricht)
-export function AttachButton({ to, label = 'Dokument anhängen', className = 'btn ghost sm', done, pick: keep }: { to: { event?: string; text?: string }; label?: string; className?: string; done?: () => void; pick?: (f: { name: string; type: string; data: string }) => void }) {
+export function AttachButton({ to, label = 'Dokument anhängen', className = 'btn ghost sm', done, pick: keep }: { to: { event?: string; birthday?: string; text?: string }; label?: string; className?: string; done?: () => void; pick?: (f: { name: string; type: string; data: string }) => void }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const pick = async (file?: File) => {
@@ -55,7 +55,7 @@ export function AttachButton({ to, label = 'Dokument anhängen', className = 'bt
       // Neuer Termin: Datei merken, hochgeladen wird nach dem Speichern
       if (keep) { keep(f); return; }
       await store.attachFile(f, to);
-      toast(to.event ? 'Dokument angehängt.' : 'Dokument hängt jetzt am Board.');
+      toast(to.event || to.birthday ? 'Dokument angehängt.' : 'Dokument hängt jetzt am Board.');
       done?.();
     } catch (x) { fail(x); } finally { setBusy(false); if (input.current) input.current.value = ''; }
   };

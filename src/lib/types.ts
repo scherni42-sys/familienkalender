@@ -75,7 +75,7 @@ export interface Message {
   replies: Reply[];
 }
 
-export interface Birthday { id: string; name: string; rel: string; day: number; month: number; year: number | null; owner?: string | null; ext_id?: string | null }
+export interface Birthday { id: string; name: string; rel: string; day: number; month: number; year: number | null; owner?: string | null; ext_id?: string | null; files?: FileRef[] }
 
 export interface DisplayDevice { id: string; name: string; token: string; touch?: boolean }
 

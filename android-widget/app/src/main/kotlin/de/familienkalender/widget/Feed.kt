@@ -122,7 +122,7 @@ object Feed {
                 time = "${next.dayOfMonth}.${next.monthValue}.",
                 sub = left + age,
                 color = if (days <= 14) bdColor(feed, b) else Color.GRAY,
-                open = "bdays"
+                open = "bday:" + b.optString("id")
             )
         }
         return out
@@ -312,7 +312,7 @@ object Feed {
                 val year = b.optInt("year", 0)
                 out += Row(
                     Kind.EVENT, "🎂 " + (if (b.isNull("owner")) "" else "🔒 ") + b.optString("name") + if (year > 0) " wird ${date.year - year}" else "",
-                    time = "Geb.", color = bdColor(feed, b), open = "bdays"
+                    time = "Geb.", color = bdColor(feed, b), open = "bday:" + b.optString("id")
                 )
                 shown++
             }

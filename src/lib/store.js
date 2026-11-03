@@ -86,12 +86,15 @@ class LocalStore extends Base {
         const ref = { path: `data:${file.type};base64,${file.data}`, name: file.name, type: file.type, size: Math.round(file.data.length * 0.75) };
         if (to.event)
             this.patch(s => ({ events: s.events.map(x => x.id === to.event ? { ...x, files: [...(x.files ?? []), ref] } : x) }));
+        else if (to.birthday)
+            this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === to.birthday ? { ...x, files: [...(x.files ?? []), ref] } : x) }));
         else
             this.patch(s => ({ messages: [...s.messages, { id: uid(), from_member: s.me, text: to.text?.trim() || `📎 ${file.name}`, created_at: new Date().toISOString(), pinned: false, done: false, taker: null, via: null, files: [ref], replies: [] }] }));
     }
     async fileUrl(f) { return f.path; }
     async removeFile(f, from) {
         this.patch(s => ({
+            birthdays: s.birthdays.map(x => x.id === from.birthday ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x),
             events: s.events.map(x => x.id === from.event ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x),
             messages: s.messages.map(x => x.id === from.message ? { ...x, files: (x.files ?? []).filter(y => y.path !== f.path) } : x)
         }));
@@ -118,7 +121,7 @@ class LocalStore extends Base {
     async createInvite(memberId) { const c = code6(); this.invites[c] = memberId; this.save(this.snap); return c; }
     async addBirthday(b) { this.patch(s => ({ birthdays: [...s.birthdays, { ...b, id: uid() }] })); }
     async removeBirthday(id) { this.patch(s => ({ birthdays: s.birthdays.filter(b => b.id !== id) })); }
-    async updateBirthday(old, b) { this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === old.id ? { ...b, id: old.id } : x) })); }
+    async updateBirthday(old, b) { this.patch(s => ({ birthdays: s.birthdays.map(x => x.id === old.id ? { ...x, ...b, id: old.id } : x) })); }
     async updateSettings(patch) { this.patch(s => ({ family: s.family && { ...s.family, settings: { ...s.family.settings, ...patch } } })); }
     async widgetToken() { return 'demo'; }
     async addDisplay(name) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
@@ -302,12 +305,12 @@ class SupabaseStore extends Base {
         return data;
     }
     async attachFile(file, to) {
-        await this.files({ action: 'upload', name: file.name, type: file.type, data: file.data, event_id: to.event, text: to.text });
+        await this.files({ action: 'upload', name: file.name, type: file.type, data: file.data, event_id: to.event, birthday_id: to.birthday, text: to.text });
         await this.refresh();
     }
     async fileUrl(f) { return (await this.files({ action: 'sign', path: f.path })).url; }
     async removeFile(f, from) {
-        await this.files({ action: 'remove', path: f.path, event_id: from.event, message_id: from.message });
+        await this.files({ action: 'remove', path: f.path, event_id: from.event, message_id: from.message, birthday_id: from.birthday });
         await this.refresh();
     }
     async deleteMessage(id) {
@@ -392,7 +395,7 @@ class SupabaseStore extends Base {
         const keep = old.ext_id && old.owner === owner ? { ext_id: old.ext_id } : {};
         if (old.ext_id)
             this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
-        this.ok(await this.sb.from('birthdays').insert({ ...b, ...keep, ...(owner ? { owner } : {}), family_id: this.familyId }));
+        this.ok(await this.sb.from('birthdays').insert({ ...b, ...keep, ...(old.files ? { files: old.files } : {}), ...(owner ? { owner } : {}), family_id: this.familyId }));
         if (!old.ext_id)
             this.ok(await this.sb.from('birthdays').delete().eq('id', old.id));
         await this.refresh();
