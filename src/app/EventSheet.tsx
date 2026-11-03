@@ -61,7 +61,22 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
 
   const [wake, setWake] = useState(() => evAlarm(d.id));
   const [pending, setPending] = useState<{ name: string; type: string; data: string }[]>([]);
-  const save = async () => {
+  // Navigation aus dem Formular: erst speichern (sonst geht die eingetippte Adresse verloren), dann „unterwegs“ mit Ankunftszeit
+  const navGo = (dest: string) => {
+    window.open(`https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(dest)}`, '_blank');
+    void save(id => {
+      const meM = snap.members.find(m => m.id === snap.me);
+      const mine = d.driver === snap.me || d.driver2 === snap.me;
+      const takeOver = !d.driver && !!meM && meM.role !== 'child' && meM.role !== 'guest';
+      if (!mine && !takeOver) return;
+      const set = (min: number) => store.setEta(id, new Date(Date.now() + min * 60000).toISOString(), takeOver ? snap.me : undefined).catch(() => {});
+      if (d.travel_min) void set(d.travel_min);
+      navigator.geolocation?.getCurrentPosition(
+        p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, dest).then(r => set(r.minutes), () => { if (!d.travel_min) void set(15); }),
+        () => { if (!d.travel_min) void set(15); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
+    });
+  };
+  const save = async (after?: (id: string) => void) => {
     if (!d.title.trim()) { toast('Bitte einen Titel eingeben.'); return; }
     if (!d.all_day && d.end_min <= d.start_min) { toast('Das Ende muss nach dem Beginn liegen.'); return; }
     setBusy(true);
@@ -77,6 +92,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       for (const f of pending) await store.attachFile(f, { event: id }).catch(fail);
       if (hasEvAlarm() && (wake || evAlarm(id))) setEvAlarm({ id, lead: dd.all_day ? 0 : wake, date: dd.date, start: dd.start_min, title: dd.title.trim() });
       toast(d.vis === 'family' ? 'Gespeichert. Steht jetzt auch auf dem Display.' : 'Gespeichert, nur für dich.');
+      after?.(id);
       saved(id);
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
@@ -147,7 +163,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
         <label className="field"><span>Straße und Hausnummer</span><input value={splitAddr(d.addr)[0]} onChange={e => set({ addr: joinAddr(e.target.value, splitAddr(d.addr)[1]) })} placeholder="z. B. Projensdorfer Str. 300" autoComplete="street-address" /></label>
         <label className="field"><span>PLZ und Ort</span><input value={splitAddr(d.addr)[1]} onChange={e => set({ addr: joinAddr(splitAddr(d.addr)[0], e.target.value) })} placeholder="z. B. 24106 Kiel" /></label>
       </div>
-      {(d.addr.replace(/^,\s*/, '').trim() || d.place.trim()) && !isOnline(d) && <a className="btn sm nav-btn" style={{ justifySelf: 'start' }} href={`https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(d.addr.replace(/^,\s*/, '').trim() || d.place.trim())}`} target="_blank" rel="noreferrer"><Icon name="car" /> Navigation starten</a>}
+      {(d.addr.replace(/^,\s*/, '').trim() || d.place.trim()) && !isOnline(d) && <button type="button" className="btn sm nav-btn" style={{ justifySelf: 'start' }} disabled={busy} onClick={() => navGo(d.addr.replace(/^,\s*/, '').trim() || d.place.trim())}><Icon name="car" /> Speichern und Navigation starten</button>}
       {d.driver && s.showTravel && !d.all_day && (
         <div className="row2">
           <label className="field"><span>Fahrzeit (Min.)</span><input type="number" inputMode="numeric" min={0} max={240} value={d.travel_min ?? ''} onChange={e => set({ travel_min: e.target.value ? Math.max(0, Math.min(240, Number(e.target.value))) : null })} placeholder="z. B. 15" /></label>
