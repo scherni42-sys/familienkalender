@@ -347,7 +347,9 @@ object Feed {
                                 (if (isToday && !allDay && tr > 0 && at > nowMin) " · los ${hm(at - tr)}" else "") +
                                 (d2?.let { " · ${name[it] ?: ""} holt ab" } ?: "")
                         }
-                    }.let { dl -> flights[e.optString("id")]?.let { fl -> "✈ $fl" + (dl?.let { " · $it" } ?: "") } ?: dl } ?: "",
+                    }.let { dl -> flights[e.optString("id")]?.let { fl -> "✈ $fl" + (dl?.let { " · $it" } ?: "") } ?: dl }
+                        // Ohne Fahrer: Ort darunter, wie auf der Startseite der App
+                        ?: e.optString("place").takeIf { it.isNotEmpty() && it != "null" } ?: "",
                     color = first?.let { color[it] } ?: Color.GRAY,
                     faded = past,
                     open = "event:" + e.optString("id") + ":" + d
