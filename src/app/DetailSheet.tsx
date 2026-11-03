@@ -107,6 +107,8 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           </div>}
         </Row>}
         {(e.place || e.addr) && <Row k="Ort">{e.addr ? <>{e.place}<a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a></> : <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.place}</a>}</Row>}
+        {fl.number && !fl.flight && <Row k="Flug"><a className="btn sm ghost" href={`https://www.google.com/search?q=${encodeURIComponent('Flug ' + fl.number)}`} target="_blank" rel="noreferrer">✈ Flugstatus {fl.number} live ansehen</a>
+          <div className="note" style={{ marginTop: 4 }}>Zeigt Gate, Verspätung und Terminal (Google-Fluginfo).</div></Row>}
         {fl.flight && <Row k="Flug"><div className="flight">
           <div><b>{fl.flight.number}</b>{fl.flight.airline ? ` · ${fl.flight.airline}` : ''}{fl.flight.status ? <> · <span className={fl.flight.canceled || (fl.flight.dep?.delay ?? 0) >= 15 ? 'fl-bad' : 'fl-ok'}>{fl.flight.status}</span></> : null}</div>
           {fl.flight.dep && <div>Abflug {fl.flight.dep.airport} <b>{fl.flight.dep.sched}</b>{fl.flight.dep.revised && fl.flight.dep.revised !== fl.flight.dep.sched ? <> → <b className="fl-bad">{fl.flight.dep.revised}</b></> : null}{fl.flight.dep.delay && fl.flight.dep.delay >= 5 ? ` (+${fl.flight.dep.delay} Min.)` : ''}
