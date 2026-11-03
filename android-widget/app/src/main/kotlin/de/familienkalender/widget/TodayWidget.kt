@@ -156,6 +156,9 @@ class TodayWidget : AppWidgetProvider() {
             bdButton(ctx, v)
             weekBar(ctx, v)
             homeButton(ctx, v)
+            // Neue Version: grüner Knopf in der Kopfzeile
+            v.setViewVisibility(R.id.update, if (Updater.available(ctx)) android.view.View.VISIBLE else android.view.View.GONE)
+            v.setOnClickPendingIntent(R.id.update, PendingIntent.getActivity(ctx, 61, Intent(ctx, UpdateActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             for (id in ids) mgr.partiallyUpdateAppWidget(id, v)
             mgr.notifyAppWidgetViewDataChanged(ids, R.id.list)
         }
@@ -211,6 +214,8 @@ class TodayWidget : AppWidgetProvider() {
             val gear = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "settings").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.settings, PendingIntent.getActivity(ctx, 28, gear, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             homeButton(ctx, v)
+            v.setViewVisibility(R.id.update, if (Updater.available(ctx)) android.view.View.VISIBLE else android.view.View.GONE)
+            v.setOnClickPendingIntent(R.id.update, PendingIntent.getActivity(ctx, 61, Intent(ctx, UpdateActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             v.setOnClickPendingIntent(R.id.weekprev, broadcast(ctx, WEEK_PREV, 25))
             v.setOnClickPendingIntent(R.id.weeknext, broadcast(ctx, WEEK_NEXT, 26))
             weekBar(ctx, v)

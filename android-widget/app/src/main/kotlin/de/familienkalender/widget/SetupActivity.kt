@@ -127,7 +127,7 @@ class SetupActivity : Activity() {
         val upd = findViewById<Button>(R.id.update)
         upd.text = "Neue Version laden (jetzt v${BuildConfig.VERSION_CODE})"
         upd.setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/scherni42-sys/familienkalender/releases/download/widget-latest/familien-widget.apk")))
+            startActivity(Intent(this, UpdateActivity::class.java))
         }
 
         val code = findViewById<EditText>(R.id.code)

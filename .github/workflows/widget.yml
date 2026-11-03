@@ -62,4 +62,6 @@ jobs:
         env: { GH_TOKEN: '${{ github.token }}' }
         run: |
           gh release view widget-latest >/dev/null 2>&1 || gh release create widget-latest --title "Familien-Widget (Android)" --notes "Android-App mit Widget für heutige Familientermine und Pinnwand. APK herunterladen und installieren."
+          echo "$GITHUB_RUN_NUMBER" > familien-widget-version.txt
           gh release upload widget-latest familien-widget.apk familien-widget.aab --clobber
+          gh release upload widget-latest familien-widget-version.txt --clobber

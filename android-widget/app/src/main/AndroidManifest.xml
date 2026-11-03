@@ -13,6 +13,7 @@
     <!-- Geburtstags-Wecker: genau zur eingestellten Uhrzeit -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Spracherkennung des Handys finden (Android 11+) -->
     <queries>
@@ -115,6 +116,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".UpdateActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity="de.familienkalender.widget.update"
+            android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar" />
+        <receiver android:name=".UpdateReceiver" android:exported="false" />
         <activity
             android:name=".OpenActivity"
             android:exported="false"

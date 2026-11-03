@@ -75,6 +75,8 @@ object Reminders {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         try { BdAlarm.schedule(ctx, feed) } catch (e: Exception) { }
         try { EvAlarm.schedule(ctx, feed) } catch (e: Exception) { }
+        // Neue App-Version? Dann zeigt das Widget den Update-Knopf
+        try { if (Updater.check(ctx)) TodayWidget.refreshData(ctx) } catch (e: Exception) { }
         if (!enabled(ctx)) { am.cancel(alarm); return }
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val sent = HashSet(prefs.getStringSet("sent", emptySet()) ?: emptySet())

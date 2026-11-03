@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neue Version da: grüner Kreis mit Pfeil nach unten -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="40dp" android:height="40dp" android:viewportWidth="40" android:viewportHeight="40">
+    <path android:fillColor="#3DBD83" android:pathData="M20,6 A14,14 0 1,1 19.99,6 Z" />
+    <path android:strokeColor="#06160E" android:strokeWidth="2.4" android:strokeLineCap="round" android:strokeLineJoin="round" android:pathData="M20,12 V24 M15,19.5 L20,24.5 L25,19.5 M14,28.5 H26" />
+</vector>
