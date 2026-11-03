@@ -17,6 +17,18 @@ const uid = () => crypto.randomUUID();
 const code6 = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
 /* ---------- Demo: alles im localStorage ---------- */
 const KEY = 'familienkalender-demo-v1';
+// Testlink ?demo: Beispielfamilie im Browser, ohne Anmeldung und ohne echte Daten (gilt bis der Tab geschlossen wird)
+export const demoLink = (() => {
+    try {
+        const q = new URLSearchParams(location.search).has('demo');
+        if (q)
+            sessionStorage.setItem('famto-demo', '1');
+        return q || sessionStorage.getItem('famto-demo') === '1';
+    }
+    catch {
+        return false;
+    }
+})();
 class LocalStore extends Base {
     demo = true;
     invites = {};
@@ -40,6 +52,8 @@ class LocalStore extends Base {
             this.invites = stored.invites || {};
             this.emit({ ...EMPTY, ...stored.snap });
         }
+        else if (demoLink)
+            this.save(seed());
         else
             this.emit(EMPTY);
         // Andere Tabs (z. B. das Display) aktuell halten
@@ -422,7 +436,7 @@ class SupabaseStore extends Base {
     async displayDeleteEvent(token, member, id) { this.ok(await this.sb.rpc('display_delete_event', { p_token: token, p_member: member, p_id: id })); }
     async reset() { await this.sb.auth.signOut(); this.channel?.unsubscribe(); this.channel = null; this.emit(EMPTY); }
 }
-export const store = supabase ? new SupabaseStore() : new LocalStore();
+export const store = supabase && !demoLink ? new SupabaseStore() : new LocalStore();
 export function useSnapshot() {
     return useSyncExternalStore(store.subscribe, store.get);
 }

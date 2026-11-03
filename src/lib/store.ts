@@ -72,6 +72,10 @@ const code6 = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), b => '
 
 /* ---------- Demo: alles im localStorage ---------- */
 const KEY = 'familienkalender-demo-v1';
+// Testlink ?demo: Beispielfamilie im Browser, ohne Anmeldung und ohne echte Daten (gilt bis der Tab geschlossen wird)
+export const demoLink = (() => {
+  try { const q = new URLSearchParams(location.search).has('demo'); if (q) sessionStorage.setItem('famto-demo', '1'); return q || sessionStorage.getItem('famto-demo') === '1'; } catch { return false; }
+})();
 class LocalStore extends Base implements Store {
   readonly demo = true;
   private invites: Record<string, string> = {};
@@ -84,6 +88,7 @@ class LocalStore extends Base implements Store {
     let stored: { snap: Snapshot; invites: Record<string, string> } | null = null;
     try { stored = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch { stored = null; }
     if (stored?.snap) { this.invites = stored.invites || {}; this.emit({ ...EMPTY, ...stored.snap }); }
+    else if (demoLink) this.save(seed());
     else this.emit(EMPTY);
     // Andere Tabs (z. B. das Display) aktuell halten
     addEventListener('storage', e => { if (e.key === KEY) void this.init(); });
@@ -412,7 +417,7 @@ class SupabaseStore extends Base implements Store {
   async reset() { await this.sb.auth.signOut(); this.channel?.unsubscribe(); this.channel = null; this.emit(EMPTY); }
 }
 
-export const store: Store = supabase ? new SupabaseStore() : new LocalStore();
+export const store: Store = supabase && !demoLink ? new SupabaseStore() : new LocalStore();
 
 export function useSnapshot() {
   return useSyncExternalStore(store.subscribe, store.get);

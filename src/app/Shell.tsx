@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { store, useSnapshot } from '../lib/store';
+import { demoLink, store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
 import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
@@ -112,6 +112,7 @@ export function Shell() {
           <span className="me"><Badge m={me} /></span>
         </span>
       </div>
+      {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
       {(tab === 'today' || tab === 'week') && (
         <div className="seg filter" role="group" aria-label="Filter">
           {([['all', 'Alle'], ['family', 'Familie'], ['home', '🏠 Home']] as [Filter, string][]).map(([k, l]) =>
