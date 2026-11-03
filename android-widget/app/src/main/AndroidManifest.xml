@@ -125,6 +125,7 @@
         <receiver android:name=".UpdateReceiver" android:exported="false" />
         <activity
             android:name=".OpenActivity"
+            android:taskAffinity="de.familienkalender.widget.open"
             android:exported="false"
             android:excludeFromRecents="true"
             android:noHistory="true"
