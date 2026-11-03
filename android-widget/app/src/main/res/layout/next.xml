@@ -18,16 +18,31 @@
         android:textSize="14sp"
         android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/n_title"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="Lädt …"
-        android:textColor="@color/fg"
-        android:textSize="17sp"
-        android:textStyle="bold" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/n_lock"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:layout_marginEnd="6dp"
+            android:src="@drawable/ic_lock"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/n_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Lädt …"
+            android:textColor="@color/fg"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/n_sub"

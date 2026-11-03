@@ -84,7 +84,10 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
             }
             else -> RemoteViews(ctx.packageName, R.layout.row).apply {
-                setTextViewText(R.id.text, r.text)
+                // Privat: Schloss-Emoji als grünes Symbol vor dem Titel
+                val priv = r.text.contains("🔒 ")
+                setTextViewText(R.id.text, if (priv) r.text.replace("🔒 ", "") else r.text)
+                setViewVisibility(R.id.lock, if (priv) View.VISIBLE else View.GONE)
                 setTextViewText(R.id.sub, r.sub)
                 setTextViewText(R.id.drive, r.drive)
                 setViewVisibility(R.id.drive, if (r.drive.isNotEmpty()) View.VISIBLE else View.GONE)

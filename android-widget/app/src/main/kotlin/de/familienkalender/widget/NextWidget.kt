@@ -46,6 +46,7 @@ class NextWidget : AppWidgetProvider() {
             if (u == null) {
                 v.setTextViewText(R.id.n_when, "")
                 v.setTextViewText(R.id.n_title, "Keine Termine")
+                v.setViewVisibility(R.id.n_lock, android.view.View.GONE)
                 v.setTextViewText(R.id.n_sub, "in den nächsten Wochen")
             } else {
                 val mins = ChronoUnit.MINUTES.between(now, u.start)
@@ -57,7 +58,8 @@ class NextWidget : AppWidgetProvider() {
                     days == 1L -> "morgen"
                     else -> "in $days Tagen"
                 })
-                v.setTextViewText(R.id.n_title, (if (u.e.optString("vis", "family") != "family") "🔒 " else "") + u.e.optString("title"))
+                v.setTextViewText(R.id.n_title, u.e.optString("title"))
+                v.setViewVisibility(R.id.n_lock, if (u.e.optString("vis", "family") != "family") android.view.View.VISIBLE else android.view.View.GONE)
                 val leave = u.start.minusMinutes(u.travel.toLong())
                 v.setTextViewText(R.id.n_sub, Feed.dateLabel(u.date) + " · " + hm(u.start) + if (u.travel > 0) " · los ${hm(leave)}" else "")
             }
