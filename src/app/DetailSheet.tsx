@@ -39,6 +39,22 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
       () => { if (live) setBusy(false); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
     return () => { live = false; };
   }, [auto, e?.id, e?.addr, e?.place]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Zurück aus Google Maps: Ist man schon am Ziel, endet „Navigation läuft“ von selbst
+  const navOn = !!e && isDriver(e, snap.me) && etaMin(e) !== null && !!(e.addr || e.place);
+  useEffect(() => {
+    if (!navOn || !e) return;
+    const check = () => {
+      if (document.visibilityState !== 'visible' || !navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr || e.place).then(r => {
+          if (r.minutes <= 3) store.setEta(e.id, null).then(() => toast('Angekommen. Die Familie sieht das.'), () => {});
+        }, () => {}),
+        () => {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 });
+    };
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('famto-resume', check);
+    return () => { document.removeEventListener('visibilitychange', check); window.removeEventListener('famto-resume', check); };
+  }, [navOn, e?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!e) return null;
   const me = snap.members.find(m => m.id === snap.me)!;
   const canEdit = me.role !== 'guest' && (e.owner === snap.me || e.vis === 'family');
