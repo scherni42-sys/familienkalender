@@ -54,7 +54,7 @@ Deno.serve(async req => {
     const b = await req.json();
     if (!(await allowed(req, b.widget_token))) return json({ error: 'Nicht angemeldet' }, 401);
     const key = Deno.env.get('FLIGHT_API_KEY');
-    if (!key) return json({ error: 'kein Schlüssel' }, 400);
+    if (!key) { console.log('flight: kein FLIGHT_API_KEY'); return json({ error: 'kein Schlüssel' }, 400); }
     const number = String(b.number ?? '').toUpperCase().replace(/\s+/g, '');
     const date = String(b.date ?? '');
     if (!/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(number) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Flugnummer oder Datum fehlt');
@@ -62,8 +62,9 @@ Deno.serve(async req => {
     const path = `/flights/number/${number}/${date}?withAircraftImage=false&withLocation=false`;
     let r = await fetch(`https://aerodatabox.p.rapidapi.com${path}`, { headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com' } });
     if (r.status === 401 || r.status === 403) r = await fetch(`https://prod.api.market/api/v1/aedbx/aerodatabox${path}`, { headers: { 'x-magicapi-key': key, accept: 'application/json' } });
+    console.log('flight', number, date, 'status', r.status, 'schlüssel', key.length, 'Zeichen');
     if (r.status === 204 || r.status === 404) return json({ found: false });
-    if (!r.ok) throw new Error(`Flugdaten nicht erreichbar (${r.status})`);
+    if (!r.ok) { console.log('flight antwort', (await r.text()).slice(0, 300)); throw new Error(`Flugdaten nicht erreichbar (${r.status})`); }
     const list = await r.json();
     const f = Array.isArray(list) ? list[0] : null;
     if (!f) return json({ found: false });
