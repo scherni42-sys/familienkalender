@@ -58,9 +58,10 @@ Deno.serve(async req => {
     const number = String(b.number ?? '').toUpperCase().replace(/\s+/g, '');
     const date = String(b.date ?? '');
     if (!/^[A-Z0-9]{2}\d{1,4}[A-Z]?$/.test(number) || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Flugnummer oder Datum fehlt');
-    const r = await fetch(`https://aerodatabox.p.rapidapi.com/flights/number/${number}/${date}?withAircraftImage=false&withLocation=false`, {
-      headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com' }
-    });
+    // Schlüssel von RapidAPI oder von API.Market: erst RapidAPI, bei abgelehntem Schlüssel API.Market
+    const path = `/flights/number/${number}/${date}?withAircraftImage=false&withLocation=false`;
+    let r = await fetch(`https://aerodatabox.p.rapidapi.com${path}`, { headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'aerodatabox.p.rapidapi.com' } });
+    if (r.status === 401 || r.status === 403) r = await fetch(`https://prod.api.market/api/v1/aedbx/aerodatabox${path}`, { headers: { 'x-magicapi-key': key, accept: 'application/json' } });
     if (r.status === 204 || r.status === 404) return json({ found: false });
     if (!r.ok) throw new Error(`Flugdaten nicht erreichbar (${r.status})`);
     const list = await r.json();
