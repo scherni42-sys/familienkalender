@@ -147,6 +147,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
         <label className="field"><span>Straße und Hausnummer</span><input value={splitAddr(d.addr)[0]} onChange={e => set({ addr: joinAddr(e.target.value, splitAddr(d.addr)[1]) })} placeholder="z. B. Projensdorfer Str. 300" autoComplete="street-address" /></label>
         <label className="field"><span>PLZ und Ort</span><input value={splitAddr(d.addr)[1]} onChange={e => set({ addr: joinAddr(splitAddr(d.addr)[0], e.target.value) })} placeholder="z. B. 24106 Kiel" /></label>
       </div>
+      {(d.addr.replace(/^,\s*/, '').trim() || d.place.trim()) && <a className="btn sm nav-btn" style={{ justifySelf: 'start' }} href={`https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(d.addr.replace(/^,\s*/, '').trim() || d.place.trim())}`} target="_blank" rel="noreferrer"><Icon name="car" /> Navigation starten</a>}
       {d.driver && s.showTravel && !d.all_day && (
         <div className="row2">
           <label className="field"><span>Fahrzeit (Min.)</span><input type="number" inputMode="numeric" min={0} max={240} value={d.travel_min ?? ''} onChange={e => set({ travel_min: e.target.value ? Math.max(0, Math.min(240, Number(e.target.value))) : null })} placeholder="z. B. 15" /></label>
