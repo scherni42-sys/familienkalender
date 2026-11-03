@@ -5,7 +5,8 @@ import { store } from '../lib/store';
 import { SWATCHES } from '../lib/model';
 import { cvar } from './ui';
 export function Onboarding() {
-    const [mode, setMode] = useState('start');
+    // Link mit ?neu öffnet gleich „Neue Familie anlegen“
+    const [mode, setMode] = useState(() => new URLSearchParams(location.search).has('neu') ? 'create' : 'start');
     const [fam, setFam] = useState(''), [name, setName] = useState(''), [code, setCode] = useState('');
     const [color, setColor] = useState(SWATCHES[6][0]);
     const [busy, setBusy] = useState(false), [err, setErr] = useState('');
