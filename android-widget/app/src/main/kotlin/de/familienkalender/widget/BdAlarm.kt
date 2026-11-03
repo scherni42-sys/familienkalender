@@ -93,6 +93,8 @@ object BdAlarm {
             .setCategory(Notification.CATEGORY_ALARM)
             .setContentIntent(tap)
             .setAutoCancel(true)
+            // Verschwindet nach 2 Stunden von selbst, falls niemand „Aus“ tippt
+            .setTimeoutAfter(2 * 60 * 60 * 1000L)
             .addAction(Notification.Action.Builder(null, "Aus", off).build())
             .build()
         n.flags = n.flags or Notification.FLAG_INSISTENT
