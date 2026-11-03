@@ -42,6 +42,7 @@ export function Settings() {
         {store.demo && <div className="acts"><span className="badge-demo">Demo-Modus</span><label className="note">Handy von <select value={snap.me!} onChange={e => store.switchUser?.(e.target.value)}>{snap.members.filter(m => m.role !== 'child').map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label></div>}
       </div>
       {MENU.map(([k, l, ic]) => <button key={k} type="button" className="menu-item" onClick={() => setSub(k)}><span className="mi-ic"><Icon name={ic} /></span><span><b>{l}</b><small>{info[k]}</small></span><span className="chev">›</span></button>)}
+      {(native()?.appUpdate?.() ?? 0) > 0 && <button type="button" className="menu-item upd" onClick={() => native()!.installUpdate?.()}><span className="mi-ic"><Icon name="spark" /></span><span><b>Neue Version {native()!.appUpdate!()} installieren</b><small>Ein Tipp: lädt und installiert die Android-App</small></span><span className="chev">›</span></button>}
       {native() && <button type="button" className="menu-item" onClick={() => native()!.setup()}><span className="mi-ic"><Icon name="gear" /></span><span><b>{native()!.platform === 'ios' ? 'Widget' : 'Widget & Handy-Kalender'}</b><small>{native()!.platform === 'ios' ? 'So legst du das FamTO-Widget auf den Startbildschirm' : 'Widget einrichten, Abgleich, Home-Modus, neue Version'}</small></span><span className="chev">›</span></button>}
       {me.role !== 'guest' && <MicStartRow />}
       {me.role !== 'guest' && <ToneRow kind="ev" />}

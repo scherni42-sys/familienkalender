@@ -84,6 +84,7 @@ export function Shell() {
     if (o) { history.replaceState(null, '', location.pathname + location.hash); go(o); }
     const onOpen = (e: Event) => { const v = String((e as CustomEvent).detail ?? ''); if (v) go(v); };
     window.addEventListener('famto-open', onOpen);
+    (window as unknown as { __famtoOpen?: (v: string) => void }).__famtoOpen = go;
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
     if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); { const v = q.get('mic'), preset = micPreset(v); if (v !== 'photo' && native()) setSheet({ kind: 'mic', preset }); else setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset }); } }

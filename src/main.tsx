@@ -16,6 +16,7 @@ const update = registerSW({
     const go = () => void update(true);
     if (location.hash.startsWith('#/display')) { go(); return; }
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') go(); });
+    addEventListener('famto-pause', go);
     setInterval(() => { if (Date.now() - last > 5 * 60_000 && !document.querySelector('[role=dialog]')) go(); }, 60_000);
   }
 });

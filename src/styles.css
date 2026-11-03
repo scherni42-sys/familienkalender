@@ -382,3 +382,4 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .alarm-pick .busyopt{display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none;margin:0}
 .alarm-pick select{flex:1;min-width:150px}
 .ico-lock{color:var(--accent)}
+.menu-item.upd{border:1px solid var(--accent)}

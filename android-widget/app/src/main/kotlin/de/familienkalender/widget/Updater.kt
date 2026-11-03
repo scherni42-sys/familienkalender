@@ -26,10 +26,10 @@ object Updater {
         connectTimeout = 15000; readTimeout = 60000; instanceFollowRedirects = true
     }
 
-    // Höchstens alle 3 Stunden nachsehen (oder sofort mit force); gibt true zurück, wenn sich etwas geändert hat
+    // Höchstens alle 30 Minuten nachsehen (oder sofort mit force); gibt true zurück, wenn sich etwas geändert hat
     fun check(ctx: Context, force: Boolean = false): Boolean {
         val p = prefs(ctx)
-        if (!force && System.currentTimeMillis() - p.getLong("latestChk", 0) < 3 * 3600_000L) return false
+        if (!force && System.currentTimeMillis() - p.getLong("latestChk", 0) < 30 * 60_000L) return false
         return try {
             val v = get(BASE + "familien-widget-version.txt").inputStream.bufferedReader().use { it.readText().trim().toInt() }
             val before = latest(ctx)

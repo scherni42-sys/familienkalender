@@ -31,7 +31,11 @@ class TodayWidget : AppWidgetProvider() {
     override fun onReceive(ctx: Context, intent: Intent) {
         super.onReceive(ctx, intent)
         when (intent.action) {
-            REFRESH, Reminders.REMIND -> { refreshData(ctx); background(ctx) }
+            REFRESH, Reminders.REMIND -> {
+                refreshData(ctx); background(ctx)
+                // Antippen der Kopfzeile: auch gleich nach einer neuen App-Version sehen
+                if (intent.action == REFRESH) thread { if (Updater.check(ctx, force = true)) refreshData(ctx) }
+            }
             // Sicherheits-Hinweis bestätigt: Fahrzeit vom Standort für die Abfahrts-Erinnerung übernehmen
             // Geburtstags-Wecker klingelt bzw. wird ausgeschaltet
             BdAlarm.FIRE -> BdAlarm.fire(ctx, intent.getStringExtra("names") ?: "")

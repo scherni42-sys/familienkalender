@@ -122,7 +122,11 @@ class AppActivity : Activity() {
         // App schon offen: Gewünschtes ohne Neuladen zeigen; die Seite schließt dabei offene Fenster
         val open = intent.getStringExtra(EXTRA_OPEN)
         if (open != null && mic == null && pageReady) {
-            web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-open',{detail:" + org.json.JSONObject.quote(open.ifEmpty { "home" }) + "}))", null)
+            // Kennt die Seite das noch nicht (ältere Version), wird wie früher neu geladen
+            val fallback = target(intent)
+            web.evaluateJavascript("(function(){if(!window.__famtoOpen)return 'no';window.__famtoOpen(" + org.json.JSONObject.quote(open.ifEmpty { "home" }) + ");return 'ok'})()") { r ->
+                if (r == null || !r.contains("ok")) web.loadUrl(fallback)
+            }
             askSoon(intent)
             return
         }
@@ -183,6 +187,8 @@ class AppActivity : Activity() {
 
     override fun onPause() {
         super.onPause(); resumed = false
+        // Seite darf jetzt eine neue Web-Version einspielen (niemand bedient sie gerade)
+        web.evaluateJavascript("window.dispatchEvent(new Event('famto-pause'))", null)
         // App verlässt den Bildschirm: Mikrofon aus (nur die Erkennung in der App, das Google-Fenster selbst pausiert uns ja)
         if (listening && inlineActive) { recognizer?.cancel(); listening = false; speechEvent("famto-speech", "") }
     }
@@ -193,6 +199,8 @@ class AppActivity : Activity() {
         if (pendingListen) web.postDelayed({ startListen() }, 300)
         // Nach einer Eingabe in der Schnelleingabe sofort den neuen Stand zeigen
         web.evaluateJavascript("window.dispatchEvent(new Event('famto-resume'))", null)
+        val ctx = applicationContext
+        Thread { try { if (Updater.check(ctx)) TodayWidget.refreshData(ctx) } catch (e: Exception) { } }.start()
     }
 
     private var toneKind = "bd"
@@ -280,6 +288,9 @@ class AppActivity : Activity() {
                 }
             }
         }
+        // Neue App-Version: Nummer (0 = keine) und Installieren
+        @JavascriptInterface fun appUpdate(): Int = if (Updater.available(this@AppActivity)) Updater.latest(this@AppActivity) else 0
+        @JavascriptInterface fun installUpdate() { runOnUiThread { startActivity(Intent(this@AppActivity, UpdateActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
         @JavascriptInterface fun stopListen() { runOnUiThread { this@AppActivity.stopListen() } }
         @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
     }

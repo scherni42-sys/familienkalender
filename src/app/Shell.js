@@ -100,6 +100,7 @@ export function Shell() {
         const onOpen = (e) => { const v = String(e.detail ?? ''); if (v)
             go(v); };
         window.addEventListener('famto-open', onOpen);
+        window.__famtoOpen = go;
         if (me.role === 'guest')
             return;
         const q = new URLSearchParams(location.search);
