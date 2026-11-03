@@ -9,7 +9,7 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget"
     android:resizeMode="horizontal|vertical"
-    android:widgetCategory="home_screen"
+    android:widgetCategory="home_screen|keyguard"
     android:description="@string/widget_desc"
     android:configure="de.familienkalender.widget.SetupActivity"
     android:widgetFeatures="reconfigurable|configuration_optional" />
