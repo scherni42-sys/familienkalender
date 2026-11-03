@@ -6,7 +6,7 @@ import type { CalEvent } from '../lib/types';
 import { fail, toast } from './toast';
 import { hm, nowMin, today } from '../lib/dates';
 import { travelTime } from '../lib/ai';
-import { bdLabel, depart, etaDriver, etaMin, isDriver, leg2, nameOf, target, travel, upcoming, visLabel, whenText } from '../lib/model';
+import { isOnline, meetingUrl, bdLabel, depart, etaDriver, etaMin, isDriver, leg2, nameOf, target, travel, upcoming, visLabel, whenText } from '../lib/model';
 import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -34,7 +34,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const fl = useFlight(e);
   // Fahrer öffnet den Termin am selben Tag: Fahrzeit vom aktuellen Standort automatisch berechnen
   const myTarget = e ? (e.driver === snap.me ? target(e) : e.end_min) : 0;
-  const auto = !!e && !!(e.addr || e.place) && isDriver(e, snap.me) && !e.all_day && e.date === today() && myTarget > nowMin() && etaMin(e) === null;
+  const auto = !!e && !!(e.addr || e.place) && !isOnline(e) && isDriver(e, snap.me) && !e.all_day && e.date === today() && myTarget > nowMin() && etaMin(e) === null;
   useEffect(() => {
     if (!auto || !e || !navigator.geolocation) return;
     let live = true; setBusy(true);
@@ -44,7 +44,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
     return () => { live = false; };
   }, [auto, e?.id, e?.addr, e?.place]); // eslint-disable-line react-hooks/exhaustive-deps
   // Zurück aus Google Maps: Ist man schon am Ziel, endet „Navigation läuft“ von selbst
-  const navOn = !!e && isDriver(e, snap.me) && etaMin(e) !== null && !!(e.addr || e.place);
+  const navOn = !!e && isDriver(e, snap.me) && etaMin(e) !== null && !!(e.addr || e.place) && !isOnline(e);
   useEffect(() => {
     if (!navOn || !e) return;
     const check = () => {
@@ -106,7 +106,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
             <button type="button" className="btn ghost sm" onClick={() => store.driverAnswer(e.id, false).then(() => toast('Abgesagt. Wer dich eingetragen hat, bekommt Bescheid.'), fail)}>Kann nicht</button>
           </div>}
         </Row>}
-        {(e.place || e.addr) && <Row k="Ort">{e.addr ? <>{e.place}<a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a></> : <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.place}</a>}</Row>}
+        {(e.place || e.addr) && <Row k="Ort">{e.addr ? <>{e.place}<a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a></> : isOnline(e) ? <>{e.place}{meetingUrl(e) && <div style={{ marginTop: 6 }}><a className="btn sm" href={meetingUrl(e)!} target="_blank" rel="noreferrer">Besprechung öffnen</a></div>}</> : <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.place}</a>}</Row>}
         {fl.number && !fl.flight && <Row k="Flug"><a className="btn sm ghost" href={`https://www.google.com/search?q=${encodeURIComponent('Flug ' + fl.number)}`} target="_blank" rel="noreferrer">✈ Flugstatus {fl.number} live ansehen</a>
           <div className="note" style={{ marginTop: 4 }}>Zeigt Gate, Verspätung und Terminal (Google-Fluginfo).</div></Row>}
         {fl.flight && <Row k="Flug"><div className="flight">
@@ -123,7 +123,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           <div className="rt-times"><span><b>{hm(dep)}</b> {e.trip === 'ab' ? 'zum Abholen los' : 'losfahren'}</span><span><b>{hm(target(e))}</b> {e.trip === 'ab' ? 'Ende' : 'Beginn'}</span></div>
           {l2 && <div className="rt-times"><span><b>{hm(l2.leave)}</b> {nm(l2.who)} zum Abholen los</span><span><b>{hm(l2.at)}</b> Ende</span></div>}</>}
         </div></Row>}
-        {(e.addr || e.place) && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">
+        {(e.addr || e.place) && !isOnline(e) && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">
           {busy && eta === null ? <span className="note">Fahrzeit vom Standort wird berechnet …</span> : here && eta === null ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km · los spätestens <b>{hm(myTarget - here.minutes - s.buffer)}</b></> : null}
           <div className="nav-row one" style={{ marginTop: (here || busy) && eta === null ? 6 : 0 }}>
             <button type="button" className={`btn sm nav-btn${iDrive && eta !== null ? " nav-on" : ""}`} onClick={startNav}><Icon name="car" /> {iDrive && eta !== null ? 'Navigation läuft' : 'Navigation starten'}</button>

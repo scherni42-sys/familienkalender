@@ -101,3 +101,8 @@ export const etaMin = (e) => {
         return null;
     return t.getHours() * 60 + t.getMinutes();
 };
+// Online-Termine (Teams, Zoom, Meet …): kein Ort zum Hinfahren, also keine Navigation und keine Fahrzeit
+const ONLINE = /teams|zoom|webex|google meet|meet\.google|skype|gotomeeting|jitsi|online|videokonferenz|videocall|telefonkonferenz|https?:\/\//i;
+export const isOnline = (e) => !(e.addr ?? '').replace(/^,\s*/, '').trim() && ONLINE.test(e.place ?? '');
+// Einwahl-Link aus Ort oder Notiz
+export const meetingUrl = (e) => `${e.place ?? ''} ${e.notes ?? ''}`.match(/https?:\/\/[^\s<>"]*(teams\.microsoft\.com|teams\.live\.com|zoom\.us|meet\.google\.com|webex\.com|jitsi)[^\s<>"]*/i)?.[0] ?? null;
