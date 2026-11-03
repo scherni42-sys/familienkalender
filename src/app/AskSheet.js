@@ -56,8 +56,16 @@ export function AskSheet({ close, open, edit, toDraft, bdays }) {
             setQ(t);
             void ask(t);
         } };
+        // Erkennung direkt in der App: Zwischenstand live ins Feld, Fehler als Hinweis
+        const part = (e) => setQ(String(e.detail ?? ''));
+        const bad = (e) => setErr(String(e.detail ?? ''));
+        const st = (e) => { setRec(true); if (e.detail === 'listening')
+            setErr(''); };
         window.addEventListener('famto-speech', on);
-        return () => window.removeEventListener('famto-speech', on);
+        window.addEventListener('famto-speech-partial', part);
+        window.addEventListener('famto-speech-error', bad);
+        window.addEventListener('famto-speech-state', st);
+        return () => { window.removeEventListener('famto-speech', on); window.removeEventListener('famto-speech-partial', part); window.removeEventListener('famto-speech-error', bad); window.removeEventListener('famto-speech-state', st); };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
     // Zaubertaste: Mikrofon geht sofort an; nach der Sprechpause fragt die App von selbst
     useEffect(() => {
@@ -70,7 +78,12 @@ export function AskSheet({ close, open, edit, toDraft, bdays }) {
     const listen = () => {
         const n = native();
         if (n?.listen) {
+            if (rec && n.stopListen) {
+                n.stopListen();
+                return;
+            }
             setRec(true);
+            setErr('');
             n.listen();
             return;
         }
@@ -100,5 +113,5 @@ export function AskSheet({ close, open, edit, toDraft, bdays }) {
     return (_jsxs(Sheet, { onClose: close, label: "Claude fragen", children: [_jsx("h2", { children: "\u2728 Frag Claude" }), _jsx("p", { className: "note", children: "Frag nach Terminen, Personen oder Geburtstagen, oder sag, was du \u00E4ndern oder eintragen m\u00F6chtest." }), _jsxs("div", { className: "ask-in", children: [_jsx("textarea", { ref: input, rows: 2, value: q, placeholder: "z. B. Wann treffe ich Tom das n\u00E4chste Mal?", onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             void ask();
-                        } }, "aria-label": "Deine Frage an Claude" }), _jsx("button", { type: "button", className: `btn ghost sm ask-mic${rec ? ' on' : ''}`, onClick: listen, "aria-label": "Frage sprechen", children: _jsx(Icon, { name: "mic" }) })] }), !res && !busy && !err && _jsx("div", { className: "ask-ideas", children: IDEAS.map(i => _jsx("button", { type: "button", onClick: () => { setQ(i); void ask(i); }, children: i }, i)) }), busy && _jsx("p", { className: "note ask-busy", children: "Claude sieht im Kalender nach \u2026" }), err && _jsx("p", { className: "note", children: err }), res && _jsxs("div", { className: "ask-res", children: [_jsx("p", { children: res.answer }), res.events.length > 0 && _jsx("div", { className: "ask-list", children: res.events.map(e => (_jsxs("button", { type: "button", className: "ask-ev", style: cvar(colorOf(snap.members, e.persons[0])), onClick: () => open(e.id), children: [_jsxs("span", { className: "d", children: [shortDate(e.date), _jsx("small", { children: e.all_day ? 'ganztägig' : hm(e.start_min) })] }), _jsxs("span", { className: "t", children: [_jsx("b", { children: e.title }), _jsx("small", { children: [e.persons.map(nm).join(', '), e.place].filter(Boolean).join(' · ') })] }), res.action === 'edit' && _jsx("span", { className: "ask-edit", role: "button", tabIndex: 0, onClick: x => { x.stopPropagation(); edit(eventDraft(e)); }, children: "Bearbeiten" })] }, e.id))) }), res.birthdays.length > 0 && _jsx("div", { className: "ask-list", children: res.birthdays.map(b => (_jsxs("button", { type: "button", className: "ask-ev", onClick: bdays, children: [_jsx("span", { className: "d", children: "\uD83C\uDF82" }), _jsxs("span", { className: "t", children: [_jsx("b", { children: b.name }), _jsxs("small", { children: [bdLabel(b), b.year ? `, Jahrgang ${b.year}` : ''] })] })] }, b.id))) })] }), _jsxs("div", { className: "btn-row", children: [_jsx("button", { type: "button", className: "btn ghost", onClick: close, children: "Schlie\u00DFen" }), _jsx("button", { type: "button", className: "btn", disabled: busy || !q.trim(), onClick: () => void ask(), children: "Fragen" })] })] }));
+                        } }, "aria-label": "Deine Frage an Claude" }), _jsx("button", { type: "button", className: `btn ghost sm ask-mic${rec ? ' on' : ''}`, onClick: listen, "aria-label": "Frage sprechen", children: _jsx(Icon, { name: "mic" }) })] }), !res && !busy && !err && !rec && _jsx("div", { className: "ask-ideas", children: IDEAS.map(i => _jsx("button", { type: "button", onClick: () => { setQ(i); void ask(i); }, children: i }, i)) }), rec && !busy && _jsx("p", { className: "note ask-busy", children: "\uD83C\uDF99\uFE0F Ich h\u00F6re zu \u2026 sprich einfach los." }), busy && _jsx("p", { className: "note ask-busy", children: "Claude sieht im Kalender nach \u2026" }), err && _jsx("p", { className: "note", children: err }), res && _jsxs("div", { className: "ask-res", children: [_jsx("p", { children: res.answer }), res.events.length > 0 && _jsx("div", { className: "ask-list", children: res.events.map(e => (_jsxs("button", { type: "button", className: "ask-ev", style: cvar(colorOf(snap.members, e.persons[0])), onClick: () => open(e.id), children: [_jsxs("span", { className: "d", children: [shortDate(e.date), _jsx("small", { children: e.all_day ? 'ganztägig' : hm(e.start_min) })] }), _jsxs("span", { className: "t", children: [_jsx("b", { children: e.title }), _jsx("small", { children: [e.persons.map(nm).join(', '), e.place].filter(Boolean).join(' · ') })] }), res.action === 'edit' && _jsx("span", { className: "ask-edit", role: "button", tabIndex: 0, onClick: x => { x.stopPropagation(); edit(eventDraft(e)); }, children: "Bearbeiten" })] }, e.id))) }), res.birthdays.length > 0 && _jsx("div", { className: "ask-list", children: res.birthdays.map(b => (_jsxs("button", { type: "button", className: "ask-ev", onClick: bdays, children: [_jsx("span", { className: "d", children: "\uD83C\uDF82" }), _jsxs("span", { className: "t", children: [_jsx("b", { children: b.name }), _jsxs("small", { children: [bdLabel(b), b.year ? `, Jahrgang ${b.year}` : ''] })] })] }, b.id))) })] }), _jsxs("div", { className: "btn-row", children: [_jsx("button", { type: "button", className: "btn ghost", onClick: close, children: "Schlie\u00DFen" }), _jsx("button", { type: "button", className: "btn", disabled: busy || !q.trim(), onClick: () => void ask(), children: "Fragen" })] })] }));
 }

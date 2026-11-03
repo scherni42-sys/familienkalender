@@ -40,8 +40,15 @@ export function AskSheet({ close, open, edit, toDraft, bdays }: { close: () => v
   // Android-App: Spracherkennung des Handys, danach gleich fragen
   useEffect(() => {
     const on = (e: Event) => { const t = String((e as CustomEvent).detail ?? '').trim(); setRec(false); if (t) { setQ(t); void ask(t); } };
+    // Erkennung direkt in der App: Zwischenstand live ins Feld, Fehler als Hinweis
+    const part = (e: Event) => setQ(String((e as CustomEvent).detail ?? ''));
+    const bad = (e: Event) => setErr(String((e as CustomEvent).detail ?? ''));
+    const st = (e: Event) => { setRec(true); if ((e as CustomEvent).detail === 'listening') setErr(''); };
     window.addEventListener('famto-speech', on);
-    return () => window.removeEventListener('famto-speech', on);
+    window.addEventListener('famto-speech-partial', part);
+    window.addEventListener('famto-speech-error', bad);
+    window.addEventListener('famto-speech-state', st);
+    return () => { window.removeEventListener('famto-speech', on); window.removeEventListener('famto-speech-partial', part); window.removeEventListener('famto-speech-error', bad); window.removeEventListener('famto-speech-state', st); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Zaubertaste: Mikrofon geht sofort an; nach der Sprechpause fragt die App von selbst
@@ -52,7 +59,7 @@ export function AskSheet({ close, open, edit, toDraft, bdays }: { close: () => v
 
   const listen = () => {
     const n = native();
-    if (n?.listen) { setRec(true); n.listen(); return; }
+    if (n?.listen) { if (rec && n.stopListen) { n.stopListen(); return; } setRec(true); setErr(''); n.listen(); return; }
     if (!SR) { toast('Hier geht Sprache nur über das Mikrofon der Tastatur. Oder einfach tippen.'); input.current?.focus(); return; }
     const x = new SR(); x.lang = 'de-DE'; x.interimResults = true; x.continuous = false;
     let t = '';
@@ -72,7 +79,8 @@ export function AskSheet({ close, open, edit, toDraft, bdays }: { close: () => v
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void ask(); } }} aria-label="Deine Frage an Claude" />
         <button type="button" className={`btn ghost sm ask-mic${rec ? ' on' : ''}`} onClick={listen} aria-label="Frage sprechen"><Icon name="mic" /></button>
       </div>
-      {!res && !busy && !err && <div className="ask-ideas">{IDEAS.map(i => <button key={i} type="button" onClick={() => { setQ(i); void ask(i); }}>{i}</button>)}</div>}
+      {!res && !busy && !err && !rec && <div className="ask-ideas">{IDEAS.map(i => <button key={i} type="button" onClick={() => { setQ(i); void ask(i); }}>{i}</button>)}</div>}
+      {rec && !busy && <p className="note ask-busy">🎙️ Ich höre zu … sprich einfach los.</p>}
       {busy && <p className="note ask-busy">Claude sieht im Kalender nach …</p>}
       {err && <p className="note">{err}</p>}
       {res && <div className="ask-res">

@@ -25,6 +25,7 @@ class AppActivity : Activity() {
         private const val FILES = 7
         private const val SPEECH = 8
         private const val GEO = 9
+        private const val MIC = 10
     }
 
     private lateinit var web: WebView
@@ -131,6 +132,12 @@ class AppActivity : Activity() {
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
         super.onRequestPermissionsResult(code, perms, res)
         if (code == GEO) { geoAsk?.let { (o, cb) -> cb.invoke(o, res.any { it == android.content.pm.PackageManager.PERMISSION_GRANTED }, false) }; geoAsk = null }
+        // Mikrofon erlaubt: Erkennung in der App; abgelehnt: das Google-Fenster als Ersatz
+        if (code == MIC) {
+            askingMic = false
+            if (res.none { it == android.content.pm.PackageManager.PERMISSION_GRANTED }) noInline = true
+            startListen()
+        }
     }
 
     override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); web.saveState(out) }
@@ -158,7 +165,11 @@ class AppActivity : Activity() {
         if (web.canGoBack()) web.goBack() else @Suppress("DEPRECATION") super.onBackPressed()
     }
 
-    override fun onPause() { super.onPause(); resumed = false }
+    override fun onPause() {
+        super.onPause(); resumed = false
+        // App verlässt den Bildschirm: Mikrofon aus (nur die Erkennung in der App, das Google-Fenster selbst pausiert uns ja)
+        if (listening && inlineActive) { recognizer?.cancel(); listening = false; speechEvent("famto-speech", "") }
+    }
 
     override fun onResume() {
         super.onResume()
@@ -196,6 +207,7 @@ class AppActivity : Activity() {
         }
         // Spracheingabe im Eingabefenster: Spracherkennung des Handys, Ergebnis kommt als Ereignis „famto-speech“ zurück
         @JavascriptInterface fun listen() { runOnUiThread { startListen() } }
+        @JavascriptInterface fun stopListen() { runOnUiThread { this@AppActivity.stopListen() } }
         @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
     }
 
@@ -205,11 +217,66 @@ class AppActivity : Activity() {
     private var pendingListen = false
     private var resumed = false
     private var listens = 0
+    private var noInline = false
+    private var inlineActive = false
+    private var askingMic = false
+    private var recognizer: android.speech.SpeechRecognizer? = null
+
+    private fun speechEvent(name: String, text: String) =
+        web.evaluateJavascript("window.dispatchEvent(new CustomEvent('$name',{detail:" + org.json.JSONObject.quote(text) + "}))", null)
+
+    private fun inline() {
+        val r = recognizer ?: android.speech.SpeechRecognizer.createSpeechRecognizer(this).also { recognizer = it }
+        fun first(b: Bundle?) = b?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull() ?: ""
+        r.setRecognitionListener(object : android.speech.RecognitionListener {
+            override fun onReadyForSpeech(p: Bundle?) { speechEvent("famto-speech-state", "listening") }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(v: Float) {}
+            override fun onBufferReceived(b: ByteArray?) {}
+            override fun onEndOfSpeech() { speechEvent("famto-speech-state", "thinking") }
+            override fun onEvent(t: Int, b: Bundle?) {}
+            override fun onPartialResults(b: Bundle?) { first(b).takeIf { it.isNotBlank() }?.let { speechEvent("famto-speech-partial", it) } }
+            override fun onResults(b: Bundle?) { listening = false; speechEvent("famto-speech", first(b)) }
+            override fun onError(e: Int) {
+                listening = false
+                speechEvent("famto-speech", "")
+                val why = when (e) {
+                    android.speech.SpeechRecognizer.ERROR_NO_MATCH, android.speech.SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Nichts verstanden. Tippe aufs Mikrofon und versuch es noch einmal."
+                    android.speech.SpeechRecognizer.ERROR_NETWORK, android.speech.SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "Keine Verbindung für die Spracherkennung."
+                    else -> "Spracherkennung ging gerade nicht. Tippe aufs Mikrofon und versuch es noch einmal."
+                }
+                speechEvent("famto-speech-error", why)
+            }
+        })
+        r.startListening(Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "de-DE")
+            .putExtra(android.speech.RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
+            .putExtra(android.speech.RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName))
+    }
+
+    private fun stopListen() { recognizer?.stopListening() }
+
+    override fun onDestroy() { recognizer?.destroy(); recognizer = null; super.onDestroy() }
     private fun startListen() {
-        if (listening) return
+        if (listening || askingMic) return
         if (!resumed) { pendingListen = true; return }
         pendingListen = false
+        // Spracherkennung direkt in der App (ohne Google-Fenster): Text erscheint gleich im Eingabefeld
+        if (!noInline && android.speech.SpeechRecognizer.isRecognitionAvailable(this)) {
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                askingMic = true
+                requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), MIC); return
+            }
+            listening = true
+            inlineActive = true
+            listens++
+            try { inline() } catch (e: Exception) { listening = false; inlineActive = false; noInline = true; startListen() }
+            return
+        }
         listening = true
+        inlineActive = false
         listens++
         run {
             run {
