@@ -87,6 +87,15 @@ object Feed {
         cache(ctx).edit().putInt("bdPage", ((bdPage(ctx) + by) % n + n) % n).apply()
     }
 
+    // Geburtstagsfarbe: private in der Farbe des Besitzers, gemeinsame in Torten-Gold (nicht in der Farbe eines Mitglieds)
+    private val BD_GOLD = Color.parseColor("#D9A441")
+    fun bdColor(feed: JSONObject, b: JSONObject): Int {
+        if (b.isNull("owner")) return BD_GOLD
+        val ms = feed.optJSONArray("members") ?: return BD_GOLD
+        for (i in 0 until ms.length()) { val m = ms.optJSONObject(i) ?: continue; if (m.optString("id") == b.optString("owner")) return parseColor(m.optString("color")) }
+        return BD_GOLD
+    }
+
     fun bdRows(ctx: Context, feed: JSONObject): List<Row> {
         val today = LocalDate.now()
         val bds = feed.optJSONArray("birthdays") ?: JSONArray()
@@ -112,7 +121,7 @@ object Feed {
                 Kind.EVENT, (if (b.isNull("owner")) "" else "🔒 ") + b.optString("name"),
                 time = "${next.dayOfMonth}.${next.monthValue}.",
                 sub = left + age,
-                color = if (days <= 14) Color.parseColor("#C2477A") else Color.GRAY,
+                color = if (days <= 14) bdColor(feed, b) else Color.GRAY,
                 open = "bdays"
             )
         }
@@ -303,7 +312,7 @@ object Feed {
                 val year = b.optInt("year", 0)
                 out += Row(
                     Kind.EVENT, "🎂 " + (if (b.isNull("owner")) "" else "🔒 ") + b.optString("name") + if (year > 0) " wird ${date.year - year}" else "",
-                    time = "Geb.", color = Color.parseColor("#C2477A"), open = "bdays"
+                    time = "Geb.", color = bdColor(feed, b), open = "bdays"
                 )
                 shown++
             }
