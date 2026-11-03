@@ -371,10 +371,13 @@ a.addr { text-decoration: underline; text-decoration-color: color-mix(in srgb, c
 .file-x.on { background: #e53935; color: #fff; border-color: #e53935; font-size: 14px; font-weight: 600; padding: 0 10px; }
 .ev.has-clip { grid-template-columns: 44px 1fr auto; }
 button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; font-size: 14px; }
-.alarm-box{display:grid;gap:6px;padding:12px;border-radius:14px;background:color-mix(in srgb,#f5c518 14%,var(--card,transparent));border:1px solid color-mix(in srgb,#f5c518 45%,transparent);margin-bottom:10px}
+.alarm-box{display:grid;gap:6px;padding:12px;border-radius:14px;border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);margin-bottom:10px}
+.alarm-box>b{display:flex;align-items:center;gap:6px}
+.alarm-box .ico,.alarm-pick .ico,.setrow .ico.alarm{color:var(--accent)}
 .alarm-box input[type=time]{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit}
-.alarm-btn{opacity:.35;filter:grayscale(1);min-width:40px}
-.alarm-btn.on{opacity:1;filter:none;background:color-mix(in srgb,#f5c518 30%,transparent)}
+.alarm-btn{min-width:40px;color:var(--muted);opacity:.6;display:inline-grid;place-items:center}
+.alarm-btn.on{opacity:1;color:var(--accent);border-color:var(--accent)}
+.alarm-btn .ico{width:18px;height:18px}
 .alarm-pick{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .alarm-pick .busyopt{display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none;margin:0}
 .alarm-pick select{flex:1;min-width:150px}

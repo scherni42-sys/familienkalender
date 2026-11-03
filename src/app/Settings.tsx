@@ -182,7 +182,7 @@ export function BdayForm({ focus, edit, done }: { focus?: boolean; edit?: Birthd
           <label className="field"><span>Jahr (freiwillig)</span><input type="number" inputMode="numeric" min={1900} max={new Date().getFullYear()} value={year} onChange={e => setYear(e.target.value)} placeholder="unbekannt" /></label>
         </div>
         <label className="setrow"><span><Icon name="lock" /> Privat: nur ich sehe ihn (Freunde, Kollegen …)</span><input type="checkbox" checked={priv} onChange={e => setPriv(e.target.checked)} /></label>
-        {alarm && <label className="setrow"><span>⏰ Wecker am Geburtstag um {hm(alarm.min)} Uhr (dieses Handy)</span><input type="checkbox" checked={wake} onChange={e => setWake(e.target.checked)} /></label>}
+        {alarm && <label className="setrow"><span><Icon name="alarm" /> Wecker am Geburtstag um {hm(alarm.min)} Uhr (dieses Handy)</span><input type="checkbox" checked={wake} onChange={e => setWake(e.target.checked)} /></label>}
         {edit ? <div className="btn-row"><button type="button" className="btn ghost" onClick={done}>Abbrechen</button><button className="btn">Speichern</button></div> : <button className="btn">Eintragen</button>}
       </form>;
 }
@@ -194,7 +194,7 @@ function BdayRow({ b, lead, canEdit, onEdit, wake, onWake }: { b: ReturnType<typ
   const release = () => window.clearTimeout(timer.current);
   return <div className={`bdrow${lead && b.days <= lead ? ' soon' : ''}`} onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (canEdit) x.preventDefault(); }}>
     <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
-    <span className="dd">{inDays(b.days)} {onWake && <button type="button" className={`small-btn alarm-btn${wake ? ' on' : ''}`} aria-pressed={wake} aria-label={`Wecker für ${b.name} ${wake ? 'aus' : 'an'}`} title="Geburtstags-Wecker" onPointerDown={x => x.stopPropagation()} onClick={onWake}>⏰</button>} {canEdit && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onPointerDown={x => x.stopPropagation()} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>;
+    <span className="dd">{inDays(b.days)} {onWake && <button type="button" className={`small-btn alarm-btn${wake ? ' on' : ''}`} aria-pressed={wake} aria-label={`Wecker für ${b.name} ${wake ? 'aus' : 'an'}`} title="Geburtstags-Wecker" onPointerDown={x => x.stopPropagation()} onClick={onWake}><Icon name="alarm" /></button>} {canEdit && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onPointerDown={x => x.stopPropagation()} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>;
 }
 
 function Bdays() {
@@ -208,15 +208,15 @@ function Bdays() {
   const t = alarm ? hm(alarm.min) : '';
   return <>
     {alarm ? <div className="alarm-box">
-      <b>⏰ Geburtstags-Wecker auf diesem Handy</b>
+      <b><Icon name="alarm" /> Geburtstags-Wecker auf diesem Handy</b>
       <label className="setrow"><span>Klingelt am Geburtstag um</span><input type="time" value={t} onChange={e => { const [h, m] = e.target.value.split(':').map(Number); if (!isNaN(h) && !isNaN(m)) setAlarm({ ...alarm, min: h * 60 + m }); }} /></label>
-      <label className="setrow"><span>Für alle Geburtstage</span><input type="checkbox" className="sw" checked={alarm.all} onChange={e => { setAlarm({ ...alarm, all: e.target.checked, keys: [] }); toast(e.target.checked ? `Der Wecker klingelt an jedem Geburtstag um ${hm(alarm.min)} Uhr.` : 'Wecker für alle aus. Einzelne mit ⏰ einschalten.'); }} /></label>
+      <label className="setrow"><span>Für alle Geburtstage</span><input type="checkbox" className="sw" checked={alarm.all} onChange={e => { setAlarm({ ...alarm, all: e.target.checked, keys: [] }); toast(e.target.checked ? `Der Wecker klingelt an jedem Geburtstag um ${hm(alarm.min)} Uhr.` : 'Wecker für alle aus. Einzelne mit dem Wecker-Symbol einschalten.'); }} /></label>
       <ToneRow kind="bd" />
-      <span className="note">{alarm.all ? 'Einzelne mit ⏰ ausschalten.' : 'Oder einzelne Geburtstage mit ⏰ einschalten.'} Der Wecker klingelt mit Namen, bis du ihn ausschaltest.</span>
-    </div> : !store.demo && <p className="note">⏰ Einen Geburtstags-Wecker mit Namen kannst du in der Android-App von FamTO stellen.</p>}
+      <span className="note">{alarm.all ? <>Einzelne mit <Icon name="alarm" /> ausschalten.</> : <>Oder einzelne Geburtstage mit <Icon name="alarm" /> einschalten.</>} Der Wecker klingelt mit Namen, bis du ihn ausschaltest.</span>
+    </div> : !store.demo && <p className="note">Einen Geburtstags-Wecker mit Namen kannst du in der Android-App von FamTO stellen.</p>}
     {can && snap.birthdays.length > 0 && <p className="note">Zum Ändern einen Geburtstag lange drücken.</p>}
     <div>{upcoming(snap.birthdays).map(b => <BdayRow key={b.id} b={b} lead={s.bdLead} canEdit={can} onEdit={() => setEdit(snap.birthdays.find(x => x.id === b.id) ?? null)}
-      wake={alarm ? alarmOn(alarm, b) : undefined} onWake={alarm ? () => { const on = !alarmOn(alarm, b); toggleAlarm(b, on, snap.birthdays); toast(on ? `⏰ Wecker für ${b.name} an.` : `Wecker für ${b.name} aus.`); } : undefined} />)}</div>
+      wake={alarm ? alarmOn(alarm, b) : undefined} onWake={alarm ? () => { const on = !alarmOn(alarm, b); toggleAlarm(b, on, snap.birthdays); toast(on ? `Wecker für ${b.name} an.` : `Wecker für ${b.name} aus.`); } : undefined} />)}</div>
     {can && <BdayForm />}
   </>;
 }

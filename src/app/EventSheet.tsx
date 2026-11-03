@@ -162,7 +162,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       <label className="field"><span>Notiz</span><textarea value={d.notes} onChange={e => set({ notes: e.target.value })} placeholder="z. B. Abholen am Vereinsheim" /></label>
       {hasEvAlarm() && !d.all_day && <div className="field"><span>Wecker auf diesem Handy</span>
         <div className="alarm-pick">
-          <label className="busyopt"><input type="checkbox" checked={wake > 0} onChange={e => setWake(e.target.checked ? 30 : 0)} /> ⏰ Wecker stellen</label>
+          <label className="busyopt"><input type="checkbox" checked={wake > 0} onChange={e => setWake(e.target.checked ? 30 : 0)} /> <Icon name="alarm" /> Wecker stellen</label>
           {wake > 0 && <select value={wake} onChange={e => setWake(Number(e.target.value))}>{LEADS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
         </div></div>}
       <div className="field"><span>Dokumente</span>
