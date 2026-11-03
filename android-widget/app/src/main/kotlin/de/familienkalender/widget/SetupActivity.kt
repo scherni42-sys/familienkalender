@@ -38,26 +38,7 @@ class SetupActivity : Activity() {
         if (remind.isChecked && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
-        // Geburtstags-Wecker: an/aus und Uhrzeit
-        val bdA = findViewById<CheckBox>(R.id.bdalarm)
-        val bdT = findViewById<Button>(R.id.bdalarmtime)
-        fun showBdA() { bdT.text = "Uhrzeit: ${BdAlarm.label(this)}"; bdT.visibility = if (BdAlarm.enabled(this)) android.view.View.VISIBLE else android.view.View.GONE }
-        bdA.isChecked = BdAlarm.enabled(this)
-        bdA.setOnCheckedChangeListener { _, on ->
-            BdAlarm.setEnabled(this, on)
-            if (on && Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
-                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
-            showBdA()
-            thread { Feed.cached(this)?.let { BdAlarm.schedule(this, it) } }
-        }
-        bdT.setOnClickListener {
-            val m = BdAlarm.minute(this)
-            android.app.TimePickerDialog(this, { _, h, min ->
-                BdAlarm.setMinute(this, h * 60 + min); showBdA()
-                thread { Feed.cached(this)?.let { BdAlarm.schedule(this, it) } }
-            }, m / 60, m % 60, true).show()
-        }
-        showBdA()
+        // Geburtstags-Wecker stellt man in der App bei den Geburtstagen ein (Brücke in AppActivity)
 
         // Handy-Kalender: Schalter, Erlaubnis, beim Ausschalten den Kalender wieder entfernen
         val cal = findViewById<CheckBox>(R.id.calsync)

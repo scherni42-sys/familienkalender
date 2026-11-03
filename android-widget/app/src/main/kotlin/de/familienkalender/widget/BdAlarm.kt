@@ -26,8 +26,13 @@ object BdAlarm {
     private const val NID = 4711
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-    fun enabled(ctx: Context) = prefs(ctx).getBoolean("bdAlarm", false)
-    fun setEnabled(ctx: Context, on: Boolean) = prefs(ctx).edit().putBoolean("bdAlarm", on).apply()
+    // „all“: für alle Geburtstage; sonst nur die ausgewählten (Schlüssel „Name|Tag|Monat“, bleibt bei neuem Abgleich gleich)
+    fun all(ctx: Context) = prefs(ctx).getBoolean("bdAlarm", false)
+    fun keys(ctx: Context): Set<String> = prefs(ctx).getStringSet("bdAlarmKeys", emptySet()) ?: emptySet()
+    fun enabled(ctx: Context) = all(ctx) || keys(ctx).isNotEmpty()
+    fun save(ctx: Context, all: Boolean, keys: Set<String>, min: Int) =
+        prefs(ctx).edit().putBoolean("bdAlarm", all).putStringSet("bdAlarmKeys", HashSet(keys)).putInt("bdAlarmMin", min.coerceIn(0, 1439)).apply()
+    fun key(b: JSONObject) = "${b.optString("name")}|${b.optInt("day")}|${b.optInt("month")}"
     fun minute(ctx: Context) = prefs(ctx).getInt("bdAlarmMin", 9 * 60)
     fun setMinute(ctx: Context, m: Int) = prefs(ctx).edit().putInt("bdAlarmMin", m).apply()
     fun label(ctx: Context) = minute(ctx).let { "%d:%02d".format(it / 60, it % 60) }
@@ -44,9 +49,12 @@ object BdAlarm {
         val today = LocalDate.now()
         val bds = feed.optJSONArray("birthdays") ?: JSONArray()
         val m = minute(ctx).toLong()
+        val all = all(ctx)
+        val keys = keys(ctx)
         val byTime = sortedMapOf<LocalDateTime, MutableList<String>>()
         for (i in 0 until bds.length()) {
             val b = bds.optJSONObject(i) ?: continue
+            if (!all && key(b) !in keys) continue
             for (y in listOf(today.year, today.year + 1)) {
                 val d = try { LocalDate.of(y, b.optInt("month"), b.optInt("day")) } catch (e: Exception) { continue }
                 val at = d.atStartOfDay().plusMinutes(m)

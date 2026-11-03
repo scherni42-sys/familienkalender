@@ -207,6 +207,22 @@ class AppActivity : Activity() {
         }
         // Spracheingabe im Eingabefenster: Spracherkennung des Handys, Ergebnis kommt als Ereignis „famto-speech“ zurück
         @JavascriptInterface fun listen() { runOnUiThread { startListen() } }
+        // Geburtstags-Wecker auf diesem Handy: Einstellungen lesen und speichern (Uhrzeit, alle oder ausgewählte)
+        @JavascriptInterface fun alarm(): String = org.json.JSONObject().put("min", BdAlarm.minute(this@AppActivity)).put("all", BdAlarm.all(this@AppActivity))
+            .put("keys", org.json.JSONArray(BdAlarm.keys(this@AppActivity).toList())).toString()
+        @JavascriptInterface fun setAlarm(json: String) {
+            val ctx = this@AppActivity
+            try {
+                val o = org.json.JSONObject(json)
+                val ks = o.optJSONArray("keys")?.let { a -> (0 until a.length()).map { a.optString(it) }.toSet() } ?: emptySet()
+                BdAlarm.save(ctx, o.optBoolean("all"), ks, o.optInt("min", 540))
+            } catch (e: Exception) { return }
+            runOnUiThread {
+                if (BdAlarm.enabled(ctx) && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 11)
+            }
+            Thread { (Feed.cached(ctx) ?: Feed.load(ctx).first)?.let { BdAlarm.schedule(ctx, it) } }.start()
+        }
         @JavascriptInterface fun stopListen() { runOnUiThread { this@AppActivity.stopListen() } }
         @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
     }

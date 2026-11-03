@@ -371,3 +371,7 @@ a.addr { text-decoration: underline; text-decoration-color: color-mix(in srgb, c
 .file-x.on { background: #e53935; color: #fff; border-color: #e53935; font-size: 14px; font-weight: 600; padding: 0 10px; }
 .ev.has-clip { grid-template-columns: 44px 1fr auto; }
 button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; font-size: 14px; }
+.alarm-box{display:grid;gap:6px;padding:12px;border-radius:14px;background:color-mix(in srgb,#f5c518 14%,var(--card,transparent));border:1px solid color-mix(in srgb,#f5c518 45%,transparent);margin-bottom:10px}
+.alarm-box input[type=time]{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit}
+.alarm-btn{opacity:.35;filter:grayscale(1);min-width:40px}
+.alarm-btn.on{opacity:1;filter:none;background:color-mix(in srgb,#f5c518 30%,transparent)}

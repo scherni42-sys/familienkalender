@@ -10,6 +10,7 @@ import { micStart, setMicStart } from '../lib/micstart';
 import { SUPA } from '../lib/supabase';
 import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
+import { alarmOn, getAlarm, renameAlarm, setAlarm, toggleAlarm, useAlarm } from '../lib/bdalarm';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
 const MENU: [Exclude<Sub, null>, string, IconName][] = [
@@ -163,10 +164,14 @@ export function BdayForm({ focus, edit, done }: { focus?: boolean; edit?: Birthd
   // Tag und Monat Pflicht, Jahr freiwillig: ohne Jahr kein „wird …“
   const [n, setN] = useState(edit?.name ?? ''), [rel, setRel] = useState(edit?.rel ?? ''), [day, setDay] = useState(edit ? String(edit.day) : ''), [mon, setMon] = useState(edit ? String(edit.month) : ''), [year, setYear] = useState(edit?.year ? String(edit.year) : ''), [priv, setPriv] = useState(!!edit?.owner);
   const y = Number(year);
+  const alarm = useAlarm();
+  const [wake, setWake] = useState(!!alarm && !!edit && alarmOn(alarm, edit));
   return <form className="addform" onSubmit={e => { e.preventDefault(); if (!n.trim() || !day || !mon) return;
         const b = { name: n.trim(), rel: rel.trim(), day: Number(day), month: Number(mon), year: y > 1900 && y <= new Date().getFullYear() ? y : null, owner: priv ? snap.me : null };
-        if (edit) { store.updateBirthday(edit, b).then(() => { toast('Geburtstag geändert.'); done?.(); }, fail); return; }
-        store.addBirthday(b).then(() => { setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); toast('Geburtstag eingetragen.'); }, fail); }}>
+        const others = snap.birthdays.filter(x => x.id !== edit?.id);
+        const wakeUp = () => { const a = getAlarm(); if (a && alarmOn(a, b) !== wake) toggleAlarm(b, wake, [...others, b]); };
+        if (edit) { store.updateBirthday(edit, b).then(() => { if (alarm) { renameAlarm(edit, b); wakeUp(); } toast('Geburtstag geändert.'); done?.(); }, fail); return; }
+        store.addBirthday(b).then(() => { wakeUp(); setN(''); setRel(''); setDay(''); setMon(''); setYear(''); setPriv(false); setWake(false); toast(wake ? 'Geburtstag eingetragen, der Wecker klingelt.' : 'Geburtstag eingetragen.'); }, fail); }}>
         <b>{edit ? `${edit.name} bearbeiten` : 'Geburtstag eintragen'}</b>
         {edit?.ext_id && <span className="note">Kommt aus deinem Handy-Kalender. Änderungen besser dort machen, sonst überschreibt der nächste Abgleich sie.</span>}
         <div className="two"><input value={n} onChange={e => setN(e.target.value)} placeholder="Name" required autoFocus={focus || !!edit} /><input value={rel} onChange={e => setRel(e.target.value)} placeholder="z. B. Patentante" /></div>
@@ -176,18 +181,19 @@ export function BdayForm({ focus, edit, done }: { focus?: boolean; edit?: Birthd
           <label className="field"><span>Jahr (freiwillig)</span><input type="number" inputMode="numeric" min={1900} max={new Date().getFullYear()} value={year} onChange={e => setYear(e.target.value)} placeholder="unbekannt" /></label>
         </div>
         <label className="setrow"><span><Icon name="lock" /> Privat: nur ich sehe ihn (Freunde, Kollegen …)</span><input type="checkbox" checked={priv} onChange={e => setPriv(e.target.checked)} /></label>
+        {alarm && <label className="setrow"><span>⏰ Wecker am Geburtstag um {hm(alarm.min)} Uhr (dieses Handy)</span><input type="checkbox" checked={wake} onChange={e => setWake(e.target.checked)} /></label>}
         {edit ? <div className="btn-row"><button type="button" className="btn ghost" onClick={done}>Abbrechen</button><button className="btn">Speichern</button></div> : <button className="btn">Eintragen</button>}
       </form>;
 }
 
 // Lange drücken öffnet einen Geburtstag zum Bearbeiten
-function BdayRow({ b, lead, canEdit, onEdit }: { b: ReturnType<typeof upcoming>[number]; lead: number; canEdit: boolean; onEdit: () => void }) {
+function BdayRow({ b, lead, canEdit, onEdit, wake, onWake }: { b: ReturnType<typeof upcoming>[number]; lead: number; canEdit: boolean; onEdit: () => void; wake?: boolean; onWake?: () => void }) {
   const timer = useRef<number | undefined>(undefined);
   const press = () => { window.clearTimeout(timer.current); if (canEdit) timer.current = window.setTimeout(() => { navigator.vibrate?.(20); onEdit(); }, 550); };
   const release = () => window.clearTimeout(timer.current);
   return <div className={`bdrow${lead && b.days <= lead ? ' soon' : ''}`} onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (canEdit) x.preventDefault(); }}>
     <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
-    <span className="dd">{inDays(b.days)} {canEdit && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onPointerDown={x => x.stopPropagation()} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>;
+    <span className="dd">{inDays(b.days)} {onWake && <button type="button" className={`small-btn alarm-btn${wake ? ' on' : ''}`} aria-pressed={wake} aria-label={`Wecker für ${b.name} ${wake ? 'aus' : 'an'}`} title="Geburtstags-Wecker" onPointerDown={x => x.stopPropagation()} onClick={onWake}>⏰</button>} {canEdit && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onPointerDown={x => x.stopPropagation()} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>;
 }
 
 function Bdays() {
@@ -196,10 +202,19 @@ function Bdays() {
   const s = snap.family!.settings;
   const [edit, setEdit] = useState<Birthday | null>(null);
   const can = me.role !== 'guest';
+  const alarm = useAlarm();
   if (edit) return <BdayForm key={edit.id} edit={edit} done={() => setEdit(null)} />;
+  const t = alarm ? hm(alarm.min) : '';
   return <>
+    {alarm ? <div className="alarm-box">
+      <b>⏰ Geburtstags-Wecker auf diesem Handy</b>
+      <label className="setrow"><span>Klingelt am Geburtstag um</span><input type="time" value={t} onChange={e => { const [h, m] = e.target.value.split(':').map(Number); if (!isNaN(h) && !isNaN(m)) setAlarm({ ...alarm, min: h * 60 + m }); }} /></label>
+      <label className="setrow"><span>Für alle Geburtstage</span><input type="checkbox" className="sw" checked={alarm.all} onChange={e => { setAlarm({ ...alarm, all: e.target.checked, keys: [] }); toast(e.target.checked ? `Der Wecker klingelt an jedem Geburtstag um ${hm(alarm.min)} Uhr.` : 'Wecker für alle aus. Einzelne mit ⏰ einschalten.'); }} /></label>
+      <span className="note">{alarm.all ? 'Einzelne mit ⏰ ausschalten.' : 'Oder einzelne Geburtstage mit ⏰ einschalten.'} Der Wecker klingelt mit Namen, bis du ihn ausschaltest.</span>
+    </div> : !store.demo && <p className="note">⏰ Einen Geburtstags-Wecker mit Namen kannst du in der Android-App von FamTO stellen.</p>}
     {can && snap.birthdays.length > 0 && <p className="note">Zum Ändern einen Geburtstag lange drücken.</p>}
-    <div>{upcoming(snap.birthdays).map(b => <BdayRow key={b.id} b={b} lead={s.bdLead} canEdit={can} onEdit={() => setEdit(snap.birthdays.find(x => x.id === b.id) ?? null)} />)}</div>
+    <div>{upcoming(snap.birthdays).map(b => <BdayRow key={b.id} b={b} lead={s.bdLead} canEdit={can} onEdit={() => setEdit(snap.birthdays.find(x => x.id === b.id) ?? null)}
+      wake={alarm ? alarmOn(alarm, b) : undefined} onWake={alarm ? () => { const on = !alarmOn(alarm, b); toggleAlarm(b, on, snap.birthdays); toast(on ? `⏰ Wecker für ${b.name} an.` : `Wecker für ${b.name} aus.`); } : undefined} />)}</div>
     {can && <BdayForm />}
   </>;
 }
