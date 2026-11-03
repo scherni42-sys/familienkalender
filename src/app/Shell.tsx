@@ -18,6 +18,7 @@ import { EventSheet } from './EventSheet';
 import { DetailSheet, BdaySheet } from './DetailSheet';
 import { flightShort, useFlight } from '../lib/flight';
 import { PushBanner } from './PushBanner';
+import { WidgetView } from './WidgetView';
 
 type Tab = 'today' | 'week' | 'board' | 'settings';
 type Filter = 'all' | 'family' | 'home';
@@ -118,7 +119,7 @@ export function Shell() {
         </div>
       )}
       <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
-        {tab === 'today' && <TodayTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
+        {tab === 'today' && <WidgetView snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
         {tab === 'board' && <Board focus={focusMsg} reply={replyMsg} />}
         {tab === 'settings' && <Settings key={nonce} />}
@@ -250,15 +251,6 @@ function DayList({ snap, d, filter, now, open, flash, empty }: { snap: Snapshot;
       : empty === 'big'
         ? <div className="free"><Icon name="smile" /><b>Frei</b><span>{isToday ? 'Heute steht nichts mehr an.' : 'Nichts geplant.'}</span></div>
         : <div className="empty smile"><Icon name="smile" />Frei</div>}
-  </>;
-}
-
-function TodayTab({ snap, filter, now, open, flash }: { snap: Snapshot; filter: Filter; now: number; open: (id: string) => void; flash: string | null }) {
-  const t = today();
-  const n = visibleOnDay(snap.events, snap.busy, t, snap.me, filter).ev.length;
-  return <>
-    <div className="day-h"><span>{longDate(t)}</span><span>{n ? `${n} ${n === 1 ? 'Termin' : 'Termine'}` : ''}</span></div>
-    <DayList snap={snap} d={t} filter={filter} now={now} open={open} flash={flash} empty="big" />
   </>;
 }
 
