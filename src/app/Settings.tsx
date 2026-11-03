@@ -193,7 +193,7 @@ function BdayRow({ b, lead, canEdit, onEdit, wake, onWake }: { b: ReturnType<typ
   const press = () => { window.clearTimeout(timer.current); if (canEdit) timer.current = window.setTimeout(() => { navigator.vibrate?.(20); onEdit(); }, 550); };
   const release = () => window.clearTimeout(timer.current);
   return <div className={`bdrow${lead && b.days <= lead ? ' soon' : ''}`} onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (canEdit) x.preventDefault(); }}>
-    <div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
+    <div><b>{b.owner ? <><Icon name="lock" /> </> : ''}{b.name}</b><small>{b.owner ? 'privat · ' : ''}{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div>
     <span className="dd">{inDays(b.days)} {onWake && <button type="button" className={`small-btn alarm-btn${wake ? ' on' : ''}`} aria-pressed={wake} aria-label={`Wecker für ${b.name} ${wake ? 'aus' : 'an'}`} title="Geburtstags-Wecker" onPointerDown={x => x.stopPropagation()} onClick={onWake}><Icon name="alarm" /></button>} {canEdit && <button type="button" className="small-btn danger" aria-label={`${b.name} entfernen`} onPointerDown={x => x.stopPropagation()} onClick={() => store.removeBirthday(b.id).catch(fail)}>×</button>}</span></div>;
 }
 

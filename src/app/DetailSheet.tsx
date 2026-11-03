@@ -146,7 +146,7 @@ export function BdaySheet({ close, adding }: { close: () => void; adding?: boole
       <h2>Nächste Geburtstage</h2>
       <p>Erinnerung {s.bdLead} Tage vorher. Ändern kann das der Admin unter Einstellungen.</p>
       {adding && snap.members.find(m => m.id === snap.me)?.role !== 'guest' && <BdayForm focus />}
-      <div>{upcoming(snap.birthdays).map(b => <div key={b.id} className={`bdrow${b.days <= s.bdLead ? ' soon' : ''}`}><div><b>{b.owner ? '🔒 ' : ''}{b.name}</b><small>{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div><span className="dd">{inDays(b.days)}</span></div>)}</div>
+      <div>{upcoming(snap.birthdays).map(b => <div key={b.id} className={`bdrow${b.days <= s.bdLead ? ' soon' : ''}`}><div><b>{b.owner ? <><Icon name="lock" /> </> : ''}{b.name}</b><small>{b.rel ? `${b.rel} · ` : ''}{bdLabel(b)}{b.age ? ` · wird ${b.age}` : ''}</small></div><span className="dd">{inDays(b.days)}</span></div>)}</div>
       <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Schließen</button></div>
     </Sheet>
   );
