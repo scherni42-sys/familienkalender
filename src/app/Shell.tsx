@@ -185,7 +185,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
         <div className="meta">
           {e.persons.length > 0 && <Badges ids={e.persons} members={snap.members} />}
           {tag}
-          {e.driver && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}</span>}
+          {e.driver && !(e.arrived_at && eta === null && e.trip !== 'beides') && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}</span>}
           {e.trip === 'beides' && e.driver2 && <span><Icon name="car" /> {nameOf(snap.members, e.driver2)} holt ab</span>}
           {e.place && <span className="pl">{e.place}</span>}
         </div>

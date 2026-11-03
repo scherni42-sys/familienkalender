@@ -320,7 +320,9 @@ object Feed {
                 val trip = e.optString("trip", "hin")
                 val eta = etaOf(e)
                 // Unterwegs ist, wer die Ankunftszeit gesetzt hat (bei „beides“ auch der Abholer)
-                val drv = if (eta != null) id(e, "eta_by") ?: driver else driver
+                // Nach „Angekommen“ ist die Fahrt erledigt: keine Fahrer-Zeile mehr (bei „beides“ bleibt das Abholen)
+                val arrived = eta == null && !e.isNull("arrived_at") && e.optString("arrived_at").isNotEmpty() && trip != "beides"
+                val drv = if (arrived) null else if (eta != null) id(e, "eta_by") ?: driver else driver
                 val d2 = if (trip == "beides") id(e, "driver2") else null
                 out += Row(
                     // Eigene private Termine (nur mit persönlichem Widget-Code) mit Schloss kennzeichnen
