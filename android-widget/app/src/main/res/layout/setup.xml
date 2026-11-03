@@ -57,6 +57,21 @@
             android:textSize="15sp" />
 
         <CheckBox
+            android:id="@+id/bdalarm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Geburtstags-Wecker: am Geburtstag klingelt ein Wecker mit dem Namen (z. B. „Geburtstag Carlos“)"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/bdalarmtime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="32dp"
+            android:text="Uhrzeit: 9:00" />
+
+        <CheckBox
             android:id="@+id/calsync"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

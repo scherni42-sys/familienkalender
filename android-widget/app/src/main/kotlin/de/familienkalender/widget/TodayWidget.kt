@@ -33,6 +33,9 @@ class TodayWidget : AppWidgetProvider() {
         when (intent.action) {
             REFRESH, Reminders.REMIND -> { refreshData(ctx); background(ctx) }
             // Sicherheits-Hinweis bestätigt: Fahrzeit vom Standort für die Abfahrts-Erinnerung übernehmen
+            // Geburtstags-Wecker klingelt bzw. wird ausgeschaltet
+            BdAlarm.FIRE -> BdAlarm.fire(ctx, intent.getStringExtra("names") ?: "")
+            BdAlarm.OFF -> BdAlarm.off(ctx)
             Reminders.AWAY_OK -> {
                 val key = intent.getStringExtra("key") ?: return
                 Away.setOverride(ctx, key, intent.getIntExtra("min", 0))
