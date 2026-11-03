@@ -26,6 +26,7 @@ class AppActivity : Activity() {
         private const val SPEECH = 8
         private const val GEO = 9
         private const val MIC = 10
+        private const val TONE = 12
     }
 
     private lateinit var web: WebView
@@ -150,6 +151,12 @@ class AppActivity : Activity() {
             web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-speech',{detail:" + org.json.JSONObject.quote(text) + "}))", null)
             return
         }
+        if (code == TONE) {
+            @Suppress("DEPRECATION") val u = data?.getParcelableExtra<Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+            if (result == RESULT_OK && u != null) { Tones.set(this, toneKind, u.toString()); Tones.preview(this, toneKind) }
+            toneEvent()
+            return
+        }
         if (code == FILES) {
             val cam = shot
             shot = null
@@ -178,6 +185,9 @@ class AppActivity : Activity() {
         // Nach einer Eingabe in der Schnelleingabe sofort den neuen Stand zeigen
         web.evaluateJavascript("window.dispatchEvent(new Event('famto-resume'))", null)
     }
+
+    private var toneKind = "bd"
+    private fun toneEvent() = web.evaluateJavascript("window.dispatchEvent(new Event('famto-tone'))", null)
 
     private fun etaSoon() {
         val ctx = applicationContext
@@ -222,6 +232,43 @@ class AppActivity : Activity() {
                     requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 11)
             }
             Thread { (Feed.cached(ctx) ?: Feed.load(ctx).first)?.let { BdAlarm.schedule(ctx, it) } }.start()
+        }
+        // Termin-Wecker auf diesem Handy: Vorlauf in Minuten (0 = aus)
+        @JavascriptInterface fun evAlarm(id: String): Int = EvAlarm.lead(this@AppActivity, id)
+        @JavascriptInterface fun setEvAlarm(json: String) {
+            val ctx = this@AppActivity
+            val lead = try {
+                val o = org.json.JSONObject(json)
+                EvAlarm.set(ctx, o.getString("id"), o.optInt("lead"), o.optString("date"), o.optInt("start"), o.optString("title"))
+                o.optInt("lead")
+            } catch (e: Exception) { return }
+            runOnUiThread {
+                if (lead > 0 && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                    requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 11)
+            }
+            Thread { EvAlarm.schedule(ctx, Feed.cached(ctx)) }.start()
+        }
+        // Klingeltöne: {"bd":{"which","title"},"ev":{…}}; setTone mit birthday | beep | alarm | pick (Auswahl vom Handy)
+        @JavascriptInterface fun tones(): String {
+            val ctx = this@AppActivity
+            fun one(k: String) = org.json.JSONObject().put("which", Tones.which(ctx, k).let { if (it in listOf("birthday", "beep", "alarm")) it else "custom" }).put("title", Tones.title(ctx, k))
+            return org.json.JSONObject().put("bd", one("bd")).put("ev", one("ev")).toString()
+        }
+        @JavascriptInterface fun setTone(kind: String, which: String) {
+            if (kind != "bd" && kind != "ev") return
+            runOnUiThread {
+                if (which == "pick") {
+                    toneKind = kind
+                    val i = Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER)
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_ALL)
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TITLE, if (kind == "bd") "Ton für den Geburtstags-Wecker" else "Ton für den Termin-Wecker")
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                        .putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Tones.uri(this@AppActivity, kind))
+                    @Suppress("DEPRECATION") try { startActivityForResult(i, TONE) } catch (e: Exception) { }
+                } else if (which in listOf("birthday", "beep", "alarm")) {
+                    Tones.set(this@AppActivity, kind, which); Tones.preview(this@AppActivity, kind); toneEvent()
+                }
+            }
         }
         @JavascriptInterface fun stopListen() { runOnUiThread { this@AppActivity.stopListen() } }
         @JavascriptInterface fun setup() { runOnUiThread { startActivity(Intent(this@AppActivity, SetupActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }

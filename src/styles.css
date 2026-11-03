@@ -375,3 +375,6 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .alarm-box input[type=time]{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:inherit}
 .alarm-btn{opacity:.35;filter:grayscale(1);min-width:40px}
 .alarm-btn.on{opacity:1;filter:none;background:color-mix(in srgb,#f5c518 30%,transparent)}
+.alarm-pick{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.alarm-pick .busyopt{display:flex;align-items:center;gap:8px;white-space:nowrap;flex:none;margin:0}
+.alarm-pick select{flex:1;min-width:150px}

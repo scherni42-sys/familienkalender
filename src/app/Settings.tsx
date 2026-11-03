@@ -10,7 +10,7 @@ import { micStart, setMicStart } from '../lib/micstart';
 import { SUPA } from '../lib/supabase';
 import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
-import { alarmOn, getAlarm, renameAlarm, setAlarm, toggleAlarm, useAlarm } from '../lib/bdalarm';
+import { alarmOn, getAlarm, renameAlarm, setAlarm, setTone, toggleAlarm, useAlarm, useTones } from '../lib/bdalarm';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
 const MENU: [Exclude<Sub, null>, string, IconName][] = [
@@ -44,6 +44,7 @@ export function Settings() {
       {MENU.map(([k, l, ic]) => <button key={k} type="button" className="menu-item" onClick={() => setSub(k)}><span className="mi-ic"><Icon name={ic} /></span><span><b>{l}</b><small>{info[k]}</small></span><span className="chev">›</span></button>)}
       {native() && <button type="button" className="menu-item" onClick={() => native()!.setup()}><span className="mi-ic"><Icon name="gear" /></span><span><b>{native()!.platform === 'ios' ? 'Widget' : 'Widget & Handy-Kalender'}</b><small>{native()!.platform === 'ios' ? 'So legst du das FamTO-Widget auf den Startbildschirm' : 'Widget einrichten, Abgleich, Home-Modus, neue Version'}</small></span><span className="chev">›</span></button>}
       {me.role !== 'guest' && <MicStartRow />}
+      {me.role !== 'guest' && <ToneRow kind="ev" />}
       <button type="button" className="small-btn danger" style={{ justifySelf: 'start' }} onClick={() => { if (confirm(store.demo ? 'Alle Demo-Daten löschen?' : 'Auf diesem Handy abmelden? Zum Zurückkommen brauchst du einen neuen Einladungscode vom Admin.')) void store.reset(); }}>{store.demo ? 'Demo zurücksetzen' : 'Abmelden'}</button>
       <span className="note">Version vom {__BUILD__}</span>
     </>;
@@ -210,6 +211,7 @@ function Bdays() {
       <b>⏰ Geburtstags-Wecker auf diesem Handy</b>
       <label className="setrow"><span>Klingelt am Geburtstag um</span><input type="time" value={t} onChange={e => { const [h, m] = e.target.value.split(':').map(Number); if (!isNaN(h) && !isNaN(m)) setAlarm({ ...alarm, min: h * 60 + m }); }} /></label>
       <label className="setrow"><span>Für alle Geburtstage</span><input type="checkbox" className="sw" checked={alarm.all} onChange={e => { setAlarm({ ...alarm, all: e.target.checked, keys: [] }); toast(e.target.checked ? `Der Wecker klingelt an jedem Geburtstag um ${hm(alarm.min)} Uhr.` : 'Wecker für alle aus. Einzelne mit ⏰ einschalten.'); }} /></label>
+      <ToneRow kind="bd" />
       <span className="note">{alarm.all ? 'Einzelne mit ⏰ ausschalten.' : 'Oder einzelne Geburtstage mit ⏰ einschalten.'} Der Wecker klingelt mit Namen, bis du ihn ausschaltest.</span>
     </div> : !store.demo && <p className="note">⏰ Einen Geburtstags-Wecker mit Namen kannst du in der Android-App von FamTO stellen.</p>}
     {can && snap.birthdays.length > 0 && <p className="note">Zum Ändern einen Geburtstag lange drücken.</p>}
@@ -253,6 +255,21 @@ function Displays() {
       <select value={s.boardMode} onChange={e => store.updateSettings({ boardMode: e.target.value as 'dynamic' | 'fixed' }).catch(fail)}><option value="dynamic">dynamisch</option><option value="fixed">fest: rechtes Drittel</option></select></label>
     <p className="note">Dynamisch: Das Board bekommt den Platz neben den Terminen. Fest: Das rechte Drittel gehört immer dem Board.</p>
   </>;
+}
+
+// Klingelton der Wecker auf diesem Handy (Android-App)
+export function ToneRow({ kind }: { kind: 'bd' | 'ev' }) {
+  const t = useTones();
+  if (!t) return null;
+  const cur = t[kind];
+  return <label className="setrow"><span>🔔 {kind === 'bd' ? 'Klingelton' : 'Klingelton für Termin-Wecker'}</span>
+    <select value={cur.which} onChange={e => setTone(kind, e.target.value)}>
+      <option value="birthday">Happy Birthday</option>
+      <option value="beep">Piepen</option>
+      <option value="alarm">Weckton des Handys</option>
+      {cur.which === 'custom' && <option value="custom">{cur.title}</option>}
+      <option value="pick">Anderer Ton vom Handy …</option>
+    </select></label>;
 }
 
 // Nur für dieses Handy: App öffnet direkt die Spracheingabe (praktisch mit der Samsung-Seitentaste)

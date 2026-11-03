@@ -48,3 +48,23 @@ export function renameAlarm(from: B, to: B) {
 
 export const getAlarm = read;
 export const useAlarm = () => useSyncExternalStore(f => { subs.add(f); return () => subs.delete(f); }, read);
+
+// Klingeltöne der Wecker (nur Android-App)
+export type Tone = { which: 'birthday' | 'beep' | 'alarm' | 'custom'; title: string };
+let tones: { bd: Tone; ev: Tone } | null = null;
+const toneSubs = new Set<() => void>();
+const readTones = () => {
+  if (tones) return tones;
+  const n = native(); if (!n?.tones) return null;
+  try { tones = JSON.parse(n.tones()); } catch { tones = null; }
+  return tones;
+};
+if (typeof window !== 'undefined') window.addEventListener('famto-tone', () => { tones = null; toneSubs.forEach(f => f()); });
+export const useTones = () => useSyncExternalStore(f => { toneSubs.add(f); return () => toneSubs.delete(f); }, readTones);
+export const setTone = (kind: 'bd' | 'ev', which: string) => native()?.setTone?.(kind, which);
+
+// Termin-Wecker auf diesem Handy
+export const hasEvAlarm = () => !!native()?.setEvAlarm;
+export const evAlarm = (id?: string) => (id && native()?.evAlarm?.(id)) || 0;
+export const setEvAlarm = (a: { id: string; lead: number; date: string; start: number; title: string }) => native()?.setEvAlarm?.(JSON.stringify(a));
+export const LEADS: [number, string][] = [[15, '15 Min. vorher'], [30, '30 Min. vorher'], [60, '1 Std. vorher'], [120, '2 Std. vorher']];

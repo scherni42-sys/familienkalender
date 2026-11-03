@@ -1,4 +1,5 @@
 import { store, useSnapshot } from '../lib/store';
+import { evAlarm, hasEvAlarm, LEADS, setEvAlarm } from '../lib/bdalarm';
 import type { Draft } from '../lib/parse';
 import type { CalEvent } from '../lib/types';
 import { fail, toast } from './toast';
@@ -28,6 +29,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const e = snap.events.find(x => x.id === id);
   const [here, setHere] = useState<{ minutes: number; km: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lead, setLead] = useState(() => evAlarm(e?.id));
   // Fahrer öffnet den Termin am selben Tag: Fahrzeit vom aktuellen Standort automatisch berechnen
   const myTarget = e ? (e.driver === snap.me ? target(e) : e.end_min) : 0;
   const auto = !!e && !!(e.addr || e.place) && isDriver(e, snap.me) && !e.all_day && e.date === today() && myTarget > nowMin() && etaMin(e) === null;
@@ -122,6 +124,8 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
           <FileList files={e.files} from={{ event: e.id }} canEdit={canEdit} />
           {canEdit && <div style={{ marginTop: e.files?.length ? 8 : 0 }}><AttachButton to={{ event: e.id }} /></div>}
         </Row> : null}
+        {hasEvAlarm() && !e.all_day && <Row k="Wecker"><select aria-label="Wecker auf diesem Handy" value={lead} onChange={x => { const v = Number(x.target.value); setLead(v); setEvAlarm({ id: e.id, lead: v, date: e.date, start: e.start_min, title: e.title }); toast(v ? `⏰ Wecker gestellt: ${LEADS.find(l => l[0] === v)?.[1]}.` : 'Wecker aus.'); }}>
+          <option value={0}>aus</option>{LEADS.map(([v, l]) => <option key={v} value={v}>⏰ {l}</option>)}</select></Row>}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>
         <Row k="Angelegt von">{nameOf(snap.members, e.owner)}</Row>
       </div>

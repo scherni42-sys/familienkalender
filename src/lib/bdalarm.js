@@ -49,3 +49,28 @@ export function renameAlarm(from, to) {
 }
 export const getAlarm = read;
 export const useAlarm = () => useSyncExternalStore(f => { subs.add(f); return () => subs.delete(f); }, read);
+let tones = null;
+const toneSubs = new Set();
+const readTones = () => {
+    if (tones)
+        return tones;
+    const n = native();
+    if (!n?.tones)
+        return null;
+    try {
+        tones = JSON.parse(n.tones());
+    }
+    catch {
+        tones = null;
+    }
+    return tones;
+};
+if (typeof window !== 'undefined')
+    window.addEventListener('famto-tone', () => { tones = null; toneSubs.forEach(f => f()); });
+export const useTones = () => useSyncExternalStore(f => { toneSubs.add(f); return () => toneSubs.delete(f); }, readTones);
+export const setTone = (kind, which) => native()?.setTone?.(kind, which);
+// Termin-Wecker auf diesem Handy
+export const hasEvAlarm = () => !!native()?.setEvAlarm;
+export const evAlarm = (id) => (id && native()?.evAlarm?.(id)) || 0;
+export const setEvAlarm = (a) => native()?.setEvAlarm?.(JSON.stringify(a));
+export const LEADS = [[15, '15 Min. vorher'], [30, '30 Min. vorher'], [60, '1 Std. vorher'], [120, '2 Std. vorher']];

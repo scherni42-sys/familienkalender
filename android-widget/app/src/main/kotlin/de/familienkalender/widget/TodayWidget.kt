@@ -36,6 +36,8 @@ class TodayWidget : AppWidgetProvider() {
             // Geburtstags-Wecker klingelt bzw. wird ausgeschaltet
             BdAlarm.FIRE -> BdAlarm.fire(ctx, intent.getStringExtra("names") ?: "")
             BdAlarm.OFF -> BdAlarm.off(ctx)
+            EvAlarm.FIRE -> EvAlarm.fire(ctx, intent.getStringExtra("id") ?: "", intent.getStringExtra("title") ?: "Termin", intent.getStringExtra("at") ?: "")
+            EvAlarm.OFF -> EvAlarm.off(ctx)
             Reminders.AWAY_OK -> {
                 val key = intent.getStringExtra("key") ?: return
                 Away.setOverride(ctx, key, intent.getIntExtra("min", 0))

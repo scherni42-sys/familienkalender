@@ -2,13 +2,10 @@ package de.familienkalender.widget
 
 import android.app.AlarmManager
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,7 +19,6 @@ object BdAlarm {
     const val FIRE = "de.familienkalender.widget.BD_ALARM"
     const val OFF = "de.familienkalender.widget.BD_ALARM_OFF"
     private const val PREFS = "familien-widget"
-    private const val CHANNEL = "geburtstagswecker"
     private const val NID = 4711
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -74,19 +70,11 @@ object BdAlarm {
     // Klingeln: Benachrichtigung mit Weckton, die so lange läutet, bis man „Aus“ tippt oder sie wegwischt
     fun fire(ctx: Context, names: String) {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Geburtstags-Wecker", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Klingelt am Geburtstag zur eingestellten Uhrzeit"
-            setSound(sound, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 600, 400, 600, 400, 600)
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-        })
         val tap = PendingIntent.getActivity(ctx, 42, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "bdays")
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val off = PendingIntent.getBroadcast(ctx, 43, Intent(ctx, TodayWidget::class.java).setAction(OFF),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val n = Notification.Builder(ctx, CHANNEL)
+        val n = Notification.Builder(ctx, Tones.channel(ctx, "bd"))
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle("🎂 Geburtstag $names")
             .setContentText("Heute gratulieren nicht vergessen!")
