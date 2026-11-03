@@ -38,6 +38,8 @@ export function Shell() {
   const [tab, setTab] = useState<Tab>('today');
   const [filter, setFilter] = useState<Filter>(savedFilter);
   const [sheet, setSheet] = useState<SheetState>(null);
+  const [nonce, setNonce] = useState(0);
+  const snapRef = useRef(snap); snapRef.current = snap;
   const [flash, setFlash] = useState<string | null>(null);
   const [focusMsg, setFocusMsg] = useState<string | null>(null);
   const [replyMsg, setReplyMsg] = useState<string | null>(null);
@@ -64,19 +66,24 @@ export function Shell() {
 
   // Schnellstart: ?mic=1 (Verknüpfung) oder Geräte-Einstellung öffnet beim Start und beim Zurückkehren sofort die Spracheingabe
   useEffect(() => {
-    const o = deep.current;
-    if (o) {
-      history.replaceState(null, '', location.pathname + location.hash);
+    // Aus dem Widget (oder einer Benachrichtigung): erst alles Offene schließen, dann das Gewünschte zeigen
+    const go = (o: string) => {
+      setSheet(null); setNonce(n => n + 1);
       const [k, id] = o.split(':');
-      if (k === 'event' && snap.events.some(e => e.id === id)) setSheet({ kind: 'detail', id, day: o.split(':')[2] });
+      if (k === 'event' && snapRef.current.events.some(e => e.id === id)) setSheet({ kind: 'detail', id, day: o.split(':')[2] });
       if (k === 'bdays') setSheet({ kind: 'bdays' });
       if (k === 'bdadd') setSheet({ kind: 'bdays', adding: true });
       // Tag im Widget angetippt: leerer Termin an diesem Datum
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
       if (k === 'settings') setTab('settings');
+      if (k === 'home') setTab('today');
       if (k === 'ask' && me.role !== 'guest') setSheet({ kind: 'ask' });
       if (k === 'msg') { setTab('board'); setFocusMsg(id); if (o.split(':')[2] === 'reply') setReplyMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
-    }
+    };
+    const o = deep.current;
+    if (o) { history.replaceState(null, '', location.pathname + location.hash); go(o); }
+    const onOpen = (e: Event) => { const v = String((e as CustomEvent).detail ?? ''); if (v) go(v); };
+    window.addEventListener('famto-open', onOpen);
     if (me.role === 'guest') return;
     const q = new URLSearchParams(location.search);
     if (q.has('mic')) { history.replaceState(null, '', location.pathname + location.hash); { const v = q.get('mic'), preset = micPreset(v); if (v !== 'photo' && native()) setSheet({ kind: 'mic', preset }); else setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', auto: !preset, quick: true, preset }); } }
@@ -89,7 +96,7 @@ export function Shell() {
     // Android-App schon offen: ＋ im Widget öffnet das Fenster ohne Neuladen
     const onMic = (e: Event) => { const v = String((e as CustomEvent).detail ?? ''); setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', preset: micPreset(v) }); };
     window.addEventListener('famto-mic', onMic);
-    return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); };
+    return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); window.removeEventListener('famto-open', onOpen); };
   }, [me.role]);
 
   return (
@@ -111,7 +118,7 @@ export function Shell() {
         {tab === 'today' && <TodayTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
         {tab === 'board' && <Board focus={focusMsg} reply={replyMsg} />}
-        {tab === 'settings' && <Settings />}
+        {tab === 'settings' && <Settings key={nonce} />}
       </div>
       {me.role !== 'guest' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
       <nav className="tabs" aria-label="Bereiche">

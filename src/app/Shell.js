@@ -36,6 +36,9 @@ export function Shell() {
     const [tab, setTab] = useState('today');
     const [filter, setFilter] = useState(savedFilter);
     const [sheet, setSheet] = useState(null);
+    const [nonce, setNonce] = useState(0);
+    const snapRef = useRef(snap);
+    snapRef.current = snap;
     const [flash, setFlash] = useState(null);
     const [focusMsg, setFocusMsg] = useState(null);
     const [replyMsg, setReplyMsg] = useState(null);
@@ -61,11 +64,12 @@ export function Shell() {
     }, [me.id]);
     // Schnellstart: ?mic=1 (Verknüpfung) oder Geräte-Einstellung öffnet beim Start und beim Zurückkehren sofort die Spracheingabe
     useEffect(() => {
-        const o = deep.current;
-        if (o) {
-            history.replaceState(null, '', location.pathname + location.hash);
+        // Aus dem Widget (oder einer Benachrichtigung): erst alles Offene schließen, dann das Gewünschte zeigen
+        const go = (o) => {
+            setSheet(null);
+            setNonce(n => n + 1);
             const [k, id] = o.split(':');
-            if (k === 'event' && snap.events.some(e => e.id === id))
+            if (k === 'event' && snapRef.current.events.some(e => e.id === id))
                 setSheet({ kind: 'detail', id, day: o.split(':')[2] });
             if (k === 'bdays')
                 setSheet({ kind: 'bdays' });
@@ -76,6 +80,8 @@ export function Shell() {
                 newOn(id);
             if (k === 'settings')
                 setTab('settings');
+            if (k === 'home')
+                setTab('today');
             if (k === 'ask' && me.role !== 'guest')
                 setSheet({ kind: 'ask' });
             if (k === 'msg') {
@@ -85,7 +91,15 @@ export function Shell() {
                     setReplyMsg(id);
                 setTimeout(() => setFocusMsg(null), 4000);
             }
+        };
+        const o = deep.current;
+        if (o) {
+            history.replaceState(null, '', location.pathname + location.hash);
+            go(o);
         }
+        const onOpen = (e) => { const v = String(e.detail ?? ''); if (v)
+            go(v); };
+        window.addEventListener('famto-open', onOpen);
         if (me.role === 'guest')
             return;
         const q = new URLSearchParams(location.search);
@@ -113,12 +127,12 @@ export function Shell() {
         // Android-App schon offen: ＋ im Widget öffnet das Fenster ohne Neuladen
         const onMic = (e) => { const v = String(e.detail ?? ''); setSheet(v === 'photo' ? { kind: 'mic', photo: true } : { kind: 'mic', preset: micPreset(v) }); };
         window.addEventListener('famto-mic', onMic);
-        return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); };
+        return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); window.removeEventListener('famto-open', onOpen); };
     }, [me.role]);
     return (_jsxs("div", { className: "screen", style: me.app_bg ? { background: me.app_bg } : undefined, children: [_jsxs("div", { className: "ph-head", children: [_jsxs("div", { children: [_jsx("small", { children: snap.family.name }), _jsx("strong", { children: titles[tab] })] }), _jsxs("span", { className: "head-r", children: [cake && _jsxs("button", { type: "button", className: "cake", onClick: () => setSheet({ kind: 'bdays' }), "aria-label": `Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`, children: [cake.days === 0 ? 'Heute' : cake.days, _jsx(Icon, { name: "cake" })] }), _jsx("span", { className: "me", children: _jsx(Badge, { m: me }) })] })] }), (tab === 'today' || tab === 'week') && (_jsx("div", { className: "seg filter", role: "group", "aria-label": "Filter", children: [['all', 'Alle'], ['family', 'Familie'], ['home', '🏠 Home']].map(([k, l]) => _jsx("button", { type: "button", "aria-pressed": filter === k, onClick: () => { setFilter(k); try {
                         localStorage.setItem('fk-filter', k);
                     }
-                    catch { /* egal */ } }, children: l }, k)) })), _jsxs("div", { className: `ph-body${tab === 'today' ? ' today' : ''}`, children: [tab === 'today' && _jsx(TodayTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'board' && _jsx(Board, { focus: focusMsg, reply: replyMsg }), tab === 'settings' && _jsx(Settings, {})] }), me.role !== 'guest' && _jsx("button", { type: "button", className: "magic fab", onClick: () => setSheet({ kind: 'ask' }), "aria-label": "Claude fragen", children: "\u2728" }), _jsxs("nav", { className: "tabs", "aria-label": "Bereiche", children: [_jsx(TabBtn, { on: tab === 'today', icon: "today", label: "Heute", go: () => setTab('today') }), _jsx(TabBtn, { on: tab === 'week', icon: "week", label: "Kalender", go: () => setTab('week') }), me.role === 'guest'
+                    catch { /* egal */ } }, children: l }, k)) })), _jsxs("div", { className: `ph-body${tab === 'today' ? ' today' : ''}`, children: [tab === 'today' && _jsx(TodayTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'board' && _jsx(Board, { focus: focusMsg, reply: replyMsg }), tab === 'settings' && _jsx(Settings, {}, nonce)] }), me.role !== 'guest' && _jsx("button", { type: "button", className: "magic fab", onClick: () => setSheet({ kind: 'ask' }), "aria-label": "Claude fragen", children: "\u2728" }), _jsxs("nav", { className: "tabs", "aria-label": "Bereiche", children: [_jsx(TabBtn, { on: tab === 'today', icon: "today", label: "Heute", go: () => setTab('today') }), _jsx(TabBtn, { on: tab === 'week', icon: "week", label: "Kalender", go: () => setTab('week') }), me.role === 'guest'
                         ? _jsx("span", {})
                         : _jsx("button", { type: "button", className: "mic", "aria-label": "Termin oder Nachricht sprechen", onClick: () => setSheet({ kind: 'mic' }), children: _jsx(Icon, { name: "mic" }) }), _jsx(TabBtn, { on: tab === 'board', icon: "board", label: "Board", go: () => setTab('board') }), _jsx(TabBtn, { on: tab === 'settings', icon: "gear", label: "Einstellungen", go: () => setTab('settings') })] }), sheet?.kind === 'mic' && _jsx(MicSheet, { auto: sheet.auto, quick: sheet.quick, preset: sheet.preset, photoFirst: sheet.photo, close: () => setSheet(null), toDraft: (draft) => setSheet({ kind: 'edit', draft, fresh: true }), posted: () => { setSheet(null); setTab('board'); }, saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'edit' && _jsx(EventSheet, { draft: sheet.draft, fresh: sheet.fresh, close: () => setSheet(null), back: () => setSheet({ kind: 'mic' }), saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'detail' && _jsx(DetailSheet, { id: sheet.id, day: sheet.day, add: newOn, close: () => setSheet(null), edit: (draft) => setSheet({ kind: 'edit', draft, fresh: false }) }), sheet?.kind === 'ask' && _jsx(AskSheet, { close: () => setSheet(null), open: id => setSheet({ kind: 'detail', id }), edit: draft => setSheet({ kind: 'edit', draft, fresh: false }), toDraft: draft => setSheet({ kind: 'edit', draft, fresh: true }), bdays: () => setSheet({ kind: 'bdays' }) }), sheet?.kind === 'bdays' && _jsx(BdaySheet, { adding: sheet.adding, close: () => setSheet(null) }), _jsx(PushBanner, { now: now }), toastMsg && _jsx("div", { className: "toast", role: "status", children: toastMsg })] }));
 }

@@ -61,7 +61,7 @@ object EvAlarm {
         val ms = b.first.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val st = b.third.optInt("start")
         val pi = fireIntent(ctx, b.second, b.third.optString("title"), "%d:%02d".format(st / 60, st % 60))
-        val show = PendingIntent.getActivity(ctx, 45, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, b.second)
+        val show = PendingIntent.getActivity(ctx, 45, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "event:" + b.second)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setAlarmClock(AlarmManager.AlarmClockInfo(ms, show), pi)
         else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi)
@@ -71,7 +71,7 @@ object EvAlarm {
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val a = all(ctx).optJSONObject(id)
         val lead = a?.optInt("lead") ?: 0
-        val tap = PendingIntent.getActivity(ctx, 46, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, id)
+        val tap = PendingIntent.getActivity(ctx, 46, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "event:$id")
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val off = PendingIntent.getBroadcast(ctx, 47, Intent(ctx, TodayWidget::class.java).setAction(OFF),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)

@@ -71,6 +71,8 @@ class AppActivity : Activity() {
         web.addJavascriptInterface(Bridge(), "FamTO")
         val host = base().host
         web.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) { pageReady = false }
+            override fun onPageFinished(view: WebView, url: String?) { pageReady = true }
             // Absturz der Browser-Engine (z. B. wenig Speicher): Seite neu laden statt die ganze App zu beenden
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 recreate()
@@ -115,6 +117,13 @@ class AppActivity : Activity() {
         // App schon offen: Eingabefenster per Ereignis öffnen statt die Seite neu zu laden
         if (mic != null && !intent.hasExtra(EXTRA_OPEN) && web.url != null) {
             web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-mic',{detail:" + org.json.JSONObject.quote(mic) + "}))", null)
+            return
+        }
+        // App schon offen: Gewünschtes ohne Neuladen zeigen; die Seite schließt dabei offene Fenster
+        val open = intent.getStringExtra(EXTRA_OPEN)
+        if (open != null && mic == null && pageReady) {
+            web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-open',{detail:" + org.json.JSONObject.quote(open.ifEmpty { "home" }) + "}))", null)
+            askSoon(intent)
             return
         }
         if (intent.hasExtra(EXTRA_OPEN) || mic != null) web.loadUrl(target(intent))
@@ -187,6 +196,7 @@ class AppActivity : Activity() {
     }
 
     private var toneKind = "bd"
+    private var pageReady = false
     private fun toneEvent() = web.evaluateJavascript("window.dispatchEvent(new Event('famto-tone'))", null)
 
     private fun etaSoon() {
