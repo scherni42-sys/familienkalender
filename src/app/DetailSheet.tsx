@@ -30,21 +30,21 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
   const [busy, setBusy] = useState(false);
   // Fahrer öffnet den Termin am selben Tag: Fahrzeit vom aktuellen Standort automatisch berechnen
   const myTarget = e ? (e.driver === snap.me ? target(e) : e.end_min) : 0;
-  const auto = !!e && !!e.addr && isDriver(e, snap.me) && !e.all_day && e.date === today() && myTarget > nowMin() && etaMin(e) === null;
+  const auto = !!e && !!(e.addr || e.place) && isDriver(e, snap.me) && !e.all_day && e.date === today() && myTarget > nowMin() && etaMin(e) === null;
   useEffect(() => {
     if (!auto || !e || !navigator.geolocation) return;
     let live = true; setBusy(true);
     navigator.geolocation.getCurrentPosition(
-      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(r => { if (live) setHere(r); }, () => {}).finally(() => { if (live) setBusy(false); }),
+      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr || e.place).then(r => { if (live) setHere(r); }, () => {}).finally(() => { if (live) setBusy(false); }),
       () => { if (live) setBusy(false); }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
     return () => { live = false; };
-  }, [auto, e?.id, e?.addr]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [auto, e?.id, e?.addr, e?.place]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!e) return null;
   const me = snap.members.find(m => m.id === snap.me)!;
   const canEdit = me.role !== 'guest' && (e.owner === snap.me || e.vis === 'family');
   const tr = travel(e, s), dep = depart(e, s);
   const toDraft = () => eventDraft(e);
-  const nav = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(e.addr)}`;
+  const nav = `https://www.google.com/maps/dir/?api=1&travelmode=driving&dir_action=navigate&destination=${encodeURIComponent(e.addr || e.place)}`;
   const iDrive = isDriver(e, snap.me);
   const l2 = leg2(e, s);
   const nm = (id?: string | null) => nameOf(snap.members, id ?? null);
@@ -67,7 +67,7 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
     // Sofort eine vorläufige Ankunftszeit mit der Fahrzeit von zu Hause, danach genauer vom Standort
     if (e.travel_min) void set(e.travel_min);
     navigator.geolocation?.getCurrentPosition(
-      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr).then(r => set(r.minutes), () => {}),
+      p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr || e.place).then(r => set(r.minutes), () => {}),
       () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
   };
   const maps = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([e.place, e.addr].filter(Boolean).join(', '))}`;
@@ -86,14 +86,14 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
             <button type="button" className="btn ghost sm" onClick={() => store.driverAnswer(e.id, false).then(() => toast('Abgesagt. Wer dich eingetragen hat, bekommt Bescheid.'), fail)}>Kann nicht</button>
           </div>}
         </Row>}
-        {(e.place || e.addr) && <Row k="Ort">{e.place}{e.addr && <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a>}</Row>}
+        {(e.place || e.addr) && <Row k="Ort">{e.addr ? <>{e.place}<a className="addr" href={maps} target="_blank" rel="noreferrer">{e.addr}</a></> : <a className="addr" href={maps} target="_blank" rel="noreferrer">{e.place}</a>}</Row>}
         {tr > 0 && <Row k="Fahrt"><div className="route" style={cvar(snap.members.find(m => m.id === e.driver)?.color ?? '#7a8590')}>
           {eta !== null ? <div className="rt-times"><span><b>{nm(etaDriver(e))} fährt</b></span><span>Ankunft ca. <b>{hm(eta)}</b></span></div> : <>
           <div className="rt-bar"><span className="rt-drive" style={{ flex: tr }}><Icon name="car" /> {tr} Min.</span>{s.buffer > 0 && <span className="rt-buf" style={{ flex: Math.max(s.buffer, 4) }}>{s.buffer}</span>}</div>
           <div className="rt-times"><span><b>{hm(dep)}</b> {e.trip === 'ab' ? 'zum Abholen los' : 'losfahren'}</span><span><b>{hm(target(e))}</b> {e.trip === 'ab' ? 'Ende' : 'Beginn'}</span></div>
           {l2 && <div className="rt-times"><span><b>{hm(l2.leave)}</b> {nm(l2.who)} zum Abholen los</span><span><b>{hm(l2.at)}</b> Ende</span></div>}</>}
         </div></Row>}
-        {e.addr && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">
+        {(e.addr || e.place) && (iDrive || (!e.driver && me.role !== 'child' && me.role !== 'guest')) && <Row k="Von hier">
           {busy && eta === null ? <span className="note">Fahrzeit vom Standort wird berechnet …</span> : here && eta === null ? <><b>{here.minutes} Min.</b> · {String(here.km).replace('.', ',')} km · los spätestens <b>{hm(myTarget - here.minutes - s.buffer)}</b></> : null}
           <div className="nav-row one" style={{ marginTop: (here || busy) && eta === null ? 6 : 0 }}>
             <button type="button" className={`btn sm nav-btn${iDrive && eta !== null ? " nav-on" : ""}`} onClick={startNav}><Icon name="car" /> {iDrive && eta !== null ? 'Navigation läuft' : 'Navigation starten'}</button>
