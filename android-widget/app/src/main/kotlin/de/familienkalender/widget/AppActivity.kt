@@ -107,12 +107,15 @@ class AppActivity : Activity() {
                 requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION), GEO)
             }
         }
-        if (savedInstanceState != null) web.restoreState(savedInstanceState) else web.loadUrl(target(intent))
+        // Immer frisch mit dem gewünschten Ziel laden: ein wiederhergestellter Zustand enthielte noch das alte Ziel
+        // (z. B. den zuletzt aus dem Widget geöffneten Termin) statt des gerade angetippten
+        web.loadUrl(target(intent))
         askSoon(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         val mic = intent.getStringExtra(EXTRA_MIC)
         // App schon offen: Eingabefenster per Ereignis öffnen statt die Seite neu zu laden
         if (mic != null && !intent.hasExtra(EXTRA_OPEN) && web.url != null) {
@@ -154,7 +157,6 @@ class AppActivity : Activity() {
         }
     }
 
-    override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); web.saveState(out) }
 
     @Deprecated("Activity API")
     override fun onActivityResult(code: Int, result: Int, data: Intent?) {
