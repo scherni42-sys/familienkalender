@@ -369,7 +369,7 @@ object Feed {
             if (d < today) { if (shown == 0) out += Row(Kind.NOTE, "frei"); return }
             if (shown == 0) out += Row(Kind.NOTE, none ?: if (isToday) "Keine Familientermine mehr" else "Keine Familientermine", open = "new:$d")
             // Wochenvorschau: an Tagen mit Terminen eine eigene Zeile für einen weiteren Termin
-            else if (none != null) out += Row(Kind.NOTE, "＋ neuer Termin", open = "new:$d")
+            else if (none != null) out += Row(Kind.NOTE, "＋ Termin", open = "new:$d")
         }
         // Wochenvorschau: Montag bis Sonntag der gewählten Woche, ohne Pinnwand
         if (week != null) {
@@ -377,7 +377,7 @@ object Feed {
             for (i in 0L until 7L) {
                 val d = mon.plusDays(i)
                 out += Row(Kind.SECTION, dateLabel(d) + if (d.toString() == today) " · heute" else "", open = "new:$d")
-                day(d.toString(), d.toString() == today, "＋ neuer Termin")
+                day(d.toString(), d.toString() == today, "＋ Termin")
             }
             return out
         }

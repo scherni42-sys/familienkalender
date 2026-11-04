@@ -229,7 +229,7 @@ function DayList({ snap, d, filter, now, open, flash, empty, add }) {
                 : _jsx(BusyCard, { b: it.b, d: d, snap: snap, now: now }, it.b.id))
                 : empty === 'big'
                     ? _jsxs("div", { className: "free", children: [_jsx(Icon, { name: "smile" }), _jsx("b", { children: "Frei" }), _jsx("span", { children: isToday ? 'Heute steht nichts mehr an.' : 'Nichts geplant.' })] })
-                    : add && d >= today() ? _jsx("button", { type: "button", className: "empty tap", onClick: () => add(d), children: _jsx("b", { children: "\uFF0B neuer Termin" }) }) : _jsxs("div", { className: "empty smile", children: [_jsx(Icon, { name: "smile" }), "Frei"] })] });
+                    : add && d >= today() ? _jsx("button", { type: "button", className: "empty tap", onClick: () => add(d), children: _jsx("b", { children: "\uFF0B Termin" }) }) : _jsxs("div", { className: "empty smile", children: [_jsx(Icon, { name: "smile" }), "Frei"] })] });
 }
 // So weit zurück lädt die App Termine (rund 3 Monate)
 const MIN_WK = -12, MIN_MO = -2;
