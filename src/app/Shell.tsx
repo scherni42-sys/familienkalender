@@ -111,7 +111,6 @@ export function Shell() {
           {cake && <button type="button" className="cake" onClick={() => setSheet({ kind: 'bdays' })} aria-label={`Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`}>{cake.days === 0 ? '' : cake.days}<Icon name="cake" /></button>}
           {(tab === 'today' || tab === 'week') && <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
             onClick={() => { const k: Filter = filter === 'home' ? 'all' : 'home'; setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}><Icon name="home" /></button>}
-          <span className="me"><Badge m={me} /></span>
         </span>
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
@@ -158,7 +157,7 @@ function FlightLine({ e }: { e: CalEvent }) {
 export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: string; snap: Snapshot; now: number; open: (id: string) => void; flash?: string | null }) {
   const s = snap.family!.settings;
   const isToday = d === today();
-  const past = isToday && !e.all_day && e.end_min <= now;
+  const past = d < today() || (isToday && !e.all_day && e.end_min <= now);
   const tag = e.vis === 'family' ? <span className="vis-tag family"><Icon name="home" /> Familie</span>
     : e.vis === 'busy' ? <span className="vis-tag busy"><Icon name="lock" /> Privat{e.ext_id ? ' · aus Handy-Kalender' : ''}</span>
     : <span className="vis-tag private"><Icon name="lock" /> Privat</span>;
@@ -218,7 +217,7 @@ function Time({ e, d }: { e: Pick<CalEvent, 'all_day' | 'date' | 'end_date' | 's
 }
 
 function BusyCard({ b, d, snap, now }: { b: BusySlot; d: string; snap: Snapshot; now: number }) {
-  const past = d === today() && !b.all_day && b.end_min <= now;
+  const past = d < today() || (d === today() && !b.all_day && b.end_min <= now);
   return (
     <div className={`ev busy${past ? ' past' : ''}`}>
       <Time e={b} d={d} />
@@ -251,6 +250,8 @@ function DayList({ snap, d, filter, now, open, flash, empty }: { snap: Snapshot;
   </>;
 }
 
+// So weit zurück lädt die App Termine (rund 3 Monate)
+const MIN_WK = -12, MIN_MO = -2;
 function CalendarTab({ snap, filter, now, open, flash }: { snap: Snapshot; filter: Filter; now: number; open: (id: string) => void; flash: string | null }) {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [wk, setWk] = useState(0), [mo, setMo] = useState(0);
@@ -265,7 +266,7 @@ function CalendarTab({ snap, filter, now, open, flash }: { snap: Snapshot; filte
     return <>
       {seg}
       <div className="calnav">
-        <button type="button" className="nav" aria-label="Vorige Woche" onClick={() => setWk(wk - 1)}>‹</button>
+        <button type="button" className="nav" aria-label="Vorige Woche" disabled={wk <= MIN_WK} onClick={() => setWk(Math.max(MIN_WK, wk - 1))}>‹</button>
         <div className="ttl">KW {isoWeek(mon)}<small>{fromIso(mon).getDate()}. {MON[fromIso(mon).getMonth()].slice(0, 3)} – {fromIso(sun).getDate()}. {MON[fromIso(sun).getMonth()].slice(0, 3)}</small></div>
         <button type="button" className="nav" aria-label="Nächste Woche" onClick={() => setWk(wk + 1)}>›</button>
       </div>
@@ -283,7 +284,7 @@ function CalendarTab({ snap, filter, now, open, flash }: { snap: Snapshot; filte
   return <>
     {seg}
     <div className="calnav">
-      <button type="button" className="nav" aria-label="Voriger Monat" onClick={() => setMo(mo - 1)}>‹</button>
+      <button type="button" className="nav" aria-label="Voriger Monat" disabled={mo <= MIN_MO} onClick={() => setMo(Math.max(MIN_MO, mo - 1))}>‹</button>
       <div className="ttl">{MON[m]} {y}</div>
       <button type="button" className="nav" aria-label="Nächster Monat" onClick={() => setMo(mo + 1)}>›</button>
     </div>

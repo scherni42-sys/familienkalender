@@ -219,7 +219,7 @@ class SupabaseStore extends Base {
         const [f, mem, ev, busy, msg, rep, bd, disp] = await Promise.all([
             this.sb.from('families').select('id, name, settings').eq('id', fam).single(),
             this.sb.from('members').select('id, name, role, color, adult, user_id, app_bg, avatar').eq('family_id', fam).eq('active', true).order('created_at'),
-            this.sb.from('events').select('*').eq('family_id', fam).gte('end_date', addDays(today(), -62)),
+            this.sb.from('events').select('*').eq('family_id', fam).gte('end_date', addDays(today(), -92)),
             this.sb.rpc('busy_slots', { fam }),
             this.sb.from('messages').select('*').eq('family_id', fam).order('created_at'),
             this.sb.from('replies').select('*').eq('family_id', fam).order('created_at'),

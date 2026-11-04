@@ -52,7 +52,12 @@ export function upcoming(birthdays) {
         return { ...b, days: diffDays(t, next), age: b.year ? Number(next.slice(0, 4)) - b.year : null, date: next };
     }).sort((a, b) => a.days - b.days);
 }
-export const bdOn = (birthdays, d) => upcoming(birthdays).filter(b => b.date === d);
+// Geburtstage an einem beliebigen Tag, auch in der Vergangenheit (Alter in jenem Jahr)
+export const bdOn = (birthdays, d) => {
+    const y = Number(d.slice(0, 4)), md = d.slice(5);
+    return birthdays.filter(b => `${String(b.month).padStart(2, '0')}-${String(b.day).padStart(2, '0')}` === md)
+        .map(b => ({ ...b, days: diffDays(today(), d), age: b.year ? y - b.year : null, date: d }));
+};
 export const bdLabel = (b) => `${b.day}. ${MON[b.month - 1]}`;
 export const ageMin = (m) => (Date.now() - new Date(m.created_at).getTime()) / 60000;
 export const leftMin = (m, s) => s.ttlHours * 60 - ageMin(m);

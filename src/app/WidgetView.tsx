@@ -2,7 +2,7 @@ import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
-import { Badge, Badges, cvar, Icon } from './ui';
+import { Badge, cvar, Icon } from './ui';
 
 // Startseite der App im Aussehen des Handy-Widgets: nur Heute, dazu das Board auf dunklem Grund
 type Filter = 'all' | 'family' | 'home';
@@ -42,7 +42,7 @@ function Row({ e, d, snap, now, go }: { e: CalEvent; d: string; snap: Snapshot; 
       <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}{!e.all_day && <small>{hm(e.end_min)}</small>}</time>
       <div className="wv-txt">
         <div className="wv-t wrap">{e.vis !== 'family' && <Icon name="lock" />}<span>{e.title}</span></div>
-        {e.persons.length > 0 && <div className="wv-sub who"><Badges ids={e.persons} members={snap.members} /> {e.persons.map(p => nm(p)).join(', ')}</div>}
+        {e.persons.length > 0 && <div className="wv-sub">{e.persons.map(p => nm(p)).join(', ')}</div>}
         {where && <div className="wv-sub wrap"><Icon name="pin" /> {where}</div>}
         {isOnline(e) && <div className="wv-sub">Online-Besprechung</div>}
         <Flight e={e} />
