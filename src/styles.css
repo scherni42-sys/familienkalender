@@ -476,3 +476,9 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .day-past .day-h, .day-past .bd-line { opacity: .5; }
 .tone-l .ico { width: 18px; height: 18px; color: var(--accent); vertical-align: -3px; margin-right: 4px; }
 .day-past .empty { opacity: .5; }
+/* Galerie und Foto als runde Knöpfe links und rechts vom Mikrofon */
+.photo { border: 0; background: none; padding: 0; gap: 4px; right: 8px; }
+.photo.left { right: auto; left: 8px; }
+.photo .rnd { width: 60px; height: 60px; border-radius: 50%; border: 2.5px solid var(--accent); background: var(--surface-2); display: grid; place-items: center; }
+.photo .rnd .ico { width: 26px; height: 26px; }
+.photo span:last-child { font-size: 12px; color: var(--muted); }

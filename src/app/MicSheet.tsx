@@ -119,7 +119,7 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
 
   return (
     <Sheet onClose={close} label="Sprechen">
-      <h2>{mode === 'board' ? 'Nachricht ans Board' : 'Neuer Termin'}</h2>
+      <h2>Neuer Eintrag</h2>
       {/* Aus dem Widget-Kamera-Knopf: großer Foto-Knopf zuerst (Android verlangt einen Tipp, bevor die Kamera aufgeht) */}
       {photoFirst && !store.demo && <label className={`photobig${busy ? ' busy' : ''}`}><Icon name="camera" />{busy ? 'Claude liest das Foto …' : 'Foto aufnehmen'}
         <input type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>}
@@ -129,9 +129,12 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
         <button type="button" className="board" aria-pressed={mode === 'board'} onClick={() => setMode('board')}><Icon name="board" />Board<small>Nachricht</small></button>
       </div>
       <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={() => listen()} aria-label={rec ? 'Aufnahme beenden' : 'Sprechen'}><Icon name="mic" /></button>
-        {!store.demo && !photoFirst && <label className={`photo${busy ? ' busy' : ''}`} aria-label="Termin vom Foto"><Icon name="camera" /><span>Foto</span>
+        {/* Links: Bild aus der Galerie (Screenshot, Einladung als Bild), rechts: Kamera */}
+        {!store.demo && !photoFirst && <label className={`photo left${busy ? ' busy' : ''}`} aria-label="Termin aus einem Bild der Galerie"><span className="rnd"><Icon name="gallery" /></span><span>Galerie</span>
+          <input type="file" accept="image/*" hidden disabled={busy} onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>}
+        {!store.demo && !photoFirst && <label className={`photo${busy ? ' busy' : ''}`} aria-label="Termin vom Foto"><span className="rnd"><Icon name="camera" /></span><span>Foto</span>
           <input type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>}</div>
-      <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : busy ? 'Einen Moment, Claude liest …' : 'Tippe aufs Mikrofon und sprich, schreib den Satz oder fotografiere einen Zettel.'}</p>
+      <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : busy ? 'Einen Moment, Claude liest …' : 'Tippe aufs Mikrofon und sprich, schreib den Satz, fotografiere einen Zettel oder nimm ein Bild aus der Galerie.'}</p>
       <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen'} maxLength={500} />
       <p className="note">Tipp: Beginnst du mit „Privat“, „Familie“ oder „Board“, wird die Art gleich umgestellt.</p>
       <div className="btn-row">
