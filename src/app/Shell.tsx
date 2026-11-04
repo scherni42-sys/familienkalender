@@ -252,7 +252,7 @@ function DayList({ snap, d, filter, now, open, flash, empty, add }: { snap: Snap
       : <BusyCard key={it.b.id} b={it.b} d={d} snap={snap} now={now} />)
       : empty === 'big'
         ? <div className="free"><Icon name="smile" /><b>Frei</b><span>{isToday ? 'Heute steht nichts mehr an.' : 'Nichts geplant.'}</span></div>
-        : add && d >= today() ? <button type="button" className="empty smile tap" onClick={() => add(d)}><Icon name="smile" />Frei · <b>＋ Termin</b></button> : <div className="empty smile"><Icon name="smile" />Frei</div>}
+        : add && d >= today() ? <button type="button" className="empty tap" onClick={() => add(d)}><b>＋ neuer Termin</b></button> : <div className="empty smile"><Icon name="smile" />Frei</div>}
   </>;
 }
 

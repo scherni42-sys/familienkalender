@@ -70,7 +70,7 @@ function Day({ d, snap, filter, now, go }: { d: string; snap: Snapshot; filter: 
       <div className="wv-txt"><div className="wv-t"><Icon name="cake" />{b.owner && <Icon name="lock" />}<span>{b.name}{b.age ? ` wird ${b.age}` : ''}</span></div></div>
     </div>)}
     {list.map(e => <Row key={e.id} e={e} d={d} snap={snap} now={now} go={go} />)}
-    {!list.length && !bds.length && <button type="button" className="wv-note" onClick={() => go.add(d)}>{isToday ? 'Keine Termine mehr' : 'Keine Termine'} · <b>＋ Termin</b></button>}
+    {!list.length && !bds.length && <button type="button" className="wv-note" onClick={() => go.add(d)}><b>＋ neuer Termin</b></button>}
   </>;
 }
 
