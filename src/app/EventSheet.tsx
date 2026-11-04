@@ -9,6 +9,7 @@ import { fail, toast } from './toast';
 import { suggestPlaces, travelTime, type PlaceHit } from '../lib/ai';
 import { AttachButton, FileList } from './Files';
 import { evAlarm, hasEvAlarm, LEADS, setEvAlarm } from '../lib/bdalarm';
+import { native } from '../lib/native';
 
 // Adresse in zwei Feldern: „Straße Nr“ und „PLZ Ort“, gespeichert als „Straße Nr, PLZ Ort“ (eindeutig für Route und Fahrzeit)
 export const splitAddr = (a: string): [string, string] => { const k = a.lastIndexOf(','); return k < 0 ? [a, ''] : [a.slice(0, k), a.slice(k + 1).trimStart()]; };
@@ -112,9 +113,15 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
     try { await store.deleteEvent(d.id); toast('Termin gelöscht.'); close(); } catch (e) { fail(e); }
   };
 
+  // Aus dem Handy-Kalender (Outlook, Google, …) übernommen: Änderungen an Titel/Zeit/Ort gehören ins Original
+  const ext = d.id ? snap.events.find(e => e.id === d.id)?.ext_id ?? null : null;
   return (
     <Sheet onClose={close} label="Termin bestätigen">
       <h2>{fresh ? (d.reason ? 'Stimmt das so?' : 'Neuer Termin') : 'Termin bearbeiten'}</h2>
+      {ext && <div className="ai ext-src"><Icon name="today" /><div>
+        <b>Aus deinem Handy-Kalender übernommen{ext.startsWith('w:') ? ' (beruflich, z. B. Outlook)' : ''}.</b> Titel, Zeit, Ort und Notiz kommen von dort und werden beim nächsten Abgleich wieder überschrieben. Ändere sie deshalb im Original. Fahrer, Personen, Adresse und Mitbringen kannst du hier ändern, die bleiben.
+        {native()?.openCal && <button type="button" className="btn sm" style={{ marginTop: 8 }} onClick={() => { if (!native()?.openCal?.(ext)) toast('Der Termin ließ sich im Kalender nicht öffnen.'); }}>Im Handy-Kalender öffnen</button>}
+      </div></div>}
       {fresh && d.reason && <div className="ai"><Icon name="spark" /><div>
         {d.suggested === d.vis ? <><b>Passt: {d.vis === 'family' ? 'Familie' : 'Privat'}</b>, weil {d.reason}.</>
           : <><b>Hinweis:</b> Du hast {d.vis === 'family' ? 'Familie' : 'Privat'} gewählt. Ich hätte {d.suggested === 'family' ? 'Familie' : 'Privat'} vorgeschlagen, weil {d.reason}.</>}

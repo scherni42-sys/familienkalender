@@ -243,6 +243,15 @@ class AppActivity : Activity() {
         // Persönlicher Widget-Code, damit die App sich ohne Einladung mit dem eigenen Konto verbindet
         @JavascriptInterface fun code(): String = getSharedPreferences("familien-widget", MODE_PRIVATE).getString("code", "") ?: ""
         @JavascriptInterface fun version(): Int = BuildConfig.VERSION_CODE
+        // Übernommenen Termin im Handy-Kalender öffnen (ext_id = [w:]Kalender-Termin-ID:Beginn in ms)
+        @JavascriptInterface fun openCal(extId: String): Boolean {
+            val parts = extId.removePrefix("w:").split(":")
+            val id = parts.getOrNull(0)?.toLongOrNull() ?: return false
+            val begin = parts.getOrNull(1)?.toLongOrNull()
+            val i = Intent(Intent.ACTION_VIEW, android.content.ContentUris.withAppendedId(android.provider.CalendarContract.Events.CONTENT_URI, id))
+            if (begin != null) i.putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, begin)
+            return try { runOnUiThread { startActivity(i) }; true } catch (e: Exception) { false }
+        }
         // Web-App hat etwas gespeichert (Termin, Fahrer, Ankunftszeit): Widget sofort neu laden, nicht erst beim nächsten Takt
         @JavascriptInterface fun changed() {
             val ctx = applicationContext
