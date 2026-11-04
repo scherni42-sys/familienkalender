@@ -283,20 +283,34 @@ object Reminders {
             if (c.optString("to") != me || !c.isNull("read_at") || id in sent) continue
             sent += id
             if (first) continue
-            if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) continue
             val from = c.optString("from")
             val txt = when (c.optString("kind")) { "image" -> "📷 " + c.optString("text").ifEmpty { "Foto" }; "voice" -> "🎤 Sprachnachricht"; "place" -> "📍 Standort"; else -> c.optString("text") }
-            val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.createNotificationChannel(NotificationChannel(CHAT, "Chat", NotificationManager.IMPORTANCE_HIGH).apply { description = "Neue Nachrichten von der Familie" })
-            val nid = ("chat:" + from).hashCode()
-            val tap = PendingIntent.getActivity(ctx, nid, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "chat:$from")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            nm.notify(nid, android.app.Notification.Builder(ctx, CHAT).setSmallIcon(R.drawable.ic_notify)
-                .setContentTitle(names[from] ?: "Neue Nachricht").setContentText(txt).setContentIntent(tap).setAutoCancel(true)
-                .setStyle(android.app.Notification.BigTextStyle().bigText(txt)).build())
+            chatNotify(ctx, from, names[from] ?: "Neue Nachricht", txt)
         }
         // Nur IDs merken, die es noch gibt
         prefs.edit().putStringSet("chatsent", sent.filter { it in ids }.toSet()).apply()
+    }
+
+    // Chat-Nachricht kam per Push: sofort melden und merken, damit das Nachladen sie nicht ein zweites Mal meldet
+    fun chatPush(ctx: Context, d: Map<String, String>) {
+        val id = d["id"] ?: return
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val sent = HashSet(prefs.getStringSet("chatsent", emptySet()) ?: emptySet())
+        if (id in sent) return
+        sent += id
+        prefs.edit().putStringSet("chatsent", sent).apply()
+        chatNotify(ctx, d["from"] ?: "", d["from_name"] ?: "Neue Nachricht", d["text"] ?: "")
+    }
+    private fun chatNotify(ctx: Context, from: String, title: String, txt: String) {
+        if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(NotificationChannel(CHAT, "Chat", NotificationManager.IMPORTANCE_HIGH).apply { description = "Neue Nachrichten von der Familie" })
+        val nid = ("chat:" + from).hashCode()
+        val tap = PendingIntent.getActivity(ctx, nid, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "chat:$from")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        nm.notify(nid, android.app.Notification.Builder(ctx, CHAT).setSmallIcon(R.drawable.ic_notify)
+            .setContentTitle(title).setContentText(txt).setContentIntent(tap).setAutoCancel(true)
+            .setStyle(android.app.Notification.BigTextStyle().bigText(txt)).build())
     }
 
     // Fahrten der Familie: eigener Kanal, in den Android-Einstellungen abschaltbar

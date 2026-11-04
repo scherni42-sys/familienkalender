@@ -159,6 +159,7 @@ class SetupActivity : Activity() {
                         TodayWidget.refreshAll(this)
                         NextWidget.updateAll(this, feed)
                         thread { Reminders.process(this, feed); CalSync.sync(this, feed) }
+                        try { Push.register(applicationContext) } catch (e: Throwable) { }
                         TodayWidget.schedule(this)
                         if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
                             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))

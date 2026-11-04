@@ -46,6 +46,11 @@ jobs:
           fi
           FP=$(keytool -list -v -keystore $KSF -storepass "${WIDGET_KEY_PASS:-android}" | grep -m1 'SHA256:' | awk '{print $2}')
           echo "::notice::Signierschlüssel SHA256 $FP"
+      # Push (Firebase): google-services.json aus dem Secret; ohne Secret baut die App ohne Push
+      - name: Firebase-Konfiguration
+        env: { GSJ: '${{ secrets.GOOGLE_SERVICES_JSON }}' }
+        run: |
+          if [ -n "$GSJ" ]; then printf '%s' "$GSJ" > android-widget/app/google-services.json; echo "::notice::Firebase-Push eingeschaltet"; else echo "::notice::Ohne GOOGLE_SERVICES_JSON: App ohne Push"; fi
       - name: APK bauen
         env: { WIDGET_KEY_PASS: '${{ secrets.WIDGET_KEY_PASS }}' }
         run: |

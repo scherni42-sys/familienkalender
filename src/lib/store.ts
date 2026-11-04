@@ -299,8 +299,10 @@ class SupabaseStore extends Base implements Store {
       const up = await this.sb.storage.from('chat').upload(media, c.blob, { contentType: c.blob.type || undefined });
       if (up.error) throw new Error(up.error.message.includes('not found') ? 'Der Chat ist noch nicht eingerichtet (Migration 0020).' : up.error.message);
     }
-    const r = await this.sb.from('chats').insert({ family_id: fam, from_member: me, to_member: to, kind: c.kind, text: c.text ?? '', media, dur: c.dur ?? null, lat: c.lat ?? null, lon: c.lon ?? null });
+    const r = await this.sb.from('chats').insert({ family_id: fam, from_member: me, to_member: to, kind: c.kind, text: c.text ?? '', media, dur: c.dur ?? null, lat: c.lat ?? null, lon: c.lon ?? null }).select('id').single();
     if (r.error) { if (media) await this.sb.storage.from('chat').remove([media]); throw new Error(/chats/.test(r.error.message) && /exist|find/.test(r.error.message) ? 'Der Chat ist noch nicht eingerichtet (Migration 0020).' : r.error.message); }
+    // Empfänger sofort per Push benachrichtigen (klappt erst, wenn Firebase eingerichtet ist; sonst holt das Widget die Nachricht beim nächsten Abruf)
+    if (r.data?.id) void this.sb.functions.invoke('push', { body: { kind: 'chat', chat_id: r.data.id } }).catch(() => { /* egal */ });
     await this.loadChats(fam, me);
     try { native()?.changed?.(); } catch { /* ältere App */ }
   }

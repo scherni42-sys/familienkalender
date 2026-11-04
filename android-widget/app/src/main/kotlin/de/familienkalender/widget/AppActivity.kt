@@ -227,6 +227,7 @@ class AppActivity : Activity() {
         web.evaluateJavascript("window.dispatchEvent(new Event('famto-resume'))", null)
         val ctx = applicationContext
         Thread { try { if (Updater.check(ctx)) TodayWidget.refreshData(ctx) } catch (e: Exception) { } }.start()
+        try { Push.register(ctx) } catch (e: Throwable) { }
     }
 
     private var recAsk: PermissionRequest? = null
@@ -266,6 +267,8 @@ class AppActivity : Activity() {
             return try { runOnUiThread { startActivity(if (cal != null) i else Intent.createChooser(i, "Termin öffnen mit")) }; true } catch (e: Exception) { false }
         }
         // Web-App hat etwas gespeichert (Termin, Fahrer, Ankunftszeit): Widget sofort neu laden, nicht erst beim nächsten Takt
+        // SOS-Fenster öffnen (Knopf in der Web-App, nur in der Android-App sichtbar)
+        @JavascriptInterface fun sos() { runOnUiThread { startActivity(Intent(this@AppActivity, SosActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
         @JavascriptInterface fun changed() {
             val ctx = applicationContext
             Thread {

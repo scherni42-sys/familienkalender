@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SOS: roter Kreis mit Ausrufezeichen -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="40dp" android:height="40dp" android:viewportWidth="40" android:viewportHeight="40">
+    <path android:fillColor="#D32F2F" android:pathData="M20,3 A17,17 0 1,1 19.99,3 Z" />
+    <path android:strokeColor="#FFFFFF" android:strokeWidth="3.4" android:strokeLineCap="round" android:pathData="M20,11 L20,22.5" />
+    <path android:fillColor="#FFFFFF" android:pathData="M20,26 A2.1,2.1 0 1,1 19.99,26 Z" />
+</vector>
