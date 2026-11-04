@@ -233,7 +233,7 @@ function BusyCard({ b, d, snap, now }: { b: BusySlot; d: string; snap: Snapshot;
   );
 }
 
-function DayList({ snap, d, filter, now, open, flash, empty }: { snap: Snapshot; d: string; filter: Filter; now: number; open: (id: string, how?: 'edit') => void; flash: string | null; empty: 'big' | 'small' }) {
+function DayList({ snap, d, filter, now, open, flash, empty, add }: { snap: Snapshot; d: string; filter: Filter; now: number; open: (id: string, how?: 'edit') => void; flash: string | null; empty: 'big' | 'small'; add?: (d: string) => void }) {
   const s = snap.family!.settings;
   const { ev, busy } = visibleOnDay(snap.events, snap.busy, d, snap.me, filter);
   const isToday = d === today();
@@ -252,7 +252,7 @@ function DayList({ snap, d, filter, now, open, flash, empty }: { snap: Snapshot;
       : <BusyCard key={it.b.id} b={it.b} d={d} snap={snap} now={now} />)
       : empty === 'big'
         ? <div className="free"><Icon name="smile" /><b>Frei</b><span>{isToday ? 'Heute steht nichts mehr an.' : 'Nichts geplant.'}</span></div>
-        : <div className="empty smile"><Icon name="smile" />Frei</div>}
+        : add && d >= today() ? <button type="button" className="empty smile tap" onClick={() => add(d)}><Icon name="smile" />Frei · <b>＋ Termin</b></button> : <div className="empty smile"><Icon name="smile" />Frei</div>}
   </>;
 }
 
@@ -288,7 +288,7 @@ function CalendarTab({ snap, filter, now, open, add, flash }: { snap: Snapshot; 
       {wk !== 0 && <button type="button" className="todaybtn" onClick={() => setWk(0)}>Diese Woche</button>}
       {days.map(d => <div key={d} style={{ display: 'grid', gap: 8 }}>
         <DayHead d={d} add={add} />
-        <DayList snap={snap} d={d} filter={filter} now={now} open={open} flash={flash} empty="small" />
+        <DayList snap={snap} d={d} filter={filter} now={now} open={open} flash={flash} empty="small" add={add} />
       </div>)}
     </>;
   }
@@ -316,6 +316,6 @@ function CalendarTab({ snap, filter, now, open, add, flash }: { snap: Snapshot; 
       })}
     </div>
     <div className="day-h"><span>{dayLabel(sel)}</span></div>
-    <DayList snap={snap} d={sel} filter={filter} now={now} open={open} flash={flash} empty="small" />
+    <DayList snap={snap} d={sel} filter={filter} now={now} open={open} flash={flash} empty="small" add={add} />
   </>;
 }
