@@ -6,6 +6,7 @@ import { hm, today } from '../lib/dates';
 import { shrinkPhoto } from '../lib/ai';
 import { Badge, Icon, useLong } from './ui';
 import { ClipMenu } from './ClipMenu';
+import { native } from '../lib/native';
 import { fail, toast } from './toast';
 
 // Chat von Person zu Person, wie bei WhatsApp: links die Liste, ein Tipp öffnet den Verlauf.
@@ -76,7 +77,14 @@ function useRecorder(send: (b: Blob, sec: number) => void) {
       rec.current = cur; r.start(); setSec(0);
       // Nach 3 Minuten automatisch senden
       setTimeout(() => { if (rec.current === cur && r.state === 'recording') r.stop(); }, 180_000);
-    } catch { toast('Kein Zugriff aufs Mikrofon. Bitte in den Handy-Einstellungen erlauben.'); }
+    } catch (e) {
+      // In der Android-App: Erlaubnis anfragen bzw. gleich zur Freigabe; danach einfach nochmal aufs Mikrofon tippen
+      const n = native(), why = e instanceof Error ? e.name : '';
+      const st = n?.askMic?.();
+      if (st === 'asked') toast('Bitte das Mikrofon erlauben, dann nochmal aufs Mikrofon tippen.');
+      else if (st === 'ok') { toast(`Mikrofon ging nicht (${why || 'unbekannt'}). Bitte nochmal tippen.`); }
+      else toast('Kein Zugriff aufs Mikrofon. Bitte in den Handy-Einstellungen erlauben.');
+    }
   };
   const stop = (keep: boolean) => { const c = rec.current; if (!c) return; c.keep = keep; c.r.stop(); };
   return { sec, start, stop };

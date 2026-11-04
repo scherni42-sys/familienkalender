@@ -274,6 +274,13 @@ class AppActivity : Activity() {
             return try { runOnUiThread { startActivity(if (cal != null) i else Intent.createChooser(i, "Termin öffnen mit")) }; true } catch (e: Exception) { false }
         }
         // Web-App hat etwas gespeichert (Termin, Fahrer, Ankunftszeit): Widget sofort neu laden, nicht erst beim nächsten Takt
+        // Mikrofon für Sprachnachrichten: "ok", wenn erlaubt; sonst fragt Android, bei Ablehnung gleich die App-Einstellungen
+        @JavascriptInterface fun askMic(): String {
+            if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) return "ok"
+            runOnUiThread { requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), REC) }
+            return "asked"
+        }
+        @JavascriptInterface fun appSettings() { runOnUiThread { micSettings() } }
         @JavascriptInterface fun changed() {
             val ctx = applicationContext
             Thread {
