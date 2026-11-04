@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { demoLink, store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
 import { native } from '../lib/native';
@@ -39,6 +39,9 @@ export function Shell() {
   const snap = useSnapshot();
   const [tab, setTab] = useState<Tab>('today');
   const [wk, setWk] = useState(0);
+  // Große Schrift: passt der Titel nicht, kürzer schreiben („Mi, 4. Nov.“ bzw. „KW 45“)
+  const titleRef = useRef<HTMLElement>(null);
+  const [shortT, setShortT] = useState(false);
   const [filter, setFilter] = useState<Filter>(savedFilter);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [nonce, setNonce] = useState(0);
@@ -109,12 +112,15 @@ export function Shell() {
     return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); window.removeEventListener('famto-open', onOpen); };
   }, [me.role]);
 
+  useLayoutEffect(() => { setShortT(false); }, [tab, wk]);
+  useLayoutEffect(() => { const el = titleRef.current; if (el && !shortT && el.scrollWidth > el.clientWidth + 1) setShortT(true); });
+  useEffect(() => { const r = () => setShortT(false); addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
   return (
     <div className="screen" style={me.app_bg ? { background: me.app_bg } : undefined}>
       {/* Kopfzeile wie im Widget: Datum (bzw. Woche), Zahnrad, Haus */}
       <div className="ph-head wlike">
         <button type="button" className="ph-title" onClick={() => setTab('today')} aria-label="Zurück zu heute">
-          <strong className={tab === 'today' ? 'date' : undefined}>{tab === 'today' ? longDate(today()) : tab === 'week' ? kwTitle(wk) : titles[tab]}</strong></button>
+          <strong ref={titleRef} className={tab === 'today' ? 'date' : undefined}>{tab === 'today' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab]}</strong></button>
         <span className="head-r">
           <button type="button" className={`head-i${tab === 'settings' ? ' on' : ''}`} aria-label="Einstellungen" aria-pressed={tab === 'settings'} onClick={() => setTab(tab === 'settings' ? 'today' : 'settings')}><Icon name="gear" /></button>
           <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
@@ -255,6 +261,7 @@ function DayList({ snap, d, filter, now, open, flash, empty, add }: { snap: Snap
 
 // So weit zurück lädt die App Termine (rund 3 Monate)
 const MIN_WK = -12, MIN_MO = -2;
+const shortDate = (d: string) => { const x = fromIso(d); return `${WDS[x.getDay()]}, ${x.getDate()}. ${MON[x.getMonth()].slice(0, 3)}.`; };
 const kwTitle = (wk: number) => { const mon = addDays(mondayOf(today()), wk * 7), sun = addDays(mon, 6); return `KW ${isoWeek(mon)} · ${fromIso(mon).getDate()}.–${fromIso(sun).getDate()}. ${MON[fromIso(sun).getMonth()].slice(0, 3)}`; };
 // Tag lange drücken: neuer Termin an diesem Tag (wie Antippen des Tages im Widget)
 function DayHead({ d, add }: { d: string; add: (d: string) => void }) {

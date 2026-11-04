@@ -1,5 +1,5 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { demoLink, store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
 import { native } from '../lib/native';
@@ -37,6 +37,9 @@ export function Shell() {
     const snap = useSnapshot();
     const [tab, setTab] = useState('today');
     const [wk, setWk] = useState(0);
+    // Große Schrift: passt der Titel nicht, kürzer schreiben („Mi, 4. Nov.“ bzw. „KW 45“)
+    const titleRef = useRef(null);
+    const [shortT, setShortT] = useState(false);
     const [filter, setFilter] = useState(savedFilter);
     const [sheet, setSheet] = useState(null);
     const [nonce, setNonce] = useState(0);
@@ -142,7 +145,11 @@ export function Shell() {
         window.addEventListener('famto-mic', onMic);
         return () => { document.removeEventListener('visibilitychange', onShow); window.removeEventListener('famto-mic', onMic); window.removeEventListener('famto-open', onOpen); };
     }, [me.role]);
-    return (_jsxs("div", { className: "screen", style: me.app_bg ? { background: me.app_bg } : undefined, children: [_jsxs("div", { className: "ph-head wlike", children: [_jsx("button", { type: "button", className: "ph-title", onClick: () => setTab('today'), "aria-label": "Zur\u00FCck zu heute", children: _jsx("strong", { className: tab === 'today' ? 'date' : undefined, children: tab === 'today' ? longDate(today()) : tab === 'week' ? kwTitle(wk) : titles[tab] }) }), _jsxs("span", { className: "head-r", children: [_jsx("button", { type: "button", className: `head-i${tab === 'settings' ? ' on' : ''}`, "aria-label": "Einstellungen", "aria-pressed": tab === 'settings', onClick: () => setTab(tab === 'settings' ? 'today' : 'settings'), children: _jsx(Icon, { name: "gear" }) }), _jsx("button", { type: "button", className: `home-t${filter === 'home' ? ' on' : ''}`, "aria-pressed": filter === 'home', "aria-label": "Home-Modus: berufliche Termine ausblenden", onClick: () => { const k = filter === 'home' ? 'all' : 'home'; setFilter(k); try {
+    useLayoutEffect(() => { setShortT(false); }, [tab, wk]);
+    useLayoutEffect(() => { const el = titleRef.current; if (el && !shortT && el.scrollWidth > el.clientWidth + 1)
+        setShortT(true); });
+    useEffect(() => { const r = () => setShortT(false); addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
+    return (_jsxs("div", { className: "screen", style: me.app_bg ? { background: me.app_bg } : undefined, children: [_jsxs("div", { className: "ph-head wlike", children: [_jsx("button", { type: "button", className: "ph-title", onClick: () => setTab('today'), "aria-label": "Zur\u00FCck zu heute", children: _jsx("strong", { ref: titleRef, className: tab === 'today' ? 'date' : undefined, children: tab === 'today' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab] }) }), _jsxs("span", { className: "head-r", children: [_jsx("button", { type: "button", className: `head-i${tab === 'settings' ? ' on' : ''}`, "aria-label": "Einstellungen", "aria-pressed": tab === 'settings', onClick: () => setTab(tab === 'settings' ? 'today' : 'settings'), children: _jsx(Icon, { name: "gear" }) }), _jsx("button", { type: "button", className: `home-t${filter === 'home' ? ' on' : ''}`, "aria-pressed": filter === 'home', "aria-label": "Home-Modus: berufliche Termine ausblenden", onClick: () => { const k = filter === 'home' ? 'all' : 'home'; setFilter(k); try {
                                     localStorage.setItem('fk-filter', k);
                                 }
                                 catch { /* egal */ } }, children: _jsx(Icon, { name: "home" }) })] })] }), demoLink && _jsx("div", { className: "demo-bar", children: "Testversion mit Beispielfamilie. Was du \u00E4nderst, bleibt nur in diesem Browser." }), _jsxs("div", { className: `ph-body${tab === 'today' ? ' today' : ''}`, children: [tab === 'today' && _jsx(WidgetView, { snap: snap, filter: filter, now: now, go: { open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } } }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, add: newOn, flash: flash, wk: wk }), tab === 'board' && _jsx(Board, { focus: focusMsg, reply: replyMsg }), tab === 'settings' && _jsx(Settings, {}, nonce)] }), me.role !== 'guest' && _jsx("button", { type: "button", className: "magic fab", onClick: () => setSheet({ kind: 'ask' }), "aria-label": "Claude fragen", children: "\u2728" }), _jsxs("nav", { className: "wbar", "aria-label": "Bereiche", children: [_jsxs("button", { type: "button", className: "ring-b", onClick: () => setSheet({ kind: 'bdays' }), "aria-label": cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage', children: ["B", cake && _jsx("small", { children: cake.days === 0 ? '🎂' : cake.days })] }), _jsxs("span", { className: "kw", children: [_jsx("button", { type: "button", className: "arr", style: { visibility: tab === 'week' && wk > MIN_WK ? 'visible' : 'hidden' }, "aria-label": "Woche zur\u00FCck", onClick: () => setWk(w => Math.max(MIN_WK, w - 1)), children: "\u25C0" }), _jsxs("button", { type: "button", className: `kw-p${tab === 'week' ? ' on' : ''}`, "aria-pressed": tab === 'week', "aria-label": "Wochenansicht", onClick: () => { if (tab === 'week' && wk !== 0)
@@ -231,6 +238,7 @@ function DayList({ snap, d, filter, now, open, flash, empty, add }) {
 }
 // So weit zurück lädt die App Termine (rund 3 Monate)
 const MIN_WK = -12, MIN_MO = -2;
+const shortDate = (d) => { const x = fromIso(d); return `${WDS[x.getDay()]}, ${x.getDate()}. ${MON[x.getMonth()].slice(0, 3)}.`; };
 const kwTitle = (wk) => { const mon = addDays(mondayOf(today()), wk * 7), sun = addDays(mon, 6); return `KW ${isoWeek(mon)} · ${fromIso(mon).getDate()}.–${fromIso(sun).getDate()}. ${MON[fromIso(sun).getMonth()].slice(0, 3)}`; };
 // Tag lange drücken: neuer Termin an diesem Tag (wie Antippen des Tages im Widget)
 function DayHead({ d, add }) {
