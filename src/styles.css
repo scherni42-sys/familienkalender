@@ -533,3 +533,4 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .ch-rec i { width: 12px; height: 12px; border-radius: 50%; background: #E25B45; animation: chrec 1s infinite; }
 @keyframes chrec { 50% { opacity: .3; } }
 .ch-t { font-weight: 400; }
+.ch-pick { display: flex; flex-direction: column; gap: 2px; }

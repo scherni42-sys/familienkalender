@@ -141,11 +141,13 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
   );
 }
 
-export function Chat({ open, opened }: { open?: string | null; opened?: () => void }) {
+// plus: zählt hoch, wenn unten das ＋ gedrückt wird; dann die Auswahl „Neuer Chat mit …“
+export function Chat({ open, opened, plus = 0 }: { open?: string | null; opened?: () => void; plus?: number }) {
   const snap = useSnapshot();
   const me = snap.members.find(m => m.id === snap.me);
   const [w, setW] = useState<string | null>(open ?? null), [pick, setPick] = useState(false);
   useEffect(() => { if (open) { setW(open); opened?.(); } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (plus) { setW(null); setPick(true); } }, [plus]);
   if (!me || me.role === 'guest') return <div className="ch-empty">Gäste können nicht chatten.</div>;
   const people = snap.members.filter(m => m.id !== me.id && m.role !== 'guest');
   const who = people.find(m => m.id === w);
@@ -162,12 +164,13 @@ export function Chat({ open, opened }: { open?: string | null; opened?: () => vo
           <span className="ch-side"><small>{whenC(t.last.created_at)}</small>{t.unread > 0 && <i>{t.unread}</i>}</span>
         </button>;
       })}
-      {!threads.length && !pick && <div className="ch-empty">Noch keine Chats. Mit ＋ schreibst du jemandem aus der Familie.</div>}
+      {!threads.length && !pick && <div className="ch-empty">Noch keine Chats. Mit ＋ unten rechts schreibst du jemandem aus der Familie.</div>}
       {pick ? <div className="ch-pick">
         <div className="ch-pick-h">Neuer Chat mit …</div>
         {[...fresh, ...people.filter(p => !fresh.includes(p))].map(p => <button key={p.id} type="button" className="ch-item" onClick={() => { setPick(false); setW(p.id); }}><Badge m={p} size={40} /><span className="ch-mid"><b>{p.name}</b></span></button>)}
         {!people.length && <div className="ch-empty">In der Familie ist sonst noch niemand.</div>}
-      </div> : <button type="button" className="ch-new" onClick={() => setPick(true)}>＋ Neuer Chat</button>}
+        <button type="button" className="ch-new" onClick={() => setPick(false)}>Abbrechen</button>
+      </div> : null}
     </div>
   );
 }

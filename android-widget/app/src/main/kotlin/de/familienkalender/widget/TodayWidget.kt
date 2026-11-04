@@ -123,6 +123,15 @@ class TodayWidget : AppWidgetProvider() {
             v.setViewVisibility(R.id.weekyear, if (year != null) View.VISIBLE else View.GONE)
             v.setViewVisibility(R.id.weekprev, if (on && Feed.weekOff(ctx) > Feed.MIN_WEEKS) View.VISIBLE else View.INVISIBLE)
             v.setViewVisibility(R.id.weeknext, if (on && Feed.weekOff(ctx) < Feed.MAX_WEEKS) View.VISIBLE else View.INVISIBLE)
+            // Chat groß: unten nur das ＋ (neuer Chat in der App), alle anderen Knöpfe ausgeblendet
+            val chat = Feed.chatMode(ctx)
+            v.setViewVisibility(R.id.q_bdays, if (chat) View.INVISIBLE else View.VISIBLE)
+            v.setViewVisibility(R.id.weeklabel, if (chat) View.INVISIBLE else View.VISIBLE)
+            v.setViewVisibility(R.id.ask, if (chat) View.INVISIBLE else View.VISIBLE)
+            if (chat) { v.setViewVisibility(R.id.weekprev, View.INVISIBLE); v.setViewVisibility(R.id.weeknext, View.INVISIBLE); v.setViewVisibility(R.id.weekyear, View.GONE) }
+            val add = if (chat) Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "chat:new").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                else Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, "new").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            v.setOnClickPendingIntent(R.id.q_add, PendingIntent.getActivity(ctx, if (chat) 11 else 10, add, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         }
 
         private fun refreshIntent(ctx: Context): PendingIntent = PendingIntent.getBroadcast(

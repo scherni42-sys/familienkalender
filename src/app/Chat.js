@@ -130,7 +130,8 @@ function Thread({ w, back }) {
                     return; void go(store.sendChat(w.id, { kind: 'text', text: v })).then(() => setText('')); }, children: [_jsxs("label", { className: "ch-i", "aria-label": "Foto senden", children: [_jsx(Icon, { name: "camera" }), _jsx("input", { type: "file", accept: "image/*", hidden: true, onChange: e => { void photo(e.target.files?.[0]); e.target.value = ''; } })] }), _jsx("button", { type: "button", className: "ch-i", "aria-label": "Standort senden", disabled: busy, onClick: place, children: _jsx(Icon, { name: "place" }) }), _jsx("input", { value: text, onChange: e => setText(e.target.value), placeholder: `Nachricht an ${w.name}`, maxLength: 2000, "aria-label": "Nachricht" }), text.trim() ? _jsx("button", { className: "ch-send", "aria-label": "Senden", disabled: busy, children: busy ? _jsx("span", { className: "spin" }) : _jsx(Icon, { name: "send" }) })
                         : _jsx("button", { type: "button", className: "ch-send", "aria-label": "Sprachnachricht aufnehmen", disabled: busy, onClick: () => void voice.start(), children: busy ? _jsx("span", { className: "spin" }) : _jsx(Icon, { name: "mic" }) })] }))] }));
 }
-export function Chat({ open, opened }) {
+// plus: zählt hoch, wenn unten das ＋ gedrückt wird; dann die Auswahl „Neuer Chat mit …“
+export function Chat({ open, opened, plus = 0 }) {
     const snap = useSnapshot();
     const me = snap.members.find(m => m.id === snap.me);
     const [w, setW] = useState(open ?? null), [pick, setPick] = useState(false);
@@ -138,6 +139,10 @@ export function Chat({ open, opened }) {
         setW(open);
         opened?.();
     } }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { if (plus) {
+        setW(null);
+        setPick(true);
+    } }, [plus]);
     if (!me || me.role === 'guest')
         return _jsx("div", { className: "ch-empty", children: "G\u00E4ste k\u00F6nnen nicht chatten." });
     const people = snap.members.filter(m => m.id !== me.id && m.role !== 'guest');
@@ -149,5 +154,5 @@ export function Chat({ open, opened }) {
     return (_jsxs("div", { className: "ch-start", children: [threads.map(t => {
                 const m = snap.members.find(x => x.id === t.with);
                 return _jsxs("button", { type: "button", className: `ch-item${t.unread ? ' unread' : ''}`, onClick: () => setW(t.with), children: [_jsx(Badge, { m: m, size: 40 }), _jsxs("span", { className: "ch-mid", children: [_jsx("b", { children: m?.name ?? 'Unbekannt' }), _jsxs("small", { children: [t.last.from_member === snap.me ? 'Du: ' : '', chatPreview(t.last)] })] }), _jsxs("span", { className: "ch-side", children: [_jsx("small", { children: whenC(t.last.created_at) }), t.unread > 0 && _jsx("i", { children: t.unread })] })] }, t.with);
-            }), !threads.length && !pick && _jsx("div", { className: "ch-empty", children: "Noch keine Chats. Mit \uFF0B schreibst du jemandem aus der Familie." }), pick ? _jsxs("div", { className: "ch-pick", children: [_jsx("div", { className: "ch-pick-h", children: "Neuer Chat mit \u2026" }), [...fresh, ...people.filter(p => !fresh.includes(p))].map(p => _jsxs("button", { type: "button", className: "ch-item", onClick: () => { setPick(false); setW(p.id); }, children: [_jsx(Badge, { m: p, size: 40 }), _jsx("span", { className: "ch-mid", children: _jsx("b", { children: p.name }) })] }, p.id)), !people.length && _jsx("div", { className: "ch-empty", children: "In der Familie ist sonst noch niemand." })] }) : _jsx("button", { type: "button", className: "ch-new", onClick: () => setPick(true), children: "\uFF0B Neuer Chat" })] }));
+            }), !threads.length && !pick && _jsx("div", { className: "ch-empty", children: "Noch keine Chats. Mit \uFF0B unten rechts schreibst du jemandem aus der Familie." }), pick ? _jsxs("div", { className: "ch-pick", children: [_jsx("div", { className: "ch-pick-h", children: "Neuer Chat mit \u2026" }), [...fresh, ...people.filter(p => !fresh.includes(p))].map(p => _jsxs("button", { type: "button", className: "ch-item", onClick: () => { setPick(false); setW(p.id); }, children: [_jsx(Badge, { m: p, size: 40 }), _jsx("span", { className: "ch-mid", children: _jsx("b", { children: p.name }) })] }, p.id)), !people.length && _jsx("div", { className: "ch-empty", children: "In der Familie ist sonst noch niemand." }), _jsx("button", { type: "button", className: "ch-new", onClick: () => setPick(false), children: "Abbrechen" })] }) : null] }));
 }
