@@ -11,7 +11,7 @@
         android:id="@+id/head"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
+        android:gravity="top"
         android:orientation="horizontal">
 
         <TextView
@@ -61,29 +61,30 @@
             android:src="@drawable/ring_home_off"
             android:visibility="gone" />
 
-        <!-- Aktualisieren: grüner Ring mit Pfeil, in der Mitte klein die Versionsnummer -->
-        <FrameLayout
+        <!-- Aktualisieren: grüner Ring mit Pfeil, darunter gut lesbar die Versionsnummer -->
+        <LinearLayout
             android:id="@+id/refresh"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
             android:contentDescription="Aktualisieren">
 
             <ImageView
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ring_refresh" />
 
             <TextView
                 android:id="@+id/stamp"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:includeFontPadding="false"
-                android:textColor="#FFFFFF"
-                android:textSize="9sp"
+                android:textColor="@color/fg"
+                android:textSize="12sp"
                 android:textStyle="bold" />
-        </FrameLayout>
+        </LinearLayout>
     </LinearLayout>
 
     <FrameLayout
