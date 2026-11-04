@@ -74,6 +74,15 @@ class AppActivity : Activity() {
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) { pageReady = false }
             override fun onPageFinished(view: WebView, url: String?) { pageReady = true }
+            // Seite lädt nicht (kein Netz, Seite gesperrt): Meldung statt schwarzem Bildschirm
+            override fun onReceivedError(view: WebView, req: WebResourceRequest, err: android.webkit.WebResourceError) {
+                if (!req.isForMainFrame) return
+                val why = android.text.Html.escapeHtml(err.description?.toString() ?: "unbekannt")
+                view.loadDataWithBaseURL(null, "<html><body style=\"font:16px/1.5 sans-serif;padding:32px 24px;background:#1B201E;color:#EEF3F0\">" +
+                    "<h2>FamTO lädt nicht</h2><p>Bitte prüfe die Internetverbindung und tippe auf Neu laden.</p>" +
+                    "<p style=\"color:#9AA8A0;font-size:13px\">Grund: $why<br>Android ${android.os.Build.VERSION.RELEASE}, App ${BuildConfig.VERSION_CODE}</p>" +
+                    "<button onclick=\"location.href='" + base() + "'\" style=\"font:inherit;padding:10px 20px;border-radius:999px;border:0;background:#1D8657;color:#fff\">Neu laden</button></body></html>", "text/html", "utf-8", null)
+            }
             // Absturz der Browser-Engine (z. B. wenig Speicher): Seite neu laden statt die ganze App zu beenden
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
                 recreate()

@@ -15,6 +15,24 @@
 </head>
 <body>
   <div id="root"></div>
+  <!-- Notbremse: lädt die App nicht (alter Browser, Skriptfehler), statt eines leeren Bildschirms eine Meldung zeigen -->
+  <script>
+    (function () {
+      var errs = [];
+      window.addEventListener('error', function (e) { errs.push((e.message || 'Fehler') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+      window.addEventListener('unhandledrejection', function (e) { errs.push(String(e.reason && e.reason.message || e.reason)); });
+      setTimeout(function () {
+        var r = document.getElementById('root');
+        if (r && r.childElementCount) return;
+        var d = document.createElement('div');
+        d.style.cssText = 'font:16px/1.5 system-ui,sans-serif;padding:32px 24px;color:#EEF3F0;background:#1B201E;min-height:100vh;box-sizing:border-box';
+        d.innerHTML = '<h2 style="margin:0 0 12px">FamTO startet nicht</h2><p>Bitte einmal neu laden. Hilft das nicht, schick bitte ein Foto dieser Seite an Matthias.</p>'
+          + '<p style="color:#9AA8A0;font-size:13px;word-break:break-word">' + navigator.userAgent.replace(/[<>&]/g, '') + '<br>' + (errs.join('<br>').replace(/[<>&]/g, '') || 'kein Skriptfehler gemeldet') + '</p>'
+          + '<button onclick="location.reload()" style="font:inherit;padding:10px 20px;border-radius:999px;border:0;background:#1D8657;color:#fff">Neu laden</button>';
+        document.body.appendChild(d);
+      }, 12000);
+    })();
+  </script>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
