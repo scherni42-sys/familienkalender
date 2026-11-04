@@ -427,3 +427,10 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .wv-sub.note { font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .wv-sub.who .badges .b { width: 18px; height: 18px; font-size: 9px; }
 .wv > * { flex: none; min-width: 0; }
+/* Home-Modus wie im Widget: grünes Haus, an = berufliche Termine ausgeblendet */
+.home-t { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--accent); background: transparent; color: var(--ink); display: grid; place-items: center; }
+.home-t .ico { width: 20px; height: 20px; }
+.home-t.on { background: var(--accent); color: var(--accent-ink); }
+.ph-head > div:first-child { min-width: 0; }
+.ph-head strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ph-head strong.date { font-size: 21px; }

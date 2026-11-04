@@ -22,7 +22,7 @@ import { WidgetView } from './WidgetView';
 
 type Tab = 'today' | 'week' | 'board' | 'settings';
 type Filter = 'all' | 'family' | 'home';
-const savedFilter = (): Filter => { try { const v = localStorage.getItem('fk-filter'); return v === 'family' || v === 'home' ? v : 'all'; } catch { return 'all'; } };
+const savedFilter = (): Filter => { try { const v = localStorage.getItem('fk-filter'); return v === 'home' ? v : 'all'; } catch { return 'all'; } };
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
@@ -106,19 +106,15 @@ export function Shell() {
   return (
     <div className="screen" style={me.app_bg ? { background: me.app_bg } : undefined}>
       <div className="ph-head">
-        <div><small>{snap.family!.name}</small><strong>{titles[tab]}</strong></div>
+        <div><small>{snap.family!.name}</small><strong className={tab === 'today' ? 'date' : undefined}>{tab === 'today' ? longDate(today()) : titles[tab]}</strong></div>
         <span className="head-r">
-          {cake && <button type="button" className="cake" onClick={() => setSheet({ kind: 'bdays' })} aria-label={`Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`}>{cake.days === 0 ? 'Heute' : cake.days}<Icon name="cake" /></button>}
+          {cake && <button type="button" className="cake" onClick={() => setSheet({ kind: 'bdays' })} aria-label={`Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`}>{cake.days === 0 ? '' : cake.days}<Icon name="cake" /></button>}
+          {(tab === 'today' || tab === 'week') && <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
+            onClick={() => { const k: Filter = filter === 'home' ? 'all' : 'home'; setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}><Icon name="home" /></button>}
           <span className="me"><Badge m={me} /></span>
         </span>
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
-      {(tab === 'today' || tab === 'week') && (
-        <div className="seg filter" role="group" aria-label="Filter">
-          {([['all', 'Alle'], ['family', 'Familie'], ['home', '🏠 Home']] as [Filter, string][]).map(([k, l]) =>
-            <button key={k} type="button" aria-pressed={filter === k} onClick={() => { setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}>{l}</button>)}
-        </div>
-      )}
       <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
         {tab === 'today' && <WidgetView snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}

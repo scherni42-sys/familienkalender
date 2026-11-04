@@ -1,5 +1,5 @@
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
-import { hm, longDate, today } from '../lib/dates';
+import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, Badges, cvar, Icon } from './ui';
@@ -80,8 +80,6 @@ export function WidgetView({ snap, filter, now, go }: { snap: Snapshot; filter: 
   const m = (id: string) => snap.members.find(x => x.id === id);
   return (
     <div className="wv">
-      <div className="wv-head"><b>{longDate(t)}</b><span>{hm(now)}</span></div>
-      <button type="button" className="wv-sec" onClick={() => go.add(t)}>Heute</button>
       <Day d={t} snap={snap} filter={filter} now={now} go={go} />
       <div className="wv-sec">Board</div>
       {!msgs.length && <div className="wv-note">Keine Nachrichten</div>}
