@@ -1,4 +1,5 @@
 import { jsxs as _jsxs, jsx as _jsx, Fragment as _Fragment } from "react/jsx-runtime";
+import { useState } from 'react';
 import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
@@ -26,15 +27,17 @@ function Row({ e, d, snap, now, go }) {
         soon = go && dep > now && dep - now <= 30;
         drive = `${nm(e.driver)} ${e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}${go ? ` · los ${hm(dep)}` : ''}${e.trip === 'beides' && e.driver2 ? ` · ${nm(e.driver2)} holt ab` : ''}`;
     }
-    // Heute ausführlich: Zeitspanne, Personen, Ort mit Adresse, Fahrt, Mitbringen, Notiz, Dokumente
+    // Kurz wie im Widget; Antippen klappt die Einzelheiten auf, lange drücken bearbeitet
+    const [open, setOpen] = useState(false);
     const where = [e.place, isOnline(e) ? '' : e.addr].filter(Boolean).join(' · ');
     const left = !e.all_day && !past && e.start_min > now ? e.start_min - now : null;
     const l = useLong(() => go.edit(e.id));
-    return (_jsxs("div", { className: `wv-row big${past ? ' past' : ''}`, style: cvar(colorOf(snap.members, e.persons[0] ?? e.owner)), role: "button", tabIndex: 0, ...l.on, onClick: () => { if (l.longed.current) {
+    const short = drive ? _jsxs("div", { className: `wv-sub${soon ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), " ", drive] }) : e.place ? _jsx("div", { className: "wv-sub", children: e.place }) : null;
+    return (_jsxs("div", { className: `wv-row${open ? ' big' : ''}${past ? ' past' : ''}`, style: cvar(colorOf(snap.members, e.persons[0] ?? e.owner)), role: "button", tabIndex: 0, "aria-expanded": open, ...l.on, onClick: () => { if (l.longed.current) {
             l.longed.current = false;
             return;
-        } go.open(e.id, d); }, onKeyDown: k => { if (k.key === 'Enter')
-            go.open(e.id, d); }, children: [_jsx("i", { className: "wv-bar" }), _jsxs("time", { children: [e.all_day ? 'ganzt.' : hm(e.start_min), !e.all_day && _jsx("small", { children: hm(e.end_min) })] }), _jsxs("div", { className: "wv-txt", children: [_jsxs("div", { className: "wv-t wrap", children: [e.vis !== 'family' && _jsx(Icon, { name: "lock" }), _jsx("span", { children: e.title })] }), e.persons.length > 0 && _jsx("div", { className: "wv-sub", children: e.persons.map(p => nm(p)).join(', ') }), where && _jsxs("div", { className: "wv-sub wrap", children: [_jsx(Icon, { name: "pin" }), " ", where] }), isOnline(e) && _jsx("div", { className: "wv-sub", children: "Online-Besprechung" }), _jsx(Flight, { e: e }), drive && _jsxs("div", { className: `wv-sub${soon ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), " ", soon ? `In ${dep - now} Min. losfahren · ` : '', drive, tr && !eta ? ` · ${tr} Min. Fahrt` : ''] }), e.bring.length > 0 && _jsxs("div", { className: "wv-sub wrap", children: ["Mitbringen: ", e.bring.join(', ')] }), e.notes && _jsx("div", { className: "wv-sub wrap note", children: e.notes }), e.files?.length ? _jsxs("div", { className: "wv-sub", children: [_jsx(Icon, { name: "clip" }), " ", e.files.length === 1 ? e.files[0].name : `${e.files.length} Dokumente`] }) : null, left !== null && left <= 120 && _jsxs("div", { className: "wv-sub soon", children: ["in ", left >= 60 ? `${Math.floor(left / 60)} Std. ${left % 60 ? `${left % 60} Min.` : ''}` : `${left} Min.`] })] })] }));
+        } setOpen(o => !o); }, onKeyDown: k => { if (k.key === 'Enter')
+            setOpen(o => !o); }, children: [_jsx("i", { className: "wv-bar" }), _jsxs("time", { children: [e.all_day ? 'ganzt.' : hm(e.start_min), open && !e.all_day && _jsx("small", { children: hm(e.end_min) })] }), _jsxs("div", { className: "wv-txt", children: [_jsxs("div", { className: `wv-t${open ? ' wrap' : ''}`, children: [e.vis !== 'family' && _jsx(Icon, { name: "lock" }), _jsx("span", { children: e.title }), !open && e.files?.length ? _jsx(Icon, { name: "clip" }) : null] }), !open ? _jsxs(_Fragment, { children: [_jsx(Flight, { e: e }), short] }) : _jsxs(_Fragment, { children: [e.persons.length > 0 && _jsx("div", { className: "wv-sub", children: e.persons.map(p => nm(p)).join(', ') }), where && _jsxs("div", { className: "wv-sub wrap", children: [_jsx(Icon, { name: "pin" }), " ", where] }), isOnline(e) && _jsx("div", { className: "wv-sub", children: "Online-Besprechung" }), _jsx(Flight, { e: e }), drive && _jsxs("div", { className: `wv-sub${soon ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), " ", soon ? `In ${dep - now} Min. losfahren · ` : '', drive, tr && !eta ? ` · ${tr} Min. Fahrt` : ''] }), e.bring.length > 0 && _jsxs("div", { className: "wv-sub wrap", children: ["Mitbringen: ", e.bring.join(', ')] }), e.notes && _jsx("div", { className: "wv-sub wrap note", children: e.notes }), e.files?.length ? _jsxs("div", { className: "wv-sub", children: [_jsx(Icon, { name: "clip" }), " ", e.files.length === 1 ? e.files[0].name : `${e.files.length} Dokumente`] }) : null, left !== null && left <= 120 && _jsxs("div", { className: "wv-sub soon", children: ["in ", left >= 60 ? `${Math.floor(left / 60)} Std. ${left % 60 ? `${left % 60} Min.` : ''}` : `${left} Min.`] }), _jsx("button", { type: "button", className: "wv-more", onClick: x => { x.stopPropagation(); go.open(e.id, d); }, children: "Details, Navigation, Wecker \u203A" })] })] })] }));
 }
 function Day({ d, snap, filter, now, go }) {
     const s = snap.family.settings;

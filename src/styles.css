@@ -440,3 +440,9 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .empty.tap b { color: var(--accent); }
 .empty.tap .ico { width: 18px; height: 18px; color: var(--accent); }
 .ev .t .lock-i { display: inline-flex; margin-right: 5px; vertical-align: -2px; } .ev .t .lock-i .ico { width: 15px; height: 15px; }
+.wv-more { all: unset; display: inline-block; margin-top: 6px; padding: 4px 10px; border: 1.5px solid #1D8657; border-radius: 999px; color: var(--wv-fg); font-size: 12px; font-weight: 700; cursor: pointer; }
+/* Widget-Symbole oben: B-Ring für Geburtstage, Haus für den Home-Modus */
+.ring-b { width: 40px; height: 40px; border-radius: 50%; border: 2.5px solid var(--accent); background: transparent; color: var(--ink); font-weight: 800; font-size: 17px; display: grid; place-items: center; position: relative; }
+.ring-b small { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; border-radius: 9px; background: #D9A441; color: #111; font-size: 11px; display: grid; place-items: center; padding: 0 4px; }
+.home-t { border: 0; }
+.home-t.on { background: var(--accent); }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
@@ -32,26 +33,31 @@ function Row({ e, d, snap, now, go }: { e: CalEvent; d: string; snap: Snapshot; 
     soon = go && dep > now && dep - now <= 30;
     drive = `${nm(e.driver)} ${e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}${go ? ` · los ${hm(dep)}` : ''}${e.trip === 'beides' && e.driver2 ? ` · ${nm(e.driver2)} holt ab` : ''}`;
   }
-  // Heute ausführlich: Zeitspanne, Personen, Ort mit Adresse, Fahrt, Mitbringen, Notiz, Dokumente
+  // Kurz wie im Widget; Antippen klappt die Einzelheiten auf, lange drücken bearbeitet
+  const [open, setOpen] = useState(false);
   const where = [e.place, isOnline(e) ? '' : e.addr].filter(Boolean).join(' · ');
   const left = !e.all_day && !past && e.start_min > now ? e.start_min - now : null;
   const l = useLong(() => go.edit(e.id));
+  const short = drive ? <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {drive}</div> : e.place ? <div className="wv-sub">{e.place}</div> : null;
   return (
-    <div className={`wv-row big${past ? ' past' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))} role="button" tabIndex={0}
-      {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } go.open(e.id, d); }} onKeyDown={k => { if (k.key === 'Enter') go.open(e.id, d); }}>
+    <div className={`wv-row${open ? ' big' : ''}${past ? ' past' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))} role="button" tabIndex={0} aria-expanded={open}
+      {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } setOpen(o => !o); }} onKeyDown={k => { if (k.key === 'Enter') setOpen(o => !o); }}>
       <i className="wv-bar" />
-      <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}{!e.all_day && <small>{hm(e.end_min)}</small>}</time>
+      <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}{open && !e.all_day && <small>{hm(e.end_min)}</small>}</time>
       <div className="wv-txt">
-        <div className="wv-t wrap">{e.vis !== 'family' && <Icon name="lock" />}<span>{e.title}</span></div>
-        {e.persons.length > 0 && <div className="wv-sub">{e.persons.map(p => nm(p)).join(', ')}</div>}
-        {where && <div className="wv-sub wrap"><Icon name="pin" /> {where}</div>}
-        {isOnline(e) && <div className="wv-sub">Online-Besprechung</div>}
-        <Flight e={e} />
-        {drive && <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {soon ? `In ${dep - now} Min. losfahren · ` : ''}{drive}{tr && !eta ? ` · ${tr} Min. Fahrt` : ''}</div>}
-        {e.bring.length > 0 && <div className="wv-sub wrap">Mitbringen: {e.bring.join(', ')}</div>}
-        {e.notes && <div className="wv-sub wrap note">{e.notes}</div>}
-        {e.files?.length ? <div className="wv-sub"><Icon name="clip" /> {e.files.length === 1 ? e.files[0].name : `${e.files.length} Dokumente`}</div> : null}
-        {left !== null && left <= 120 && <div className="wv-sub soon">in {left >= 60 ? `${Math.floor(left / 60)} Std. ${left % 60 ? `${left % 60} Min.` : ''}` : `${left} Min.`}</div>}
+        <div className={`wv-t${open ? ' wrap' : ''}`}>{e.vis !== 'family' && <Icon name="lock" />}<span>{e.title}</span>{!open && e.files?.length ? <Icon name="clip" /> : null}</div>
+        {!open ? <><Flight e={e} />{short}</> : <>
+          {e.persons.length > 0 && <div className="wv-sub">{e.persons.map(p => nm(p)).join(', ')}</div>}
+          {where && <div className="wv-sub wrap"><Icon name="pin" /> {where}</div>}
+          {isOnline(e) && <div className="wv-sub">Online-Besprechung</div>}
+          <Flight e={e} />
+          {drive && <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {soon ? `In ${dep - now} Min. losfahren · ` : ''}{drive}{tr && !eta ? ` · ${tr} Min. Fahrt` : ''}</div>}
+          {e.bring.length > 0 && <div className="wv-sub wrap">Mitbringen: {e.bring.join(', ')}</div>}
+          {e.notes && <div className="wv-sub wrap note">{e.notes}</div>}
+          {e.files?.length ? <div className="wv-sub"><Icon name="clip" /> {e.files.length === 1 ? e.files[0].name : `${e.files.length} Dokumente`}</div> : null}
+          {left !== null && left <= 120 && <div className="wv-sub soon">in {left >= 60 ? `${Math.floor(left / 60)} Std. ${left % 60 ? `${left % 60} Min.` : ''}` : `${left} Min.`}</div>}
+          <button type="button" className="wv-more" onClick={x => { x.stopPropagation(); go.open(e.id, d); }}>Details, Navigation, Wecker ›</button>
+        </>}
       </div>
     </div>
   );

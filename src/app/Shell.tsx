@@ -113,7 +113,7 @@ export function Shell() {
       <div className="ph-head">
         <div><small>{snap.family!.name}</small><strong className={tab === 'today' ? 'date' : undefined}>{tab === 'today' ? longDate(today()) : titles[tab]}</strong></div>
         <span className="head-r">
-          {cake && <button type="button" className="cake" onClick={() => setSheet({ kind: 'bdays' })} aria-label={`Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`}>{cake.days === 0 ? '' : cake.days}<Icon name="cake" /></button>}
+          <button type="button" className="ring-b" onClick={() => setSheet({ kind: 'bdays' })} aria-label={cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage'}>B{cake && <small>{cake.days === 0 ? '🎂' : cake.days}</small>}</button>
           {(tab === 'today' || tab === 'week') && <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
             onClick={() => { const k: Filter = filter === 'home' ? 'all' : 'home'; setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}><Icon name="home" /></button>}
         </span>
