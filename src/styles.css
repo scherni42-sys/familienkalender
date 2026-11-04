@@ -546,3 +546,5 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .ch-file span { overflow-wrap: anywhere; font-weight: 700; }
 .mic-clip { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
 .mic-clip .ch-i { color: var(--ink); border: 2px solid var(--line); }
+/* Zaubertaste wie im Widget: gleich großer Ring direkt über dem ＋ */
+.magic.fab { width: 46px !important; height: 46px !important; right: 12px !important; bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; border: 2.5px solid #FFC83D; background: color-mix(in srgb, #FFC83D 20%, var(--surface)); box-shadow: none; padding: 0; }

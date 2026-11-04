@@ -137,7 +137,7 @@ export function Shell() {
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} wk={wk} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>
-      {me.role !== 'guest' && tab !== 'chat' && tab !== 'board' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
+      {me.role !== 'guest' && tab !== 'chat' && tab !== 'board' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen"><svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><path fill="#FFC83D" d="M18,12 Q19.3,20.7 28,22 Q19.3,23.3 18,32 Q16.7,23.3 8,22 Q16.7,20.7 18,12 Z" /><path fill="#FFC83D" d="M27.5,7.5 Q28.1,11.4 32,12 Q28.1,12.6 27.5,16.5 Q26.9,12.6 23,12 Q26.9,11.4 27.5,7.5 Z" /></svg></button>}
       {/* Fußzeile wie im Widget: Geburtstage, Kalenderwoche blättern, neuer Eintrag */}
       <nav className="wbar" aria-label="Bereiche">
         {tab === 'chat' || tab === 'board' ? <><span /><span /></> : <>
