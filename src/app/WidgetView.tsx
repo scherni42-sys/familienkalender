@@ -1,10 +1,10 @@
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
-import { addDays, dayLabel, hm, longDate, today } from '../lib/dates';
+import { hm, longDate, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, cvar, Icon } from './ui';
 
-// Startseite der App im Aussehen des Handy-Widgets: Heute, Morgen, Board auf dunklem Grund
+// Startseite der App im Aussehen des Handy-Widgets: nur Heute, dazu das Board auf dunklem Grund
 type Filter = 'all' | 'family' | 'home';
 type Go = { open: (id: string, day: string) => void; bday: (id: string) => void; add: (day: string) => void; msg: (id: string) => void };
 
@@ -65,7 +65,7 @@ function Day({ d, snap, filter, now, go }: { d: string; snap: Snapshot; filter: 
 }
 
 export function WidgetView({ snap, filter, now, go }: { snap: Snapshot; filter: Filter; now: number; go: Go }) {
-  const t = today(), tm = addDays(t, 1);
+  const t = today();
   const s = snap.family!.settings;
   const msgs = liveMsgs(snap.messages, s);
   const m = (id: string) => snap.members.find(x => x.id === id);
@@ -74,8 +74,6 @@ export function WidgetView({ snap, filter, now, go }: { snap: Snapshot; filter: 
       <div className="wv-head"><b>{longDate(t)}</b><span>{hm(now)}</span></div>
       <button type="button" className="wv-sec" onClick={() => go.add(t)}>Heute</button>
       <Day d={t} snap={snap} filter={filter} now={now} go={go} />
-      <button type="button" className="wv-sec" onClick={() => go.add(tm)}>{dayLabel(tm)}</button>
-      <Day d={tm} snap={snap} filter={filter} now={now} go={go} />
       <div className="wv-sec">Board</div>
       {!msgs.length && <div className="wv-note">Keine Nachrichten</div>}
       {msgs.map(x => {
