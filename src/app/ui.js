@@ -1,5 +1,6 @@
 import { jsx as _jsx } from "react/jsx-runtime";
 import { avatarOf } from '../lib/supabase';
+import { useRef } from 'react';
 import { initial } from '../lib/model';
 // Feste SVG-Symbole (aus dem Prototyp übernommen)
 const ICON = {
@@ -41,4 +42,18 @@ export function Badges({ ids, members }) {
 export function Sheet({ onClose, label, children }) {
     return (_jsx("div", { className: "sheet", onClick: e => { if (e.target === e.currentTarget)
             onClose(); }, children: _jsx("div", { className: "sheet-in", role: "dialog", "aria-label": label, children: children }) }));
+}
+export // Langer Druck (550 ms): eigene Aktion statt Antippen
+ function useLong(cb) {
+    const timer = useRef(undefined);
+    const longed = useRef(false);
+    const stop = () => window.clearTimeout(timer.current);
+    return {
+        longed,
+        on: {
+            onPointerDown: () => { longed.current = false; stop(); timer.current = window.setTimeout(() => { longed.current = true; navigator.vibrate?.(20); cb(); }, 550); },
+            onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop,
+            onContextMenu: (x) => x.preventDefault()
+        }
+    };
 }

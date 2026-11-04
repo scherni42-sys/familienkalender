@@ -1,5 +1,6 @@
 import { avatarOf } from '../lib/supabase';
 import type { CSSProperties, ReactNode } from 'react';
+import { useRef, type MouseEvent as RMouseEvent } from 'react';
 import type { Member } from '../lib/types';
 import { initial } from '../lib/model';
 
@@ -52,3 +53,19 @@ export function Sheet({ onClose, label, children }: { onClose: () => void; label
     </div>
   );
 }
+
+export // Langer Druck (550 ms): eigene Aktion statt Antippen
+function useLong(cb: () => void) {
+  const timer = useRef<number | undefined>(undefined);
+  const longed = useRef(false);
+  const stop = () => window.clearTimeout(timer.current);
+  return {
+    longed,
+    on: {
+      onPointerDown: () => { longed.current = false; stop(); timer.current = window.setTimeout(() => { longed.current = true; navigator.vibrate?.(20); cb(); }, 550); },
+      onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop,
+      onContextMenu: (x: RMouseEvent) => x.preventDefault()
+    }
+  };
+}
+

@@ -6,7 +6,7 @@ import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, leg2, nameOf, target, travel, upcoming, visibleOnDay } from '../lib/model';
-import { Badge, Badges, cvar, Icon } from './ui';
+import { Badge, Badges, cvar, Icon, useLong } from './ui';
 import { fail, toast, useToast } from './toast';
 import { Board } from './Board';
 import { Settings } from './Settings';
@@ -14,7 +14,7 @@ import { MicSheet } from './MicSheet';
 import { AskSheet } from './AskSheet';
 import { Clip } from './Files';
 import { EventSheet } from './EventSheet';
-import { DetailSheet, BdaySheet } from './DetailSheet';
+import { DetailSheet, BdaySheet, eventDraft } from './DetailSheet';
 import { flightShort, useFlight } from '../lib/flight';
 import { PushBanner } from './PushBanner';
 import { WidgetView } from './WidgetView';
@@ -53,7 +53,14 @@ export function Shell() {
     const next = upcoming(snap.birthdays)[0];
     const cake = next && s.bdLead > 0 && next.days <= s.bdLead ? next : null;
     const titles = { today: 'Heute', week: 'Kalender', board: 'Board', settings: 'Einstellungen' };
-    const open = (id) => setSheet({ kind: 'detail', id });
+    // Antippen: Details; lange drücken: gleich bearbeiten (wenn man darf)
+    const open = (id, how) => {
+        const ev = snapRef.current.events.find(x => x.id === id);
+        if (how === 'edit' && ev && me.role !== 'guest' && (ev.owner === snap.me || ev.vis === 'family'))
+            setSheet({ kind: 'edit', draft: eventDraft(ev), fresh: false });
+        else
+            setSheet({ kind: 'detail', id });
+    };
     // Leerer Termin an einem Tag (aus dem Widget oder „Weiterer Termin“ im Termin)
     const newOn = (date) => setSheet({ kind: 'edit', fresh: true, draft: { title: '', date, end_date: date, all_day: false, start_min: 600, end_min: 660, persons: [me.id], driver: null, vis: 'family', busy: false, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, reason: '', suggested: 'family', timeFound: true } });
     const saved = (id) => { setFlash(id); setTimeout(() => setFlash(null), 4000); };
@@ -137,7 +144,7 @@ export function Shell() {
     return (_jsxs("div", { className: "screen", style: me.app_bg ? { background: me.app_bg } : undefined, children: [_jsxs("div", { className: "ph-head", children: [_jsxs("div", { children: [_jsx("small", { children: snap.family.name }), _jsx("strong", { className: tab === 'today' ? 'date' : undefined, children: tab === 'today' ? longDate(today()) : titles[tab] })] }), _jsxs("span", { className: "head-r", children: [cake && _jsxs("button", { type: "button", className: "cake", onClick: () => setSheet({ kind: 'bdays' }), "aria-label": `Nächster Geburtstag ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}`, children: [cake.days === 0 ? '' : cake.days, _jsx(Icon, { name: "cake" })] }), (tab === 'today' || tab === 'week') && _jsx("button", { type: "button", className: `home-t${filter === 'home' ? ' on' : ''}`, "aria-pressed": filter === 'home', "aria-label": "Home-Modus: berufliche Termine ausblenden", onClick: () => { const k = filter === 'home' ? 'all' : 'home'; setFilter(k); try {
                                     localStorage.setItem('fk-filter', k);
                                 }
-                                catch { /* egal */ } }, children: _jsx(Icon, { name: "home" }) })] })] }), demoLink && _jsx("div", { className: "demo-bar", children: "Testversion mit Beispielfamilie. Was du \u00E4nderst, bleibt nur in diesem Browser." }), _jsxs("div", { className: `ph-body${tab === 'today' ? ' today' : ''}`, children: [tab === 'today' && _jsx(WidgetView, { snap: snap, filter: filter, now: now, go: { open: (id, day) => setSheet({ kind: 'detail', id, day }), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } } }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, flash: flash }), tab === 'board' && _jsx(Board, { focus: focusMsg, reply: replyMsg }), tab === 'settings' && _jsx(Settings, {}, nonce)] }), me.role !== 'guest' && _jsx("button", { type: "button", className: "magic fab", onClick: () => setSheet({ kind: 'ask' }), "aria-label": "Claude fragen", children: "\u2728" }), _jsxs("nav", { className: "tabs", "aria-label": "Bereiche", children: [_jsx(TabBtn, { on: tab === 'today', icon: "today", label: "Heute", go: () => setTab('today') }), _jsx(TabBtn, { on: tab === 'week', icon: "week", label: "Kalender", go: () => setTab('week') }), me.role === 'guest'
+                                catch { /* egal */ } }, children: _jsx(Icon, { name: "home" }) })] })] }), demoLink && _jsx("div", { className: "demo-bar", children: "Testversion mit Beispielfamilie. Was du \u00E4nderst, bleibt nur in diesem Browser." }), _jsxs("div", { className: `ph-body${tab === 'today' ? ' today' : ''}`, children: [tab === 'today' && _jsx(WidgetView, { snap: snap, filter: filter, now: now, go: { open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } } }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, add: newOn, flash: flash }), tab === 'board' && _jsx(Board, { focus: focusMsg, reply: replyMsg }), tab === 'settings' && _jsx(Settings, {}, nonce)] }), me.role !== 'guest' && _jsx("button", { type: "button", className: "magic fab", onClick: () => setSheet({ kind: 'ask' }), "aria-label": "Claude fragen", children: "\u2728" }), _jsxs("nav", { className: "tabs", "aria-label": "Bereiche", children: [_jsx(TabBtn, { on: tab === 'today', icon: "today", label: "Heute", go: () => setTab('today') }), _jsx(TabBtn, { on: tab === 'week', icon: "week", label: "Kalender", go: () => setTab('week') }), me.role === 'guest'
                         ? _jsx("span", {})
                         : _jsx("button", { type: "button", className: "mic", "aria-label": "Termin oder Nachricht sprechen", onClick: () => setSheet({ kind: 'mic' }), children: _jsx(Icon, { name: "mic" }) }), _jsx(TabBtn, { on: tab === 'board', icon: "board", label: "Board", go: () => setTab('board') }), _jsx(TabBtn, { on: tab === 'settings', icon: "gear", label: "Einstellungen", go: () => setTab('settings') })] }), sheet?.kind === 'mic' && _jsx(MicSheet, { auto: sheet.auto, quick: sheet.quick, preset: sheet.preset, photoFirst: sheet.photo, close: () => setSheet(null), toDraft: (draft) => setSheet({ kind: 'edit', draft, fresh: true }), posted: () => { setSheet(null); setTab('board'); }, saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'edit' && _jsx(EventSheet, { draft: sheet.draft, fresh: sheet.fresh, close: () => setSheet(null), back: () => setSheet({ kind: 'mic' }), saved: (id) => { setSheet(null); saved(id); } }), sheet?.kind === 'detail' && _jsx(DetailSheet, { id: sheet.id, day: sheet.day, add: newOn, close: () => setSheet(null), edit: (draft) => setSheet({ kind: 'edit', draft, fresh: false }) }), sheet?.kind === 'ask' && _jsx(AskSheet, { close: () => setSheet(null), open: id => setSheet({ kind: 'detail', id }), edit: draft => setSheet({ kind: 'edit', draft, fresh: false }), toDraft: draft => setSheet({ kind: 'edit', draft, fresh: true }), bdays: () => setSheet({ kind: 'bdays' }) }), sheet?.kind === 'bdays' && _jsx(BdaySheet, { adding: sheet.adding, open: sheet.open, close: () => setSheet(null) }, sheet.open ?? ''), _jsx(PushBanner, { now: now }), toastMsg && _jsx("div", { className: "toast", role: "status", children: toastMsg })] }));
 }
@@ -170,8 +177,9 @@ export function EvCard({ e, d, snap, now, open, flash }) {
     const timer = useRef(undefined);
     const longed = useRef(false);
     const mayDelete = e.owner === snap.me || e.vis === 'family';
+    // Lange drücken: gleich das Bearbeiten-Fenster (Löschen gibt es dort)
     const press = () => { longed.current = false; window.clearTimeout(timer.current); if (mayDelete)
-        timer.current = window.setTimeout(() => { longed.current = true; setArmed(true); navigator.vibrate?.(20); }, 550); };
+        timer.current = window.setTimeout(() => { longed.current = true; navigator.vibrate?.(20); open(e.id, 'edit'); }, 550); };
     const release = () => window.clearTimeout(timer.current);
     const del = async (ev) => {
         ev.stopPropagation();
@@ -193,7 +201,7 @@ export function EvCard({ e, d, snap, now, open, flash }) {
             return;
         } open(e.id); }, onKeyDown: k => { if (k.key === 'Enter')
             open(e.id); if (k.key === 'Delete' && mayDelete)
-            setArmed(true); }, "aria-label": `${e.title}, Details öffnen, lange drücken zum Löschen`, children: [armed && _jsx("button", { type: "button", className: "ev-del", onClick: del, "aria-label": `${e.title} löschen`, children: _jsx(Icon, { name: "trash" }) }), _jsx(Time, { e: e, d: d }), _jsxs("div", { style: { minWidth: 0 }, children: [_jsx("div", { className: "t", children: _jsx("span", { children: e.title }) }), _jsxs("div", { className: "meta", children: [e.persons.length > 0 && _jsx(Badges, { ids: e.persons, members: snap.members }), tag, e.driver && !(eta === null && driveDone(e)) && _jsxs("span", { children: [_jsx(Icon, { name: "car" }), " ", nameOf(snap.members, e.driver), " ", e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'] }), e.trip === 'beides' && e.driver2 && _jsxs("span", { children: [_jsx(Icon, { name: "car" }), " ", nameOf(snap.members, e.driver2), " holt ab"] }), e.place && _jsx("span", { className: "pl", children: e.place })] }), _jsx(FlightLine, { e: e }), eta !== null ? (_jsxs("div", { className: "go", children: [_jsx(Icon, { name: "car" }), _jsxs("b", { children: [nameOf(snap.members, etaDriver(e)), " f\u00E4hrt \u00B7 Ankunft ca. ", hm(eta)] })] })) : tr > 0 && !(isToday && target(e) <= now) ? (_jsxs("div", { className: `go${soon ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), _jsx("b", { children: soon ? `In ${dep - now} Min. ${e.trip === 'ab' ? 'zum Abholen ' : ''}losfahren` : `${e.trip === 'ab' ? 'Zum Abholen los' : 'Los'} um ${hm(dep)}` }), _jsxs("span", { children: ["ca. ", tr, " Min. Fahrt", s.buffer ? ` + ${s.buffer} Min. Puffer` : ''] })] })) : l2 && !(isToday && l2.at <= now) ? (_jsxs("div", { className: `go${soon2 ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), _jsxs("b", { children: [nameOf(snap.members, l2.who), ": ", soon2 ? `in ${l2.leave - now} Min. zum Abholen los` : `zum Abholen los um ${hm(l2.leave)}`] }), _jsxs("span", { children: ["ca. ", tr, " Min. Fahrt"] })] })) : null] }), _jsx(Clip, { files: e.files, more: () => open(e.id) })] }));
+            setArmed(true); }, "aria-label": `${e.title}, Details öffnen, lange drücken zum Bearbeiten`, children: [armed && _jsx("button", { type: "button", className: "ev-del", onClick: del, "aria-label": `${e.title} löschen`, children: _jsx(Icon, { name: "trash" }) }), _jsx(Time, { e: e, d: d }), _jsxs("div", { style: { minWidth: 0 }, children: [_jsx("div", { className: "t", children: _jsx("span", { children: e.title }) }), _jsxs("div", { className: "meta", children: [e.persons.length > 0 && _jsx(Badges, { ids: e.persons, members: snap.members }), tag, e.driver && !(eta === null && driveDone(e)) && _jsxs("span", { children: [_jsx(Icon, { name: "car" }), " ", nameOf(snap.members, e.driver), " ", e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'] }), e.trip === 'beides' && e.driver2 && _jsxs("span", { children: [_jsx(Icon, { name: "car" }), " ", nameOf(snap.members, e.driver2), " holt ab"] }), e.place && _jsx("span", { className: "pl", children: e.place })] }), _jsx(FlightLine, { e: e }), eta !== null ? (_jsxs("div", { className: "go", children: [_jsx(Icon, { name: "car" }), _jsxs("b", { children: [nameOf(snap.members, etaDriver(e)), " f\u00E4hrt \u00B7 Ankunft ca. ", hm(eta)] })] })) : tr > 0 && !(isToday && target(e) <= now) ? (_jsxs("div", { className: `go${soon ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), _jsx("b", { children: soon ? `In ${dep - now} Min. ${e.trip === 'ab' ? 'zum Abholen ' : ''}losfahren` : `${e.trip === 'ab' ? 'Zum Abholen los' : 'Los'} um ${hm(dep)}` }), _jsxs("span", { children: ["ca. ", tr, " Min. Fahrt", s.buffer ? ` + ${s.buffer} Min. Puffer` : ''] })] })) : l2 && !(isToday && l2.at <= now) ? (_jsxs("div", { className: `go${soon2 ? ' soon' : ''}`, children: [_jsx(Icon, { name: "car" }), _jsxs("b", { children: [nameOf(snap.members, l2.who), ": ", soon2 ? `in ${l2.leave - now} Min. zum Abholen los` : `zum Abholen los um ${hm(l2.leave)}`] }), _jsxs("span", { children: ["ca. ", tr, " Min. Fahrt"] })] })) : null] }), _jsx(Clip, { files: e.files, more: () => open(e.id) })] }));
 }
 function Time({ e, d }) {
     if (e.all_day)
@@ -225,7 +233,19 @@ function DayList({ snap, d, filter, now, open, flash, empty }) {
 }
 // So weit zurück lädt die App Termine (rund 3 Monate)
 const MIN_WK = -12, MIN_MO = -2;
-function CalendarTab({ snap, filter, now, open, flash }) {
+// Tag lange drücken: neuer Termin an diesem Tag (wie Antippen des Tages im Widget)
+function DayHead({ d, add }) {
+    const l = useLong(() => add(d));
+    return _jsx("div", { className: "day-h", ...l.on, title: "Lange dr\u00FCcken f\u00FCr neuen Termin", children: _jsx("span", { children: dayLabel(d) }) });
+}
+function Cell({ d, add, pick, className, label, children }) {
+    const l = useLong(() => add(d));
+    return _jsx("button", { type: "button", className: className, ...l.on, onClick: () => { if (l.longed.current) {
+            l.longed.current = false;
+            return;
+        } pick(d); }, "aria-label": label, children: children });
+}
+function CalendarTab({ snap, filter, now, open, add, flash }) {
     const [view, setView] = useState('week');
     const [wk, setWk] = useState(0), [mo, setMo] = useState(0);
     const [sel, setSel] = useState(today());
@@ -234,7 +254,7 @@ function CalendarTab({ snap, filter, now, open, flash }) {
     if (view === 'week') {
         const mon = addDays(mondayOf(t), wk * 7), sun = addDays(mon, 6);
         const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i)).filter(d => wk !== 0 || d >= t);
-        return _jsxs(_Fragment, { children: [seg, _jsxs("div", { className: "calnav", children: [_jsx("button", { type: "button", className: "nav", "aria-label": "Vorige Woche", disabled: wk <= MIN_WK, onClick: () => setWk(Math.max(MIN_WK, wk - 1)), children: "\u2039" }), _jsxs("div", { className: "ttl", children: ["KW ", isoWeek(mon), _jsxs("small", { children: [fromIso(mon).getDate(), ". ", MON[fromIso(mon).getMonth()].slice(0, 3), " \u2013 ", fromIso(sun).getDate(), ". ", MON[fromIso(sun).getMonth()].slice(0, 3)] })] }), _jsx("button", { type: "button", className: "nav", "aria-label": "N\u00E4chste Woche", onClick: () => setWk(wk + 1), children: "\u203A" })] }), wk !== 0 && _jsx("button", { type: "button", className: "todaybtn", onClick: () => setWk(0), children: "Diese Woche" }), days.map(d => _jsxs("div", { style: { display: 'grid', gap: 8 }, children: [_jsx("div", { className: "day-h", children: _jsx("span", { children: dayLabel(d) }) }), _jsx(DayList, { snap: snap, d: d, filter: filter, now: now, open: open, flash: flash, empty: "small" })] }, d))] });
+        return _jsxs(_Fragment, { children: [seg, _jsxs("div", { className: "calnav", children: [_jsx("button", { type: "button", className: "nav", "aria-label": "Vorige Woche", disabled: wk <= MIN_WK, onClick: () => setWk(Math.max(MIN_WK, wk - 1)), children: "\u2039" }), _jsxs("div", { className: "ttl", children: ["KW ", isoWeek(mon), _jsxs("small", { children: [fromIso(mon).getDate(), ". ", MON[fromIso(mon).getMonth()].slice(0, 3), " \u2013 ", fromIso(sun).getDate(), ". ", MON[fromIso(sun).getMonth()].slice(0, 3)] })] }), _jsx("button", { type: "button", className: "nav", "aria-label": "N\u00E4chste Woche", onClick: () => setWk(wk + 1), children: "\u203A" })] }), wk !== 0 && _jsx("button", { type: "button", className: "todaybtn", onClick: () => setWk(0), children: "Diese Woche" }), days.map(d => _jsxs("div", { style: { display: 'grid', gap: 8 }, children: [_jsx(DayHead, { d: d, add: add }), _jsx(DayList, { snap: snap, d: d, filter: filter, now: now, open: open, flash: flash, empty: "small" })] }, d))] });
     }
     const first = fromIso(t);
     first.setDate(1);
@@ -246,6 +266,6 @@ function CalendarTab({ snap, filter, now, open, flash }) {
                         const d = iso0 + String(i + 1).padStart(2, '0');
                         const { ev, busy } = visibleOnDay(snap.events, snap.busy, d, snap.me, filter);
                         const dots = [...ev.map(e => colorOf(snap.members, e.persons[0] ?? e.owner)), ...busy.map(() => 'var(--line)')].slice(0, 3);
-                        return _jsxs("button", { type: "button", className: `cell${d === t ? ' today' : ''}${d === sel ? ' sel' : ''}${d < t ? ' past' : ''}`, onClick: () => setSel(d), "aria-label": `${longDate(d)}, ${ev.length} Termine`, children: [i + 1, _jsxs("span", { className: "dots", children: [dots.map((c, j) => _jsx("i", { style: cvar(c) }, j)), bdOn(snap.birthdays, d).length > 0 && _jsx("i", { className: "bdot" })] })] }, d);
+                        return _jsxs(Cell, { d: d, add: add, pick: setSel, className: `cell${d === t ? ' today' : ''}${d === sel ? ' sel' : ''}${d < t ? ' past' : ''}`, label: `${longDate(d)}, ${ev.length} Termine, lange drücken für neuen Termin`, children: [i + 1, _jsxs("span", { className: "dots", children: [dots.map((c, j) => _jsx("i", { style: cvar(c) }, j)), bdOn(snap.birthdays, d).length > 0 && _jsx("i", { className: "bdot" })] })] }, d);
                     })] }), _jsx("div", { className: "day-h", children: _jsx("span", { children: dayLabel(sel) }) }), _jsx(DayList, { snap: snap, d: sel, filter: filter, now: now, open: open, flash: flash, empty: "small" })] });
 }

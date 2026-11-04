@@ -2,11 +2,11 @@ import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
-import { Badge, cvar, Icon } from './ui';
+import { Badge, cvar, Icon, useLong } from './ui';
 
 // Startseite der App im Aussehen des Handy-Widgets: nur Heute, dazu das Board auf dunklem Grund
 type Filter = 'all' | 'family' | 'home';
-type Go = { open: (id: string, day: string) => void; bday: (id: string) => void; add: (day: string) => void; msg: (id: string) => void };
+type Go = { open: (id: string, day: string) => void; edit: (id: string) => void; bday: (id: string) => void; add: (day: string) => void; msg: (id: string) => void };
 
 // Geburtstagsfarbe wie im Widget: private in der Farbe des Besitzers, gemeinsame in Torten-Gold
 const bdColor = (snap: Snapshot, b: Birthday) => b.owner ? colorOf(snap.members, b.owner) : '#D9A441';
@@ -35,9 +35,10 @@ function Row({ e, d, snap, now, go }: { e: CalEvent; d: string; snap: Snapshot; 
   // Heute ausführlich: Zeitspanne, Personen, Ort mit Adresse, Fahrt, Mitbringen, Notiz, Dokumente
   const where = [e.place, isOnline(e) ? '' : e.addr].filter(Boolean).join(' · ');
   const left = !e.all_day && !past && e.start_min > now ? e.start_min - now : null;
+  const l = useLong(() => go.edit(e.id));
   return (
     <div className={`wv-row big${past ? ' past' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))} role="button" tabIndex={0}
-      onClick={() => go.open(e.id, d)} onKeyDown={k => { if (k.key === 'Enter') go.open(e.id, d); }}>
+      {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } go.open(e.id, d); }} onKeyDown={k => { if (k.key === 'Enter') go.open(e.id, d); }}>
       <i className="wv-bar" />
       <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}{!e.all_day && <small>{hm(e.end_min)}</small>}</time>
       <div className="wv-txt">

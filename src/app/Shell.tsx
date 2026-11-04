@@ -7,7 +7,7 @@ import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, leg2, nameOf, target, travel, upcoming, visibleOnDay } from '../lib/model';
 import type { Draft } from '../lib/parse';
-import { Badge, Badges, cvar, Icon } from './ui';
+import { Badge, Badges, cvar, Icon, useLong } from './ui';
 import { fail, toast, useToast } from './toast';
 import { Board } from './Board';
 import { Settings } from './Settings';
@@ -15,7 +15,7 @@ import { MicSheet } from './MicSheet';
 import { AskSheet } from './AskSheet';
 import { Clip } from './Files';
 import { EventSheet } from './EventSheet';
-import { DetailSheet, BdaySheet } from './DetailSheet';
+import { DetailSheet, BdaySheet, eventDraft } from './DetailSheet';
 import { flightShort, useFlight } from '../lib/flight';
 import { PushBanner } from './PushBanner';
 import { WidgetView } from './WidgetView';
@@ -54,7 +54,12 @@ export function Shell() {
   const next = upcoming(snap.birthdays)[0];
   const cake = next && s.bdLead > 0 && next.days <= s.bdLead ? next : null;
   const titles: Record<Tab, string> = { today: 'Heute', week: 'Kalender', board: 'Board', settings: 'Einstellungen' };
-  const open = (id: string) => setSheet({ kind: 'detail', id });
+  // Antippen: Details; lange drücken: gleich bearbeiten (wenn man darf)
+  const open = (id: string, how?: 'edit') => {
+    const ev = snapRef.current.events.find(x => x.id === id);
+    if (how === 'edit' && ev && me.role !== 'guest' && (ev.owner === snap.me || ev.vis === 'family')) setSheet({ kind: 'edit', draft: eventDraft(ev), fresh: false });
+    else setSheet({ kind: 'detail', id });
+  };
   // Leerer Termin an einem Tag (aus dem Widget oder „Weiterer Termin“ im Termin)
   const newOn = (date: string) => setSheet({ kind: 'edit', fresh: true, draft: { title: '', date, end_date: date, all_day: false, start_min: 600, end_min: 660, persons: [me.id], driver: null, vis: 'family', busy: false, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, reason: '', suggested: 'family', timeFound: true } });
   const saved = (id: string) => { setFlash(id); setTimeout(() => setFlash(null), 4000); };
@@ -115,8 +120,8 @@ export function Shell() {
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
       <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
-        {tab === 'today' && <WidgetView snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
-        {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} flash={flash} />}
+        {tab === 'today' && <WidgetView snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
+        {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} />}
         {tab === 'board' && <Board focus={focusMsg} reply={replyMsg} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>
@@ -154,7 +159,7 @@ function FlightLine({ e }: { e: CalEvent }) {
   return txt ? <div className={`fl-line${flight.canceled || (flight.dep?.delay ?? 0) >= 15 ? ' bad' : ''}`}>✈ {txt}</div> : null;
 }
 
-export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: string; snap: Snapshot; now: number; open: (id: string) => void; flash?: string | null }) {
+export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: string; snap: Snapshot; now: number; open: (id: string, how?: 'edit') => void; flash?: string | null }) {
   const s = snap.family!.settings;
   const isToday = d === today();
   const past = d < today() || (isToday && !e.all_day && e.end_min <= now);
@@ -171,7 +176,8 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
   const timer = useRef<number | undefined>(undefined);
   const longed = useRef(false);
   const mayDelete = e.owner === snap.me || e.vis === 'family';
-  const press = () => { longed.current = false; window.clearTimeout(timer.current); if (mayDelete) timer.current = window.setTimeout(() => { longed.current = true; setArmed(true); navigator.vibrate?.(20); }, 550); };
+  // Lange drücken: gleich das Bearbeiten-Fenster (Löschen gibt es dort)
+  const press = () => { longed.current = false; window.clearTimeout(timer.current); if (mayDelete) timer.current = window.setTimeout(() => { longed.current = true; navigator.vibrate?.(20); open(e.id, 'edit'); }, 550); };
   const release = () => window.clearTimeout(timer.current);
   const del = async (ev: React.MouseEvent) => {
     ev.stopPropagation();
@@ -185,7 +191,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
       data-ev role="button" tabIndex={0}
       onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (mayDelete) x.preventDefault(); }}
       onClick={() => { if (longed.current) { longed.current = false; return; } if (armed) { setArmed(false); return; } open(e.id); }}
-      onKeyDown={k => { if (k.key === 'Enter') open(e.id); if (k.key === 'Delete' && mayDelete) setArmed(true); }} aria-label={`${e.title}, Details öffnen, lange drücken zum Löschen`}>
+      onKeyDown={k => { if (k.key === 'Enter') open(e.id); if (k.key === 'Delete' && mayDelete) setArmed(true); }} aria-label={`${e.title}, Details öffnen, lange drücken zum Bearbeiten`}>
       {armed && <button type="button" className="ev-del" onClick={del} aria-label={`${e.title} löschen`}><Icon name="trash" /></button>}
       <Time e={e} d={d} />
       <div style={{ minWidth: 0 }}>
@@ -227,7 +233,7 @@ function BusyCard({ b, d, snap, now }: { b: BusySlot; d: string; snap: Snapshot;
   );
 }
 
-function DayList({ snap, d, filter, now, open, flash, empty }: { snap: Snapshot; d: string; filter: Filter; now: number; open: (id: string) => void; flash: string | null; empty: 'big' | 'small' }) {
+function DayList({ snap, d, filter, now, open, flash, empty }: { snap: Snapshot; d: string; filter: Filter; now: number; open: (id: string, how?: 'edit') => void; flash: string | null; empty: 'big' | 'small' }) {
   const s = snap.family!.settings;
   const { ev, busy } = visibleOnDay(snap.events, snap.busy, d, snap.me, filter);
   const isToday = d === today();
@@ -252,7 +258,16 @@ function DayList({ snap, d, filter, now, open, flash, empty }: { snap: Snapshot;
 
 // So weit zurück lädt die App Termine (rund 3 Monate)
 const MIN_WK = -12, MIN_MO = -2;
-function CalendarTab({ snap, filter, now, open, flash }: { snap: Snapshot; filter: Filter; now: number; open: (id: string) => void; flash: string | null }) {
+// Tag lange drücken: neuer Termin an diesem Tag (wie Antippen des Tages im Widget)
+function DayHead({ d, add }: { d: string; add: (d: string) => void }) {
+  const l = useLong(() => add(d));
+  return <div className="day-h" {...l.on} title="Lange drücken für neuen Termin"><span>{dayLabel(d)}</span></div>;
+}
+function Cell({ d, add, pick, className, label, children }: { d: string; add: (d: string) => void; pick: (d: string) => void; className: string; label: string; children: React.ReactNode }) {
+  const l = useLong(() => add(d));
+  return <button type="button" className={className} {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } pick(d); }} aria-label={label}>{children}</button>;
+}
+function CalendarTab({ snap, filter, now, open, add, flash }: { snap: Snapshot; filter: Filter; now: number; open: (id: string, how?: 'edit') => void; add: (d: string) => void; flash: string | null }) {
   const [view, setView] = useState<'week' | 'month'>('week');
   const [wk, setWk] = useState(0), [mo, setMo] = useState(0);
   const [sel, setSel] = useState(today());
@@ -272,7 +287,7 @@ function CalendarTab({ snap, filter, now, open, flash }: { snap: Snapshot; filte
       </div>
       {wk !== 0 && <button type="button" className="todaybtn" onClick={() => setWk(0)}>Diese Woche</button>}
       {days.map(d => <div key={d} style={{ display: 'grid', gap: 8 }}>
-        <div className="day-h"><span>{dayLabel(d)}</span></div>
+        <DayHead d={d} add={add} />
         <DayList snap={snap} d={d} filter={filter} now={now} open={open} flash={flash} empty="small" />
       </div>)}
     </>;
@@ -295,9 +310,9 @@ function CalendarTab({ snap, filter, now, open, flash }: { snap: Snapshot; filte
         const d = iso0 + String(i + 1).padStart(2, '0');
         const { ev, busy } = visibleOnDay(snap.events, snap.busy, d, snap.me, filter);
         const dots = [...ev.map(e => colorOf(snap.members, e.persons[0] ?? e.owner)), ...busy.map(() => 'var(--line)')].slice(0, 3);
-        return <button key={d} type="button" className={`cell${d === t ? ' today' : ''}${d === sel ? ' sel' : ''}${d < t ? ' past' : ''}`} onClick={() => setSel(d)} aria-label={`${longDate(d)}, ${ev.length} Termine`}>
+        return <Cell key={d} d={d} add={add} pick={setSel} className={`cell${d === t ? ' today' : ''}${d === sel ? ' sel' : ''}${d < t ? ' past' : ''}`} label={`${longDate(d)}, ${ev.length} Termine, lange drücken für neuen Termin`}>
           {i + 1}<span className="dots">{dots.map((c, j) => <i key={j} style={cvar(c)} />)}{bdOn(snap.birthdays, d).length > 0 && <i className="bdot" />}</span>
-        </button>;
+        </Cell>;
       })}
     </div>
     <div className="day-h"><span>{dayLabel(sel)}</span></div>
