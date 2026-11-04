@@ -205,7 +205,8 @@ class TodayWidget : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.head, refreshIntent(ctx))
             v.setOnClickPendingIntent(R.id.root, refreshIntent(ctx))
             // ＋: Schnelleingabe (Sprechen, Tippen, Foto; Privat/Familie/Board wählt man dort)
-            val add = Intent(ctx, MicActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            // Mit Modus: das ＋ zeigt nie die „Nach dem Update“-Einrichtung (die ist nur fürs App-Symbol nach der Installation)
+            val add = Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, "new").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.q_add, PendingIntent.getActivity(ctx, 10, add, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             // Torte: schaltet die Liste auf Geburtstage um und wieder zurück
             val bd = Intent(ctx, TodayWidget::class.java).setAction(TOGGLE_BD)
