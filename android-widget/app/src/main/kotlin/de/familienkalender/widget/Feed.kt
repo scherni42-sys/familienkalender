@@ -451,7 +451,7 @@ object Feed {
                 last.remove(w); last[w] = c
                 if (c.optString("to") == myId && c.isNull("read_at")) unread[w] = (unread[w] ?: 0) + 1
             }
-            val threads = last.entries.reversed()
+            val threads = last.entries.map { it.key to it.value }.asReversed()
             val n = unread.values.sum()
             out += Row(Kind.SECTION, if (n > 0 && !chat) "Chat · $n neu" else "Chat", open = "toggle:chat", toggle = chat)
             if (threads.isEmpty()) out += Row(Kind.NOTE, if (chat) "Noch keine Chats. Antippen startet einen neuen Chat." else "Keine Chats", open = "chat:")

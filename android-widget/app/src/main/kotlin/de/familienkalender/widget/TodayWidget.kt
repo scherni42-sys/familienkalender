@@ -69,8 +69,8 @@ class TodayWidget : AppWidgetProvider() {
             // Board-Knopf aus dem Widget: ausführen, kurz melden, neu laden
             ACT -> {
                 val act = intent.getStringExtra(OpenActivity.EXTRA_ACT) ?: return
-                if (act == "board") { Feed.toggleBoard(ctx); refreshData(ctx); return }
-                if (act == "chat") { Feed.toggleChat(ctx); refreshData(ctx); return }
+                if (act == "board") { Feed.toggleBoard(ctx); refreshData(ctx); toTop(ctx); return }
+                if (act == "chat") { Feed.toggleChat(ctx); refreshData(ctx); toTop(ctx); return }
                 val msg = intent.getStringExtra(OpenActivity.EXTRA_MSG) ?: return
                 val done = goAsync()
                 thread {
@@ -84,12 +84,12 @@ class TodayWidget : AppWidgetProvider() {
                     } finally { done.finish() }
                 }
             }
-            TOGGLE_BD -> { Feed.toggleBd(ctx); refreshData(ctx) }
+            TOGGLE_BD -> { Feed.toggleBd(ctx); refreshData(ctx); toTop(ctx) }
             BD_PREV -> { Feed.turnBdPage(ctx, -1); refreshData(ctx) }
             BD_NEXT -> { Feed.turnBdPage(ctx, 1); refreshData(ctx) }
-            TOGGLE_WEEK -> { Feed.toggleWeek(ctx); refreshData(ctx) }
+            TOGGLE_WEEK -> { Feed.toggleWeek(ctx); refreshData(ctx); toTop(ctx) }
             TOGGLE_HOME -> { Feed.toggleHome(ctx); refreshData(ctx); background(ctx) }
-            WEEK_PREV -> { Feed.turnWeek(ctx, -1); refreshData(ctx) }
+            WEEK_PREV -> { Feed.turnWeek(ctx, -1); refreshData(ctx); toTop(ctx) }
             WEEK_NEXT -> { Feed.turnWeek(ctx, 1); refreshData(ctx) }
             // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
             Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx); background(ctx); Geo.register(ctx) }
@@ -165,6 +165,19 @@ class TodayWidget : AppWidgetProvider() {
 
         // Nur Datum und Liste neu laden, ohne das Widget neu aufzubauen; sonst ist es kurz ohne Tipp-Belegung
         // und der Startbildschirm öffnet bei schnellem Mehrfachtippen die App
+        // Nach dem Umschalten (Board, Chat) die Liste nach oben holen; sonst bleibt sie unten stehen
+        // und man sieht weiter Board und Chat, obwohl die normale Ansicht schon da ist
+        fun toTop(ctx: Context) {
+            val mgr = AppWidgetManager.getInstance(ctx)
+            val ids = mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java))
+            val h = Handler(Looper.getMainLooper())
+            for (delay in listOf(150L, 700L)) h.postDelayed({
+                val v = RemoteViews(ctx.packageName, R.layout.widget)
+                v.setScrollPosition(R.id.list, 0)
+                for (id in ids) mgr.partiallyUpdateAppWidget(id, v)
+            }, delay)
+        }
+
         fun refreshData(ctx: Context) {
             val mgr = AppWidgetManager.getInstance(ctx)
             val ids = mgr.getAppWidgetIds(ComponentName(ctx, TodayWidget::class.java))
