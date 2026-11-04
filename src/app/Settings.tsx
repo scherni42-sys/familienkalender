@@ -11,6 +11,7 @@ import { SUPA } from '../lib/supabase';
 import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
 import { alarmOn, getAlarm, renameAlarm, setAlarm, setTone, toggleAlarm, useAlarm, useTones } from '../lib/bdalarm';
+import { ask } from './ask';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
 const MENU: [Exclude<Sub, null>, string, IconName][] = [
@@ -46,7 +47,7 @@ export function Settings() {
       {native() && <button type="button" className="menu-item" onClick={() => native()!.setup()}><span className="mi-ic"><Icon name="gear" /></span><span><b>{native()!.platform === 'ios' ? 'Widget' : 'Widget & Handy-Kalender'}</b><small>{native()!.platform === 'ios' ? 'So legst du das FamTO-Widget auf den Startbildschirm' : 'Widget einrichten, Abgleich, Home-Modus, neue Version'}</small></span><span className="chev">›</span></button>}
       {me.role !== 'guest' && <MicStartRow />}
       {me.role !== 'guest' && <ToneRow kind="ev" />}
-      <button type="button" className="small-btn danger" style={{ justifySelf: 'start' }} onClick={() => { if (confirm(store.demo ? 'Alle Demo-Daten löschen?' : 'Auf diesem Handy abmelden? Zum Zurückkommen brauchst du einen neuen Einladungscode vom Admin.')) void store.reset(); }}>{store.demo ? 'Demo zurücksetzen' : 'Abmelden'}</button>
+      <button type="button" className="small-btn danger" style={{ justifySelf: 'start' }} onClick={() => void ask(store.demo ? 'Alle Demo-Daten löschen?' : 'Auf diesem Handy abmelden? Zum Zurückkommen brauchst du einen neuen Einladungscode vom Admin.').then(y => { if (y) void store.reset(); })}>{store.demo ? 'Demo zurücksetzen' : 'Abmelden'}</button>
       <span className="note">Version vom {__BUILD__}</span>
     </>;
   }
@@ -84,7 +85,7 @@ export function Settings() {
           {m.avatar && <label className="av-use"><input type="checkbox" checked={!m.avatar.startsWith('off:')} onChange={e => store.useAvatar(m.id, e.target.checked).catch(fail)} /> Avatar benutzen</label>}
           <label className="small-btn"><Icon name="camera" /> {m.avatar ? 'Anderes Foto' : 'Foto als Avatar'}
             <input type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) setCrop({ id: m.id, file: f }); }} /></label>
-          {m.avatar && <button type="button" className="small-btn danger" onClick={() => { if (confirm('Foto löschen?')) store.setAvatar(m.id, null).then(() => toast('Foto gelöscht, wieder der Buchstabe.'), fail); }}>Löschen</button>}</div>}
+          {m.avatar && <button type="button" className="small-btn danger" onClick={() => void ask('Foto löschen?', 'Löschen').then(y => { if (y) store.setAvatar(m.id, null).then(() => toast('Foto gelöscht, wieder der Buchstabe.'), fail); })}>Löschen</button>}</div>}
       </div>;
     })}
   </>;
@@ -141,7 +142,7 @@ function Family() {
         {isAdmin && m.id !== snap.me && <div className="acts">
           {m.role !== 'child' && !m.linked && <button type="button" className="small-btn" onClick={() => void invite(m.id)}>Einladungscode</button>}
           {m.role !== 'child' && m.linked && <button type="button" className="small-btn" onClick={() => void invite(m.id)}>Neues Handy verbinden</button>}
-          <button type="button" className="small-btn danger" onClick={() => { if (confirm(`${m.name} aus der Familie entfernen?`)) store.removeMember(m.id).then(() => toast(`${m.name} entfernt.`), fail); }}>Entfernen</button>
+          <button type="button" className="small-btn danger" onClick={() => void ask(`${m.name} aus der Familie entfernen?`, 'Entfernen').then(y => { if (y) store.removeMember(m.id).then(() => toast(`${m.name} entfernt.`), fail); })}>Entfernen</button>
           {codes[m.id] && <div style={{ width: '100%' }}><div className="codebox">{codes[m.id]}</div><span className="note">{m.name} öffnet die App, tippt „Ich habe einen Einladungscode“ und gibt den Code ein. Gültig 7 Tage.</span></div>}
         </div>}
       </div>
@@ -248,7 +249,7 @@ function Displays() {
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <button type="button" className="small-btn" onClick={() => navigator.clipboard?.writeText(url).then(() => toast('Adresse kopiert.'))}>Adresse kopieren</button>
             <a className="small-btn" href={url} target="_blank" rel="noreferrer">Ansehen</a>
-            {!store.demo && <button type="button" className="small-btn danger" onClick={() => { if (confirm('Display entfernen? Die Adresse funktioniert dann nicht mehr.')) store.removeDisplay(d.id).catch(fail); }}>Entfernen</button>}
+            {!store.demo && <button type="button" className="small-btn danger" onClick={() => void ask('Display entfernen? Die Adresse funktioniert dann nicht mehr.', 'Entfernen').then(y => { if (y) store.removeDisplay(d.id).catch(fail); })}>Entfernen</button>}
           </div>
         </div></div>;
     })}

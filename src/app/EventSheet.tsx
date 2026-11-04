@@ -10,6 +10,7 @@ import { suggestPlaces, travelTime, type PlaceHit } from '../lib/ai';
 import { AttachButton, FileList } from './Files';
 import { evAlarm, hasEvAlarm, LEADS, setEvAlarm } from '../lib/bdalarm';
 import { native } from '../lib/native';
+import { ask } from './ask';
 
 // Adresse in zwei Feldern: „Straße Nr“ und „PLZ Ort“, gespeichert als „Straße Nr, PLZ Ort“ (eindeutig für Route und Fahrzeit)
 export const splitAddr = (a: string): [string, string] => { const k = a.lastIndexOf(','); return k < 0 ? [a, ''] : [a.slice(0, k), a.slice(k + 1).trimStart()]; };
@@ -109,7 +110,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
   const remove = async () => {
-    if (!d.id || !confirm('Termin wirklich löschen?')) return;
+    if (!d.id || !(await ask('Termin wirklich löschen?', 'Löschen'))) return;
     try { await store.deleteEvent(d.id); toast('Termin gelöscht.'); close(); } catch (e) { fail(e); }
   };
 

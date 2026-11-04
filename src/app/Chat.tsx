@@ -8,6 +8,7 @@ import { Badge, Icon, useLong } from './ui';
 import { ClipMenu } from './ClipMenu';
 import { native } from '../lib/native';
 import { fail, toast } from './toast';
+import { ask } from './ask';
 
 // Chat von Person zu Person, wie bei WhatsApp: links die Liste, ein Tipp öffnet den Verlauf.
 // Nur Absender und Empfänger sehen die Nachrichten, nie das Display.
@@ -53,7 +54,10 @@ function Bubble({ c, mine, del }: { c: ChatMsg; mine: boolean; del: () => void }
       {c.kind === 'place' ? <a className="ch-place" href={maps} target="_blank" rel="noreferrer"><Icon name="place" /><span><b>Standort</b><small>In Karte öffnen</small></span></a> : null}
       {c.media ? <Media c={c} /> : null}
       {c.text && !(c.kind === 'text' && c.media) && <div className="ch-t">{c.text}</div>}
-      <small className="ch-time">{timeOf(c.created_at)}{mine ? (c.read_at ? ' ✓✓' : ' ✓') : ''}</small>
+      <small className="ch-time">
+        {/* Sprachnachricht, Foto, Datei: lange drücken trifft oft das Bedienfeld, daher ein eigener Papierkorb */}
+        {mine && c.media && <button type="button" className="ch-del" aria-label="Nachricht löschen" onClick={del}><Icon name="trash" /></button>}
+        {timeOf(c.created_at)}{mine ? (c.read_at ? ' ✓✓' : ' ✓') : ''}</small>
     </div>
   );
 }
@@ -134,7 +138,7 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
           const d = dayOf(c.created_at), sep = d !== lastDay; lastDay = d;
           return <div key={c.id} className="ch-row">
             {sep && <div className="ch-day">{d === today() ? 'Heute' : whenC(c.created_at)}</div>}
-            <Bubble c={c} mine={c.from_member === me} del={() => { if (confirm('Diese Nachricht löschen?')) void store.deleteChat(c.id).catch(fail); }} />
+            <Bubble c={c} mine={c.from_member === me} del={() => { void ask('Diese Nachricht löschen?', 'Löschen').then(y => { if (y) void store.deleteChat(c.id).catch(fail); }); }} />
           </div>;
         })}
         <div ref={end} />

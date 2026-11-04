@@ -6,6 +6,7 @@ import { ClipMenu } from './ClipMenu';
 import { Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
 import { native } from '../lib/native';
+import { ask } from './ask';
 
 type Mode = 'private' | 'family' | 'board';
 // Web-Spracherkennung des Browsers (Chrome/Android, Safari/iOS)
@@ -121,7 +122,7 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
       // Kein Termin auf dem Foto: anbieten, es ans Board zu hängen
       if (parsed.source !== 'ai' || parsed.found === false) {
         const why = parsed.source !== 'ai' ? `Das Foto konnte nicht gelesen werden${parsed.why ? ` (${parsed.why})` : ''}.` : 'Auf dem Foto steht kein Termin.';
-        if (window.confirm(`${why}\n\nSoll das Foto stattdessen ans Board?`)) { await store.postMessage(typed || '📷 Foto', img); toast('Foto hängt jetzt am Board.'); posted(); }
+        if (await ask(`${why}\n\nSoll das Foto stattdessen ans Board?`, 'Ans Board')) { await store.postMessage(typed || '📷 Foto', img); toast('Foto hängt jetzt am Board.'); posted(); }
         return;
       }
       toDraft({ ...parsed, vis: m, busy: m === 'private' && parsed.busy });
