@@ -285,7 +285,7 @@ class SupabaseStore extends Base {
         const fam = this.familyId, me = this.snap.me;
         let media = null;
         if (c.blob) {
-            const ext = c.kind === 'voice' ? (c.blob.type.includes('mp4') ? 'm4a' : c.blob.type.includes('ogg') ? 'ogg' : 'webm') : 'jpg';
+            const ext = c.kind === 'voice' ? (c.blob.type.includes('mp4') ? 'm4a' : c.blob.type.includes('ogg') ? 'ogg' : 'webm') : c.kind === 'image' ? 'jpg' : ((c.name ?? '').match(/\.([a-z0-9]{1,5})$/i)?.[1]?.toLowerCase() ?? 'bin');
             media = `${fam}/${me}/${crypto.randomUUID()}.${ext}`;
             const up = await this.sb.storage.from('chat').upload(media, c.blob, { contentType: c.blob.type || undefined });
             if (up.error)

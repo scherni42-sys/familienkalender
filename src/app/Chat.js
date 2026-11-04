@@ -4,6 +4,7 @@ import { store, useSnapshot } from '../lib/store';
 import { hm, today } from '../lib/dates';
 import { shrinkPhoto } from '../lib/ai';
 import { Badge, Icon, useLong } from './ui';
+import { ClipMenu } from './ClipMenu';
 import { fail, toast } from './toast';
 // Chat von Person zu Person, wie bei WhatsApp: links die Liste, ein Tipp öffnet den Verlauf.
 // Nur Absender und Empfänger sehen die Nachrichten, nie das Display.
@@ -19,7 +20,7 @@ const whenC = (iso) => {
         return 'gestern';
     return new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' });
 };
-export const chatPreview = (c) => c.kind === 'image' ? `📷 ${c.text || 'Foto'}` : c.kind === 'voice' ? `🎤 Sprachnachricht${c.dur ? ` (${c.dur} s)` : ''}` : c.kind === 'place' ? '📍 Standort' : c.text;
+export const chatPreview = (c) => c.kind === 'text' && c.media ? `📎 ${c.text || 'Dokument'}` : c.kind === 'image' ? `📷 ${c.text || 'Foto'}` : c.kind === 'voice' ? `🎤 Sprachnachricht${c.dur ? ` (${c.dur} s)` : ''}` : c.kind === 'place' ? '📍 Standort' : c.text;
 // Gesprächsliste: je Person die letzte Nachricht und wie viele ungelesen sind
 export function chatThreads(chats, me) {
     const by = new Map();
@@ -42,13 +43,15 @@ function Media({ c }) {
         return null;
     if (!url)
         return _jsx("div", { className: "ch-load", children: "L\u00E4dt \u2026" });
+    if (c.kind === 'text')
+        return _jsxs("a", { className: "ch-file", href: url, target: "_blank", rel: "noreferrer", children: [_jsx(Icon, { name: "clip" }), _jsx("span", { children: c.text || 'Dokument' })] });
     return c.kind === 'voice' ? _jsx("audio", { controls: true, preload: "none", src: url }) : _jsx("a", { href: url, target: "_blank", rel: "noreferrer", className: "ch-img", children: _jsx("img", { src: url, alt: c.text || 'Foto', loading: "lazy" }) });
 }
 function Bubble({ c, mine, del }) {
     const l = useLong(() => { if (mine)
         del(); });
     const maps = c.lat != null && c.lon != null ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}` : '';
-    return (_jsxs("div", { className: `ch-b${mine ? ' me' : ''}`, ...l.on, children: [c.kind === 'place' ? _jsxs("a", { className: "ch-place", href: maps, target: "_blank", rel: "noreferrer", children: [_jsx(Icon, { name: "place" }), _jsxs("span", { children: [_jsx("b", { children: "Standort" }), _jsx("small", { children: "In Karte \u00F6ffnen" })] })] }) : null, c.kind === 'image' || c.kind === 'voice' ? _jsx(Media, { c: c }) : null, c.text && _jsx("div", { className: "ch-t", children: c.text }), _jsxs("small", { className: "ch-time", children: [timeOf(c.created_at), mine ? (c.read_at ? ' ✓✓' : ' ✓') : ''] })] }));
+    return (_jsxs("div", { className: `ch-b${mine ? ' me' : ''}`, ...l.on, children: [c.kind === 'place' ? _jsxs("a", { className: "ch-place", href: maps, target: "_blank", rel: "noreferrer", children: [_jsx(Icon, { name: "place" }), _jsxs("span", { children: [_jsx("b", { children: "Standort" }), _jsx("small", { children: "In Karte \u00F6ffnen" })] })] }) : null, c.media ? _jsx(Media, { c: c }) : null, c.text && !(c.kind === 'text' && c.media) && _jsx("div", { className: "ch-t", children: c.text }), _jsxs("small", { className: "ch-time", children: [timeOf(c.created_at), mine ? (c.read_at ? ' ✓✓' : ' ✓') : ''] })] }));
 }
 // Sprachnachricht: einmal tippen startet, Stopp sendet, ✕ verwirft
 function useRecorder(send) {
@@ -111,6 +114,13 @@ function Thread({ w, back }) {
             toast('Das Foto ließ sich nicht öffnen.');
         }
     };
+    const doc = (f) => {
+        if (f.size > 10 * 1024 * 1024) {
+            toast('Die Datei ist zu groß (höchstens 10 MB).');
+            return;
+        }
+        void go(store.sendChat(w.id, { kind: 'text', blob: f, name: f.name, text: f.name }));
+    };
     const place = () => {
         if (!navigator.geolocation) {
             toast('Standort geht auf diesem Gerät nicht.');
@@ -127,7 +137,7 @@ function Thread({ w, back }) {
                         return _jsxs("div", { className: "ch-row", children: [sep && _jsx("div", { className: "ch-day", children: d === today() ? 'Heute' : whenC(c.created_at) }), _jsx(Bubble, { c: c, mine: c.from_member === me, del: () => { if (confirm('Diese Nachricht löschen?'))
                                         void store.deleteChat(c.id).catch(fail); } })] }, c.id);
                     }), _jsx("div", { ref: end })] }), _jsxs("div", { className: "ch-note", children: ["Verschwindet nach ", days === 1 ? '1 Tag' : `${days} Tagen`, "."] }), voice.sec !== null ? (_jsxs("div", { className: "ch-compose rec", children: [_jsx("button", { type: "button", className: "ch-i", "aria-label": "Aufnahme verwerfen", onClick: () => voice.stop(false), children: "\u2715" }), _jsxs("span", { className: "ch-rec", children: [_jsx("i", {}), "Aufnahme ", Math.floor(voice.sec / 60), ":", String(voice.sec % 60).padStart(2, '0')] }), _jsx("button", { type: "button", className: "ch-send", "aria-label": "Sprachnachricht senden", onClick: () => voice.stop(true), children: _jsx(Icon, { name: "send" }) })] })) : (_jsxs("form", { className: "ch-compose", onSubmit: e => { e.preventDefault(); const v = text.trim(); if (!v || busy)
-                    return; void go(store.sendChat(w.id, { kind: 'text', text: v })).then(() => setText('')); }, children: [_jsxs("label", { className: "ch-i", "aria-label": "Foto senden", children: [_jsx(Icon, { name: "camera" }), _jsx("input", { type: "file", accept: "image/*", hidden: true, onChange: e => { void photo(e.target.files?.[0]); e.target.value = ''; } })] }), _jsx("button", { type: "button", className: "ch-i", "aria-label": "Standort senden", disabled: busy, onClick: place, children: _jsx(Icon, { name: "place" }) }), _jsx("input", { value: text, onChange: e => setText(e.target.value), placeholder: `Nachricht an ${w.name}`, maxLength: 2000, "aria-label": "Nachricht" }), text.trim() ? _jsx("button", { className: "ch-send", "aria-label": "Senden", disabled: busy, children: busy ? _jsx("span", { className: "spin" }) : _jsx(Icon, { name: "send" }) })
+                    return; void go(store.sendChat(w.id, { kind: 'text', text: v })).then(() => setText('')); }, children: [_jsx(ClipMenu, { image: f => void photo(f), doc: doc, place: place, disabled: busy }), _jsx("input", { value: text, onChange: e => setText(e.target.value), placeholder: `Nachricht an ${w.name}`, maxLength: 2000, "aria-label": "Nachricht" }), text.trim() ? _jsx("button", { className: "ch-send", "aria-label": "Senden", disabled: busy, children: busy ? _jsx("span", { className: "spin" }) : _jsx(Icon, { name: "send" }) })
                         : _jsx("button", { type: "button", className: "ch-send", "aria-label": "Sprachnachricht aufnehmen", disabled: busy, onClick: () => void voice.start(), children: busy ? _jsx("span", { className: "spin" }) : _jsx(Icon, { name: "mic" }) })] }))] }));
 }
 // plus: zählt hoch, wenn unten das ＋ gedrückt wird; dann die Auswahl „Neuer Chat mit …“

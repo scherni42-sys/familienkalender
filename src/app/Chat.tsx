@@ -4,6 +4,7 @@ import type { ChatMsg, Member } from '../lib/types';
 import { hm, today } from '../lib/dates';
 import { shrinkPhoto } from '../lib/ai';
 import { Badge, Icon, useLong } from './ui';
+import { ClipMenu } from './ClipMenu';
 import { fail, toast } from './toast';
 
 // Chat von Person zu Person, wie bei WhatsApp: links die Liste, ein Tipp öffnet den Verlauf.
@@ -18,7 +19,7 @@ const whenC = (iso: string) => {
   if (d === dayOf(y.toISOString())) return 'gestern';
   return new Date(iso).toLocaleDateString('de-DE', { day: 'numeric', month: 'numeric' });
 };
-export const chatPreview = (c: ChatMsg) => c.kind === 'image' ? `📷 ${c.text || 'Foto'}` : c.kind === 'voice' ? `🎤 Sprachnachricht${c.dur ? ` (${c.dur} s)` : ''}` : c.kind === 'place' ? '📍 Standort' : c.text;
+export const chatPreview = (c: ChatMsg) => c.kind === 'text' && c.media ? `📎 ${c.text || 'Dokument'}` : c.kind === 'image' ? `📷 ${c.text || 'Foto'}` : c.kind === 'voice' ? `🎤 Sprachnachricht${c.dur ? ` (${c.dur} s)` : ''}` : c.kind === 'place' ? '📍 Standort' : c.text;
 
 // Gesprächsliste: je Person die letzte Nachricht und wie viele ungelesen sind
 export function chatThreads(chats: ChatMsg[], me: string | null) {
@@ -38,6 +39,7 @@ function Media({ c }: { c: ChatMsg }) {
   useEffect(() => { if (c.media) store.chatUrl(c.media).then(setUrl, () => setUrl(null)); }, [c.media]);
   if (!c.media) return null;
   if (!url) return <div className="ch-load">Lädt …</div>;
+  if (c.kind === 'text') return <a className="ch-file" href={url} target="_blank" rel="noreferrer"><Icon name="clip" /><span>{c.text || 'Dokument'}</span></a>;
   return c.kind === 'voice' ? <audio controls preload="none" src={url} /> : <a href={url} target="_blank" rel="noreferrer" className="ch-img"><img src={url} alt={c.text || 'Foto'} loading="lazy" /></a>;
 }
 
@@ -47,8 +49,8 @@ function Bubble({ c, mine, del }: { c: ChatMsg; mine: boolean; del: () => void }
   return (
     <div className={`ch-b${mine ? ' me' : ''}`} {...l.on}>
       {c.kind === 'place' ? <a className="ch-place" href={maps} target="_blank" rel="noreferrer"><Icon name="place" /><span><b>Standort</b><small>In Karte öffnen</small></span></a> : null}
-      {c.kind === 'image' || c.kind === 'voice' ? <Media c={c} /> : null}
-      {c.text && <div className="ch-t">{c.text}</div>}
+      {c.media ? <Media c={c} /> : null}
+      {c.text && !(c.kind === 'text' && c.media) && <div className="ch-t">{c.text}</div>}
       <small className="ch-time">{timeOf(c.created_at)}{mine ? (c.read_at ? ' ✓✓' : ' ✓') : ''}</small>
     </div>
   );
@@ -95,6 +97,10 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
     try { const p = await shrinkPhoto(f); const blob = await (await fetch(`data:${p.type};base64,${p.data}`)).blob(); await go(store.sendChat(w.id, { kind: 'image', blob, text: text.trim() })); setText(''); }
     catch { toast('Das Foto ließ sich nicht öffnen.'); }
   };
+  const doc = (f: File) => {
+    if (f.size > 10 * 1024 * 1024) { toast('Die Datei ist zu groß (höchstens 10 MB).'); return; }
+    void go(store.sendChat(w.id, { kind: 'text', blob: f, name: f.name, text: f.name }));
+  };
   const place = () => {
     if (!navigator.geolocation) { toast('Standort geht auf diesem Gerät nicht.'); return; }
     setBusy(true);
@@ -130,8 +136,7 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
         </div>
       ) : (
         <form className="ch-compose" onSubmit={e => { e.preventDefault(); const v = text.trim(); if (!v || busy) return; void go(store.sendChat(w.id, { kind: 'text', text: v })).then(() => setText('')); }}>
-          <label className="ch-i" aria-label="Foto senden"><Icon name="camera" /><input type="file" accept="image/*" hidden onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>
-          <button type="button" className="ch-i" aria-label="Standort senden" disabled={busy} onClick={place}><Icon name="place" /></button>
+          <ClipMenu image={f => void photo(f)} doc={doc} place={place} disabled={busy} />
           <input value={text} onChange={e => setText(e.target.value)} placeholder={`Nachricht an ${w.name}`} maxLength={2000} aria-label="Nachricht" />
           {text.trim() ? <button className="ch-send" aria-label="Senden" disabled={busy}>{busy ? <span className="spin" /> : <Icon name="send" />}</button>
             : <button type="button" className="ch-send" aria-label="Sprachnachricht aufnehmen" disabled={busy} onClick={() => void voice.start()}>{busy ? <span className="spin" /> : <Icon name="mic" />}</button>}

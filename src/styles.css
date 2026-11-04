@@ -534,3 +534,15 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 @keyframes chrec { 50% { opacity: .3; } }
 .ch-t { font-weight: 400; }
 .ch-pick { display: flex; flex-direction: column; gap: 2px; }
+/* Büroklammer-Menü (Chat und Board) */
+.clip-m { position: relative; display: inline-flex; flex: none; }
+.clip-bg { position: fixed; inset: 0; z-index: 30; }
+.clip-pop { position: absolute; bottom: 48px; left: 0; z-index: 31; display: grid; grid-template-columns: repeat(2, 84px); gap: 10px; padding: 12px; border-radius: 18px; background: #2E3532; border: 1px solid #3A433E; box-shadow: 0 10px 28px rgba(0,0,0,.35); }
+.clip-pop > label, .clip-pop > button { all: unset; display: grid; justify-items: center; gap: 6px; color: #EEF3F0; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; }
+.clip-pop .rnd { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; border: 2.5px solid var(--accent); color: var(--accent); }
+.clip-pop .rnd .ico { width: 24px; height: 24px; }
+.ch-file { display: flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; padding: 4px 0; }
+.ch-file .ico { width: 24px; height: 24px; flex: none; }
+.ch-file span { overflow-wrap: anywhere; font-weight: 700; }
+.mic-clip { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.mic-clip .ch-i { color: var(--ink); border: 2px solid var(--line); }

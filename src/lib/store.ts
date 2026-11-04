@@ -294,7 +294,7 @@ class SupabaseStore extends Base implements Store {
     const fam = this.familyId!, me = this.snap.me!;
     let media: string | null = null;
     if (c.blob) {
-      const ext = c.kind === 'voice' ? (c.blob.type.includes('mp4') ? 'm4a' : c.blob.type.includes('ogg') ? 'ogg' : 'webm') : 'jpg';
+      const ext = c.kind === 'voice' ? (c.blob.type.includes('mp4') ? 'm4a' : c.blob.type.includes('ogg') ? 'ogg' : 'webm') : c.kind === 'image' ? 'jpg' : ((c.name ?? '').match(/\.([a-z0-9]{1,5})$/i)?.[1]?.toLowerCase() ?? 'bin');
       media = `${fam}/${me}/${crypto.randomUUID()}.${ext}`;
       const up = await this.sb.storage.from('chat').upload(media, c.blob, { contentType: c.blob.type || undefined });
       if (up.error) throw new Error(up.error.message.includes('not found') ? 'Der Chat ist noch nicht eingerichtet (Migration 0020).' : up.error.message);

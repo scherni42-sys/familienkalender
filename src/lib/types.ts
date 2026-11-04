@@ -115,7 +115,7 @@ export interface Snapshot {
 
 export type ChatKind = 'text' | 'image' | 'voice' | 'place';
 export interface ChatMsg { id: string; from_member: string; to_member: string; kind: ChatKind; text: string; media: string | null; dur: number | null; lat: number | null; lon: number | null; created_at: string; read_at: string | null }
-export type ChatOut = { kind: ChatKind; text?: string; blob?: Blob; dur?: number; lat?: number; lon?: number };
+export type ChatOut = { kind: ChatKind; text?: string; blob?: Blob; name?: string; dur?: number; lat?: number; lon?: number };
 
 export type NewEvent = Omit<CalEvent, 'id' | 'owner'>;
 

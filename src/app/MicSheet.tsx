@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { parseSpoken, shrinkPhoto } from '../lib/ai';
 import type { Draft } from '../lib/parse';
+import { ClipMenu } from './ClipMenu';
 import { Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
 import { native } from '../lib/native';
@@ -96,6 +97,16 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
 
+  // Büroklammer beim Board: Dokument (PDF, Word, …) als Board-Nachricht, der Text dazu ist freiwillig
+  const attach = async (file: File) => {
+    if (file.size > 15 * 1024 * 1024) { toast('Die Datei ist zu groß (höchstens 15 MB).'); return; }
+    setBusy(true);
+    try {
+      const data = await new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1] ?? ''); r.onerror = () => no(r.error); r.readAsDataURL(file); });
+      await store.attachFile({ name: file.name, type: file.type || 'application/octet-stream', data }, { text: latest.current.text.trim() || undefined });
+      toast('Dokument hängt jetzt am Board.'); posted();
+    } catch (x) { fail(x); } finally { setBusy(false); }
+  };
   // Foto von Zettel, Brief oder Einladung: Claude liest den Termin, danach wie gewohnt bestätigen
   const photo = async (file?: File) => {
     if (!file) return;
@@ -136,6 +147,7 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
           <input type="file" accept="image/*" capture="environment" hidden disabled={busy} onChange={e => { void photo(e.target.files?.[0]); e.target.value = ''; }} /></label>}</div>
       <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem.' : busy ? 'Einen Moment, Claude liest …' : 'Tippe aufs Mikrofon und sprich, schreib den Satz, fotografiere einen Zettel oder nimm ein Bild aus der Galerie.'}</p>
       <textarea value={text} onChange={e => setText(e.target.value)} placeholder={mode === 'board' ? 'Nachricht sprechen oder tippen' : 'Termin sprechen oder tippen'} maxLength={500} />
+      {mode === 'board' && <div className="mic-clip"><ClipMenu image={f => void photo(f)} doc={f => void attach(f)} disabled={busy} /><span>Foto oder Dokument anhängen</span></div>}
       <p className="note">Tipp: Beginnst du mit „Privat“, „Familie“ oder „Board“, wird die Art gleich umgestellt.</p>
       <div className="btn-row">
         <button type="button" className="btn ghost" onClick={close}>Abbrechen</button>
