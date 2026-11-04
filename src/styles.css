@@ -397,7 +397,9 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .wv { min-width: 0; overflow-x: clip; --wv-fg: #EEF3F0; --wv-muted: #9AA8A0; --wv-line: #3A433E; background: #262B29; color: var(--wv-fg); border-radius: 22px; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.18); border: 1px solid #3A433E; }
 .wv-head { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 2px 6px; font-size: 17px; }
 .wv-head span { color: var(--wv-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
-.wv-sec { all: unset; display: block; margin-top: 8px; padding: 6px 2px 4px; border-top: 1px solid var(--wv-line); color: var(--wv-muted); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+.wv-sec { display: block; margin-top: 8px; padding: 10px 0 6px; border-top: 1px solid var(--wv-line); }
+.wv-sec.top { border-top: 0; margin-top: 0; padding-top: 2px; }
+.wv-sec .bd-p { min-width: 0; color: var(--wv-fg); height: 36px; padding: 0 18px; font-size: 15px; }
 .wv-head + .wv-sec { border-top: 0; margin-top: 0; }
 .wv-row, .wv-msg { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-radius: 10px; cursor: pointer; min-height: 30px; }
 .wv-row:active, .wv-msg:active { background: rgba(255,255,255,.06); }
@@ -482,3 +484,6 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .photo .rnd { width: 60px; height: 60px; border-radius: 50%; border: 2.5px solid var(--accent); background: var(--surface-2); display: grid; place-items: center; }
 .photo .rnd .ico { width: 26px; height: 26px; }
 .photo span:last-child { font-size: 12px; color: var(--muted); }
+/* Großes Board im Startseiten-Kasten: Karten behalten ihre eigenen Farben */
+.wv-board { color: var(--ink); min-width: 0; }
+.wv-board p.note { color: var(--wv-muted) !important; }

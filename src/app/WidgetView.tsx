@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
@@ -80,15 +80,18 @@ function Day({ d, snap, filter, now, go }: { d: string; snap: Snapshot; filter: 
   </>;
 }
 
-export function WidgetView({ snap, filter, now, go }: { snap: Snapshot; filter: Filter; now: number; go: Go }) {
+// board: das ganze Board statt der Termine (Board-Knopf grün); antippen schaltet zurück
+export function WidgetView({ snap, filter, now, go, board, toggle }: { snap: Snapshot; filter: Filter; now: number; go: Go; board?: ReactNode; toggle: () => void }) {
   const t = today();
   const s = snap.family!.settings;
   const msgs = liveMsgs(snap.messages, s);
   const m = (id: string) => snap.members.find(x => x.id === id);
   return (
     <div className="wv">
-      <Day d={t} snap={snap} filter={filter} now={now} go={go} />
-      <button type="button" className="wv-sec" onClick={() => go.msg('')}>Board ›</button>
+      {!board && <Day d={t} snap={snap} filter={filter} now={now} go={go} />}
+      <div className={`wv-sec${board ? ' top' : ''}`}><button type="button" className={`kw-p bd-p${board ? ' on' : ''}`} aria-pressed={!!board} onClick={toggle}>Board</button></div>
+      {board && <div className="wv-board">{board}</div>}
+      {!board && <>
       {!msgs.length && <div className="wv-note">Keine Nachrichten</div>}
       {msgs.map(x => {
         const last = x.replies.at(-1);
@@ -102,6 +105,7 @@ export function WidgetView({ snap, filter, now, go }: { snap: Snapshot; filter: 
           <small>{nameOf(snap.members, x.from_member)}<br />{x.pinned ? '' : whenM(x)}</small>
         </div>;
       })}
+      </>}
     </div>
   );
 }

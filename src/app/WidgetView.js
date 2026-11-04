@@ -48,14 +48,15 @@ function Day({ d, snap, filter, now, go }) {
     const bds = bdOn(snap.birthdays, d);
     return _jsxs(_Fragment, { children: [bds.map(b => _jsxs("div", { className: "wv-row", style: cvar(bdColor(snap, b)), role: "button", tabIndex: 0, onClick: () => go.bday(b.id), children: [_jsx("i", { className: "wv-bar" }), _jsx("time", { children: "Geb." }), _jsx("div", { className: "wv-txt", children: _jsxs("div", { className: "wv-t", children: [_jsx(Icon, { name: "cake" }), b.owner && _jsx(Icon, { name: "lock" }), _jsxs("span", { children: [b.name, b.age ? ` wird ${b.age}` : ''] })] }) })] }, b.id)), list.map(e => _jsx(Row, { e: e, d: d, snap: snap, now: now, go: go }, e.id)), !list.length && !bds.length && _jsx("button", { type: "button", className: "wv-note", onClick: () => go.add(d), children: _jsx("b", { children: "\uFF0B Termin" }) })] });
 }
-export function WidgetView({ snap, filter, now, go }) {
+// board: das ganze Board statt der Termine (Board-Knopf grün); antippen schaltet zurück
+export function WidgetView({ snap, filter, now, go, board, toggle }) {
     const t = today();
     const s = snap.family.settings;
     const msgs = liveMsgs(snap.messages, s);
     const m = (id) => snap.members.find(x => x.id === id);
-    return (_jsxs("div", { className: "wv", children: [_jsx(Day, { d: t, snap: snap, filter: filter, now: now, go: go }), _jsx("button", { type: "button", className: "wv-sec", onClick: () => go.msg(''), children: "Board \u203A" }), !msgs.length && _jsx("div", { className: "wv-note", children: "Keine Nachrichten" }), msgs.map(x => {
-                const last = x.replies.at(-1);
-                return _jsxs("div", { className: "wv-msg", role: "button", tabIndex: 0, onClick: () => go.msg(x.id), children: [_jsx(Badge, { m: m(x.from_member), size: 26 }), _jsxs("div", { className: "wv-txt", children: [_jsxs("div", { className: "wv-t", children: [x.pinned && _jsx(Icon, { name: "pin" }), _jsxs("span", { children: [x.image && !x.text.startsWith('📷') ? '📷 ' : '', x.text] })] }), x.taker ? _jsxs("div", { className: "wv-sub ok", children: ["\u2713 ", nameOf(snap.members, x.taker), " \u00FCbernimmt das"] })
-                                    : last ? _jsxs("div", { className: "wv-sub", children: [nameOf(snap.members, last.from_member), ": ", last.text] }) : null] }), _jsxs("small", { children: [nameOf(snap.members, x.from_member), _jsx("br", {}), x.pinned ? '' : whenM(x)] })] }, x.id);
-            })] }));
+    return (_jsxs("div", { className: "wv", children: [!board && _jsx(Day, { d: t, snap: snap, filter: filter, now: now, go: go }), _jsx("div", { className: `wv-sec${board ? ' top' : ''}`, children: _jsx("button", { type: "button", className: `kw-p bd-p${board ? ' on' : ''}`, "aria-pressed": !!board, onClick: toggle, children: "Board" }) }), board && _jsx("div", { className: "wv-board", children: board }), !board && _jsxs(_Fragment, { children: [!msgs.length && _jsx("div", { className: "wv-note", children: "Keine Nachrichten" }), msgs.map(x => {
+                        const last = x.replies.at(-1);
+                        return _jsxs("div", { className: "wv-msg", role: "button", tabIndex: 0, onClick: () => go.msg(x.id), children: [_jsx(Badge, { m: m(x.from_member), size: 26 }), _jsxs("div", { className: "wv-txt", children: [_jsxs("div", { className: "wv-t", children: [x.pinned && _jsx(Icon, { name: "pin" }), _jsxs("span", { children: [x.image && !x.text.startsWith('📷') ? '📷 ' : '', x.text] })] }), x.taker ? _jsxs("div", { className: "wv-sub ok", children: ["\u2713 ", nameOf(snap.members, x.taker), " \u00FCbernimmt das"] })
+                                            : last ? _jsxs("div", { className: "wv-sub", children: [nameOf(snap.members, last.from_member), ": ", last.text] }) : null] }), _jsxs("small", { children: [nameOf(snap.members, x.from_member), _jsx("br", {}), x.pinned ? '' : whenM(x)] })] }, x.id);
+                    })] })] }));
 }

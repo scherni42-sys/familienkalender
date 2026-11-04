@@ -120,7 +120,7 @@ export function Shell() {
       {/* Kopfzeile wie im Widget: Datum (bzw. Woche), Zahnrad, Haus */}
       <div className="ph-head wlike">
         <button type="button" className="ph-title" onClick={() => setTab('today')} aria-label="Zurück zu heute">
-          <strong ref={titleRef} className={tab === 'today' ? 'date' : undefined}>{tab === 'today' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab]}</strong></button>
+          <strong ref={titleRef} className={tab === 'today' || tab === 'board' ? 'date' : undefined}>{tab === 'today' || tab === 'board' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab]}</strong></button>
         <span className="head-r">
           <button type="button" className={`head-i${tab === 'settings' ? ' on' : ''}`} aria-label="Einstellungen" aria-pressed={tab === 'settings'} onClick={() => setTab(tab === 'settings' ? 'today' : 'settings')}><Icon name="gear" /></button>
           <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
@@ -128,10 +128,9 @@ export function Shell() {
         </span>
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
-      <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
-        {tab === 'today' && <WidgetView snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
+      <div className={`ph-body${tab === 'today' || tab === 'board' ? ' today' : ''}`}>
+        {(tab === 'today' || tab === 'board') && <WidgetView board={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} /> : undefined} toggle={() => setTab(tab === 'board' ? 'today' : 'board')} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} wk={wk} />}
-        {tab === 'board' && <Board focus={focusMsg} reply={replyMsg} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>
       {me.role !== 'guest' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
