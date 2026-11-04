@@ -34,7 +34,7 @@ create policy chat_ins on public.chats for insert
 drop policy if exists chat_del on public.chats;
 create policy chat_del on public.chats for delete using (from_member = public.my_member(family_id));
 
--- Gelesen: nur der Empfänger markiert die Nachrichten eines Absenders als gelesen
+/* Gelesen: nur der Empfänger markiert die Nachrichten eines Absenders als gelesen */
 create or replace function public.chat_seen(p_with uuid) returns void
 language sql security definer set search_path = public as $$
   update chats c set read_at = now()
@@ -43,7 +43,7 @@ language sql security definer set search_path = public as $$
 $$;
 grant execute on function public.chat_seen(uuid) to authenticated;
 
--- Abgelaufene Nachrichten der eigenen Familie löschen; liefert die Pfade der Bilder und Sprachnachrichten zum Aufräumen
+/* Abgelaufene Nachrichten der eigenen Familie löschen; liefert die Pfade der Bilder und Sprachnachrichten zum Aufräumen */
 create or replace function public.chat_purge() returns setof text
 language sql security definer set search_path = public as $$
   delete from chats c
@@ -52,7 +52,7 @@ language sql security definer set search_path = public as $$
 $$;
 grant execute on function public.chat_purge() to authenticated;
 
--- Bilder und Sprachnachrichten: privater Speicher, Pfad familie/absender/zufall.ext
+/* Bilder und Sprachnachrichten: privater Speicher, Pfad familie/absender/zufall.ext */
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('chat', 'chat', false, 10485760)
 on conflict (id) do nothing;
@@ -67,7 +67,7 @@ drop policy if exists chat_rm on storage.objects;
 create policy chat_rm on storage.objects for delete to authenticated
   using (bucket_id = 'chat' and public.is_member(((storage.foldername(name))[1])::uuid));
 
--- Widget: eigene Chats mit dem persönlichen Widget-Code (nicht mit einem Display-Code)
+/* Widget: eigene Chats mit dem persönlichen Widget-Code (nicht mit einem Display-Code) */
 create or replace function public.widget_chats(p_token uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
 declare w record;
