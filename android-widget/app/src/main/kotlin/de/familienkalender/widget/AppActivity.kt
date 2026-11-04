@@ -227,6 +227,15 @@ class AppActivity : Activity() {
         // Persönlicher Widget-Code, damit die App sich ohne Einladung mit dem eigenen Konto verbindet
         @JavascriptInterface fun code(): String = getSharedPreferences("familien-widget", MODE_PRIVATE).getString("code", "") ?: ""
         @JavascriptInterface fun version(): Int = BuildConfig.VERSION_CODE
+        // Web-App hat etwas gespeichert (Termin, Fahrer, Ankunftszeit): Widget sofort neu laden, nicht erst beim nächsten Takt
+        @JavascriptInterface fun changed() {
+            val ctx = applicationContext
+            Thread {
+                try {
+                    Feed.load(ctx).first?.let { feed -> Reminders.process(ctx, feed); TodayWidget.refreshData(ctx); NextWidget.updateAll(ctx, feed) }
+                } catch (x: Exception) { }
+            }.start()
+        }
         // Mikrofon: native Schnelleingabe (Spracherkennung im eingebetteten Browser gibt es nicht)
         @JavascriptInterface fun mic(mode: String) {
             runOnUiThread {

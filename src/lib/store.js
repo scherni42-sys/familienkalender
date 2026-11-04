@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS } from './types';
 import { supabase } from './supabase';
 import { seed } from './seed';
 import { addDays, today } from './dates';
+import { native } from './native';
 const EMPTY = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [] };
 class Base {
     snap = EMPTY;
@@ -254,7 +255,11 @@ class SupabaseStore extends Base {
         addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible')
             again(); });
     }
-    refresh = () => this.load();
+    // Nach jeder Änderung: neu laden und dem Android-Widget sagen, dass es sofort nachladen soll
+    refresh = async () => { await this.load(); try {
+        native()?.changed?.();
+    }
+    catch { /* ältere App */ } };
     async createFamily(familyName, myName, color) {
         await this.user();
         this.ok(await this.sb.rpc('create_family', { fam_name: familyName, my_name: myName, my_color: color }));

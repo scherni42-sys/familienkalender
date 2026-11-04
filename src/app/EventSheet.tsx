@@ -49,6 +49,17 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
     if (!d.place.trim() || hasAddr) return;
     suggestPlaces(d.place.trim(), s.home).then(h => { if (h[0]) { setD(x => x.addr.trim() ? x : { ...x, addr: h[0].addr }); toast(`Adresse gefunden: ${h[0].addr}. Bitte kurz prüfen.`); } }, () => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Straße tippen: passende Adressen mit PLZ und Ort vorschlagen (z. B. „Weg beim Jäger 193“)
+  const [aHits, setAHits] = useState<PlaceHit[] | null>(null);
+  const [aTyped, setATyped] = useState(false);
+  useEffect(() => {
+    const [st, town] = splitAddr(d.addr);
+    const q = [st.trim(), town.trim()].filter(Boolean).join(' ');
+    if (!aTyped || st.trim().length < 4) { setAHits(null); return; }
+    const t = setTimeout(() => { suggestPlaces(q, s.home).then(h => setAHits(h.filter(x => x.addr !== d.addr.trim())), () => setAHits(null)); }, 450);
+    return () => clearTimeout(t);
+  }, [d.addr, aTyped]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pickAddr = (h: PlaceHit) => { set({ addr: h.addr, ...(!d.place.trim() && h.name ? { place: h.name } : {}) }); setATyped(false); setAHits(null); };
   const pick = (h: PlaceHit) => { set({ addr: h.addr, ...(h.name && h.name.length > d.place.trim().length ? { place: h.name } : {}) }); setTyped(false); setHits(null); };
   const webSearch = () => { setLooking('web'); suggestPlaces(d.place.trim(), s.home, true).then(h => { setHits(h); if (!h.length) toast('Auch im Internet nichts Eindeutiges gefunden. Bitte von Hand eintragen.'); }, fail).finally(() => setLooking('')); };
   const people = snap.members.filter(m => m.role !== 'guest');
@@ -160,9 +171,12 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
         {looking === 'web' && <div className="note">Suche im Internet, das dauert ein paar Sekunden …</div>}
       </div>}
       <div className="row2">
-        <label className="field"><span>Straße und Hausnummer</span><input value={splitAddr(d.addr)[0]} onChange={e => set({ addr: joinAddr(e.target.value, splitAddr(d.addr)[1]) })} placeholder="z. B. Projensdorfer Str. 300" autoComplete="street-address" /></label>
-        <label className="field"><span>PLZ und Ort</span><input value={splitAddr(d.addr)[1]} onChange={e => set({ addr: joinAddr(splitAddr(d.addr)[0], e.target.value) })} placeholder="z. B. 24106 Kiel" /></label>
+        <label className="field"><span>Straße und Hausnummer</span><input value={splitAddr(d.addr)[0]} onChange={e => { set({ addr: joinAddr(e.target.value, splitAddr(d.addr)[1]) }); setATyped(true); }} placeholder="z. B. Projensdorfer Str. 300" autoComplete="street-address" /></label>
+        <label className="field"><span>PLZ und Ort</span><input value={splitAddr(d.addr)[1]} onChange={e => { set({ addr: joinAddr(splitAddr(d.addr)[0], e.target.value) }); setATyped(true); }} placeholder="z. B. 24106 Kiel" /></label>
       </div>
+      {aHits && aHits.length > 0 && <div className="place-hits">
+        {aHits.map((h, i) => <button key={i} type="button" onClick={() => pickAddr(h)}><Icon name="place" /><span>{h.name && <b>{h.name}</b>}<small>{h.addr}</small></span></button>)}
+      </div>}
       {(d.addr.replace(/^,\s*/, '').trim() || d.place.trim()) && !isOnline(d) && <button type="button" className="btn sm nav-btn" style={{ justifySelf: 'start' }} disabled={busy} onClick={() => navGo(d.addr.replace(/^,\s*/, '').trim() || d.place.trim())}><Icon name="car" /> Speichern und Navigation starten</button>}
       {d.driver && s.showTravel && !d.all_day && (
         <div className="row2">
