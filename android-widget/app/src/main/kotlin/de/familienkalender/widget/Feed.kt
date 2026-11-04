@@ -59,10 +59,13 @@ object Feed {
 
     // Torten-Knopf: Widget zeigt statt Heute/Pinnwand die Geburtstage, bis er nochmal gedrückt wird
     fun bdMode(ctx: Context) = cache(ctx).getBoolean("bd", false)
-    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).putBoolean("week", false).putBoolean("board", false).apply()
+    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).putBoolean("week", false).putBoolean("board", false).putBoolean("chat", false).apply()
     // Board groß: Termine ausblenden, das Board nimmt das ganze Widget ein
     fun boardMode(ctx: Context) = cache(ctx).getBoolean("board", false)
-    fun toggleBoard(ctx: Context) = cache(ctx).edit().putBoolean("board", !boardMode(ctx)).putBoolean("week", false).putBoolean("bd", false).apply()
+    fun toggleBoard(ctx: Context) = cache(ctx).edit().putBoolean("board", !boardMode(ctx)).putBoolean("chat", false).putBoolean("week", false).putBoolean("bd", false).apply()
+    // Chat groß: nur die eigenen Chats (Person zu Person), Termine und Board ausgeblendet
+    fun chatMode(ctx: Context) = cache(ctx).getBoolean("chat", false)
+    fun toggleChat(ctx: Context) = cache(ctx).edit().putBoolean("chat", !chatMode(ctx)).putBoolean("board", false).putBoolean("week", false).putBoolean("bd", false).apply()
 
     // Wochenvorschau: blättert ab dieser Woche bis ein Jahr voraus (so weit liefert der Server Termine)
     const val MAX_WEEKS = 52
@@ -70,7 +73,7 @@ object Feed {
     const val MIN_WEEKS = -12
     fun weekMode(ctx: Context) = cache(ctx).getBoolean("week", false)
     fun weekOff(ctx: Context) = cache(ctx).getInt("weekOff", 0)
-    fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).putBoolean("board", false).apply()
+    fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).putBoolean("board", false).putBoolean("chat", false).apply()
     fun turnWeek(ctx: Context, by: Int) = cache(ctx).edit().putInt("weekOff", (weekOff(ctx) + by).coerceIn(MIN_WEEKS, MAX_WEEKS)).apply()
     // Jahr der gezeigten Woche, nur wenn es nicht das aktuelle ist (z. B. 2027 über dem KW-Knopf)
     fun weekYear(ctx: Context): Int? {
@@ -155,8 +158,11 @@ object Feed {
             val body = (if (code in 200..299) conn.inputStream else conn.errorStream)?.bufferedReader()?.use { it.readText() } ?: ""
             if (code !in 200..299) throw Exception("Server meldet $code")
             if (body.trim() == "null") return null to "Dieses Display wurde entfernt. Bitte neuen Widget-Code eintragen."
-            cache(ctx).edit().putString("feed", body).putLong("at", System.currentTimeMillis()).apply()
-            home(ctx, JSONObject(body)) to null
+            val feed = JSONObject(body)
+            // Eigene Chats dazu (nur mit persönlichem Code; ohne Chat-Tabelle einfach keine)
+            chats(c)?.let { feed.put("chats", it) }
+            cache(ctx).edit().putString("feed", feed.toString()).putLong("at", System.currentTimeMillis()).apply()
+            home(ctx, feed) to null
         } catch (e: Exception) {
             val old = cache(ctx).getString("feed", null)
             val at = cache(ctx).getLong("at", 0)
@@ -166,6 +172,14 @@ object Feed {
             (old?.let { home(ctx, JSONObject(it)) }) to msg
         }
     }
+
+    private fun chats(c: Config): JSONArray? = try {
+        val conn = URL("${c.url}/rest/v1/rpc/widget_chats").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"; conn.connectTimeout = 8000; conn.readTimeout = 10000; conn.doOutput = true
+        conn.setRequestProperty("apikey", c.key); conn.setRequestProperty("Content-Type", "application/json")
+        conn.outputStream.use { it.write(JSONObject().put("p_token", c.token).toString().toByteArray()) }
+        if (conn.responseCode in 200..299) JSONArray(conn.inputStream.bufferedReader().use { it.readText() }) else null
+    } catch (e: Exception) { null }
 
     fun loadedAt(ctx: Context): Long = cache(ctx).getLong("at", 0)
     fun cached(ctx: Context): JSONObject? = try { cache(ctx).getString("feed", null)?.let { home(ctx, JSONObject(it)) } } catch (e: Exception) { null }
@@ -293,7 +307,7 @@ object Feed {
         return try { java.time.OffsetDateTime.parse(e.optString("eta")).toInstant().isBefore(java.time.Instant.now().minusSeconds(1800)) } catch (x: Exception) { false }
     }
 
-    fun rows(feed: JSONObject, week: Int? = null, flights: Map<String, String> = emptyMap(), board: Boolean = false): List<Row> {
+    fun rows(feed: JSONObject, week: Int? = null, flights: Map<String, String> = emptyMap(), board: Boolean = false, chat: Boolean = false): List<Row> {
         val today = LocalDate.now().toString()
         val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
         val settings = feed.optJSONObject("family")?.optJSONObject("settings") ?: JSONObject()
@@ -386,7 +400,7 @@ object Feed {
             }
             return out
         }
-        if (!board) {
+        if (!board && !chat) {
             out += Row(Kind.SECTION, "Heute")
             day(today, true)
             val tomorrow = LocalDate.now().plusDays(1)
@@ -402,9 +416,9 @@ object Feed {
             val at = try { OffsetDateTime.parse(m.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { now }
             now - at < ttlHours * 3_600_000L
         }.sortedWith(compareBy({ !it.optBoolean("pinned") }, { -(try { OffsetDateTime.parse(it.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { 0L }) }))
-        out += Row(Kind.SECTION, "Board", open = "toggle:board", toggle = board)
-        if (live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
-        for (m in live) {
+        if (!chat) out += Row(Kind.SECTION, "Board", open = "toggle:board", toggle = board)
+        if (!chat && live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
+        for (m in if (chat) emptyList() else live) {
             val from = m.optString("from_member")
             val open = "msg:" + m.optString("id")
             out += Row(Kind.MESSAGE, (if (m.optString("image").let { it.isNotEmpty() && it != "null" } && !m.optString("text").startsWith("📷")) "📷 " else "") + m.optString("text"), sub = name[from] ?: "", color = color[from] ?: Color.GRAY, pinned = m.optBoolean("pinned"), open = open, avatar = avatar[from] ?: "")
@@ -424,6 +438,31 @@ object Feed {
             }
             // Knöpfe direkt im Widget, nur mit persönlichem Code (der Server weiß dann, wer drückt)
             if (me(feed) != null) out += Row(Kind.ACTIONS, "", msg = m.optString("id"), canTake = taker == null && m.optString("image").let { it.isEmpty() || it == "null" })
+        }
+        // Chat: je Person die letzte Nachricht; antippen öffnet den Chat in der App
+        val myId = me(feed)
+        if (myId != null && !board) {
+            val cs = feed.optJSONArray("chats") ?: JSONArray()
+            val last = LinkedHashMap<String, JSONObject>()
+            val unread = HashMap<String, Int>()
+            for (i in 0 until cs.length()) {
+                val c = cs.getJSONObject(i)
+                val w = if (c.optString("from") == myId) c.optString("to") else c.optString("from")
+                last.remove(w); last[w] = c
+                if (c.optString("to") == myId && c.isNull("read_at")) unread[w] = (unread[w] ?: 0) + 1
+            }
+            val threads = last.entries.reversed()
+            val n = unread.values.sum()
+            out += Row(Kind.SECTION, if (n > 0 && !chat) "Chat · $n neu" else "Chat", open = "toggle:chat", toggle = chat)
+            if (threads.isEmpty()) out += Row(Kind.NOTE, if (chat) "Noch keine Chats. Antippen startet einen neuen Chat." else "Keine Chats", open = "chat:")
+            for ((w, c) in if (chat) threads else threads.take(3)) {
+                val k = c.optString("kind")
+                val txt = when (k) { "image" -> "📷 " + c.optString("text").ifEmpty { "Foto" }; "voice" -> "🎤 Sprachnachricht"; "place" -> "📍 Standort"; else -> c.optString("text") }
+                val u = unread[w] ?: 0
+                out += Row(Kind.MESSAGE, (if (c.optString("from") == myId) "Du: " else "") + txt, sub = (name[w] ?: "") + if (u > 0) " · $u neu" else "",
+                    color = color[w] ?: Color.GRAY, open = "chat:$w", avatar = avatar[w] ?: "")
+            }
+            if (chat && threads.isNotEmpty()) out += Row(Kind.NOTE, "＋ Neuer Chat", open = "chat:")
         }
         return out
     }

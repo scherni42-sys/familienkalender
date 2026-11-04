@@ -4,6 +4,7 @@ import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, cvar, Icon, useLong } from './ui';
+import { chatPreview, chatThreads } from './Chat';
 // Geburtstagsfarbe wie im Widget: private in der Farbe des Besitzers, gemeinsame in Torten-Gold
 const bdColor = (snap, b) => b.owner ? colorOf(snap.members, b.owner) : '#D9A441';
 function Flight({ e }) {
@@ -48,15 +49,19 @@ function Day({ d, snap, filter, now, go }) {
     const bds = bdOn(snap.birthdays, d);
     return _jsxs(_Fragment, { children: [bds.map(b => _jsxs("div", { className: "wv-row", style: cvar(bdColor(snap, b)), role: "button", tabIndex: 0, onClick: () => go.bday(b.id), children: [_jsx("i", { className: "wv-bar" }), _jsx("time", { children: "Geb." }), _jsx("div", { className: "wv-txt", children: _jsxs("div", { className: "wv-t", children: [_jsx(Icon, { name: "cake" }), b.owner && _jsx(Icon, { name: "lock" }), _jsxs("span", { children: [b.name, b.age ? ` wird ${b.age}` : ''] })] }) })] }, b.id)), list.map(e => _jsx(Row, { e: e, d: d, snap: snap, now: now, go: go }, e.id)), !list.length && !bds.length && _jsx("button", { type: "button", className: "wv-note", onClick: () => go.add(d), children: _jsx("b", { children: "\uFF0B Termin" }) })] });
 }
-// board: das ganze Board statt der Termine (Board-Knopf grün); antippen schaltet zurück
-export function WidgetView({ snap, filter, now, go, board, toggle }) {
+// big: Board oder Chat groß statt der Termine (Knopf grün); nochmal antippen schaltet zurück
+export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat }) {
     const t = today();
     const s = snap.family.settings;
     const msgs = liveMsgs(snap.messages, s);
     const m = (id) => snap.members.find(x => x.id === id);
-    return (_jsxs("div", { className: "wv", children: [!board && _jsx(Day, { d: t, snap: snap, filter: filter, now: now, go: go }), _jsx("div", { className: `wv-sec${board ? ' top' : ''}`, children: _jsx("button", { type: "button", className: `kw-p bd-p${board ? ' on' : ''}`, "aria-pressed": !!board, onClick: toggle, children: "Board" }) }), board && _jsx("div", { className: "wv-board", children: board }), !board && _jsxs(_Fragment, { children: [!msgs.length && _jsx("div", { className: "wv-note", children: "Keine Nachrichten" }), msgs.map(x => {
+    const me = m(snap.me ?? '');
+    const threads = chatThreads(snap.chats ?? [], snap.me);
+    const unread = threads.reduce((n, x) => n + x.unread, 0);
+    const pill = (w, label, n = 0) => _jsx("div", { className: `wv-sec${big ? ' top' : ''}`, children: _jsxs("button", { type: "button", className: `kw-p bd-p${big === w ? ' on' : ''}`, "aria-pressed": big === w, onClick: () => toggle(w), children: [label, n > 0 && _jsx("i", { className: "bd-n", children: n })] }) });
+    return (_jsxs("div", { className: "wv", children: [!big && _jsx(Day, { d: t, snap: snap, filter: filter, now: now, go: go }), big !== 'chat' && pill('board', 'Board'), big === 'board' && _jsx("div", { className: "wv-board", children: bigEl }), !big && _jsxs(_Fragment, { children: [!msgs.length && _jsx("div", { className: "wv-note", children: "Keine Nachrichten" }), msgs.map(x => {
                         const last = x.replies.at(-1);
                         return _jsxs("div", { className: "wv-msg", role: "button", tabIndex: 0, onClick: () => go.msg(x.id), children: [_jsx(Badge, { m: m(x.from_member), size: 26 }), _jsxs("div", { className: "wv-txt", children: [_jsxs("div", { className: "wv-t", children: [x.pinned && _jsx(Icon, { name: "pin" }), _jsxs("span", { children: [x.image && !x.text.startsWith('📷') ? '📷 ' : '', x.text] })] }), x.taker ? _jsxs("div", { className: "wv-sub ok", children: ["\u2713 ", nameOf(snap.members, x.taker), " \u00FCbernimmt das"] })
                                             : last ? _jsxs("div", { className: "wv-sub", children: [nameOf(snap.members, last.from_member), ": ", last.text] }) : null] }), _jsxs("small", { children: [nameOf(snap.members, x.from_member), _jsx("br", {}), x.pinned ? '' : whenM(x)] })] }, x.id);
-                    })] })] }));
+                    })] }), me && me.role !== 'guest' && big !== 'board' && _jsxs(_Fragment, { children: [pill('chat', 'Chat', big ? 0 : unread), big === 'chat' && _jsx("div", { className: "wv-board", children: bigEl }), !big && threads.slice(0, 3).map(x => _jsxs("div", { className: `wv-msg${x.unread ? ' unread' : ''}`, role: "button", tabIndex: 0, onClick: () => chat(x.with), children: [_jsx(Badge, { m: m(x.with), size: 26 }), _jsx("div", { className: "wv-txt", children: _jsx("div", { className: "wv-t", children: _jsxs("span", { children: [x.last.from_member === snap.me ? 'Du: ' : '', chatPreview(x.last)] }) }) }), _jsxs("small", { children: [nameOf(snap.members, x.with), _jsx("br", {}), x.unread ? _jsx("b", { className: "bd-n", children: x.unread }) : ''] })] }, x.with))] })] }));
 }

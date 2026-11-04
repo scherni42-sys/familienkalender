@@ -70,6 +70,7 @@ class TodayWidget : AppWidgetProvider() {
             ACT -> {
                 val act = intent.getStringExtra(OpenActivity.EXTRA_ACT) ?: return
                 if (act == "board") { Feed.toggleBoard(ctx); refreshData(ctx); return }
+                if (act == "chat") { Feed.toggleChat(ctx); refreshData(ctx); return }
                 val msg = intent.getStringExtra(OpenActivity.EXTRA_MSG) ?: return
                 val done = goAsync()
                 thread {

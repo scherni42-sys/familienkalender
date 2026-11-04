@@ -26,6 +26,7 @@ class AppActivity : Activity() {
         private const val SPEECH = 8
         private const val GEO = 9
         private const val MIC = 10
+        private const val REC = 11
         private const val TONE = 12
     }
 
@@ -99,7 +100,17 @@ class AppActivity : Activity() {
                     try { shot = null; startActivityForResult(params.createIntent(), FILES); true } catch (e2: Exception) { upload = null; false }
                 }
             }
-            override fun onPermissionRequest(request: PermissionRequest) { request.deny() }
+            // Sprachnachricht im Chat: Mikrofon für die Seite freigeben, vorher einmal die Android-Berechtigung erfragen
+            override fun onPermissionRequest(request: PermissionRequest) {
+                runOnUiThread {
+                    if (!request.resources.contains(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) { request.deny(); return@runOnUiThread }
+                    if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        request.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)); return@runOnUiThread
+                    }
+                    recAsk = request
+                    requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), REC)
+                }
+            }
             // Standort für „Fahrzeit von hier“: Android-Berechtigung einmal erfragen
             override fun onGeolocationPermissionsShowPrompt(origin: String, cb: GeolocationPermissions.Callback) {
                 if (Geo.hasFine(this@AppActivity) || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) { cb.invoke(origin, true, false); return }
@@ -148,6 +159,10 @@ class AppActivity : Activity() {
 
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
         super.onRequestPermissionsResult(code, perms, res)
+        if (code == REC) {
+            recAsk?.let { if (res.any { it == android.content.pm.PackageManager.PERMISSION_GRANTED }) it.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else it.deny() }
+            recAsk = null
+        }
         if (code == GEO) { geoAsk?.let { (o, cb) -> cb.invoke(o, res.any { it == android.content.pm.PackageManager.PERMISSION_GRANTED }, false) }; geoAsk = null }
         // Mikrofon erlaubt: Erkennung in der App; abgelehnt: das Google-Fenster als Ersatz
         if (code == MIC) {
@@ -205,6 +220,7 @@ class AppActivity : Activity() {
         Thread { try { if (Updater.check(ctx)) TodayWidget.refreshData(ctx) } catch (e: Exception) { } }.start()
     }
 
+    private var recAsk: PermissionRequest? = null
     private var toneKind = "bd"
     private var pageReady = false
     private fun toneEvent() = web.evaluateJavascript("window.dispatchEvent(new Event('famto-tone'))", null)

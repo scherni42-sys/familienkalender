@@ -19,8 +19,9 @@ import { DetailSheet, BdaySheet, eventDraft } from './DetailSheet';
 import { flightShort, useFlight } from '../lib/flight';
 import { PushBanner } from './PushBanner';
 import { WidgetView } from './WidgetView';
+import { Chat } from './Chat';
 
-type Tab = 'today' | 'week' | 'board' | 'settings';
+type Tab = 'today' | 'week' | 'board' | 'chat' | 'settings';
 type Filter = 'all' | 'family' | 'home';
 const savedFilter = (): Filter => { try { const v = localStorage.getItem('fk-filter'); return v === 'home' ? v : 'all'; } catch { return 'all'; } };
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
@@ -49,6 +50,7 @@ export function Shell() {
   const [flash, setFlash] = useState<string | null>(null);
   const [focusMsg, setFocusMsg] = useState<string | null>(null);
   const [replyMsg, setReplyMsg] = useState<string | null>(null);
+  const [chatWith, setChatWith] = useState<string | null>(null);
   // Sprung aus dem Android-Widget: ?open=event:<id> oder ?open=msg:<id>
   const deep = useRef(new URLSearchParams(location.search).get('open'));
   const toastMsg = useToast();
@@ -57,7 +59,7 @@ export function Shell() {
   const s = snap.family!.settings;
   const next = upcoming(snap.birthdays)[0];
   const cake = next && s.bdLead > 0 && next.days <= s.bdLead ? next : null;
-  const titles: Record<Tab, string> = { today: 'Heute', week: 'Kalender', board: 'Board', settings: 'Einstellungen' };
+  const titles: Record<Tab, string> = { today: 'Heute', week: 'Kalender', board: 'Board', chat: 'Chat', settings: 'Einstellungen' };
   // Antippen: Details; lange drücken: gleich bearbeiten (wenn man darf)
   const open = (id: string, how?: 'edit') => {
     const ev = snapRef.current.events.find(x => x.id === id);
@@ -90,6 +92,7 @@ export function Shell() {
       if (k === 'settings') setTab('settings');
       if (k === 'home') setTab('today');
       if (k === 'ask' && me.role !== 'guest') setSheet({ kind: 'ask' });
+      if (k === 'chat') { setChatWith(id || null); setTab('chat'); }
       if (k === 'msg') { setTab('board'); setFocusMsg(id); if (o.split(':')[2] === 'reply') setReplyMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
     };
     const o = deep.current;
@@ -120,7 +123,7 @@ export function Shell() {
       {/* Kopfzeile wie im Widget: Datum (bzw. Woche), Zahnrad, Haus */}
       <div className="ph-head wlike">
         <button type="button" className="ph-title" onClick={() => setTab('today')} aria-label="Zurück zu heute">
-          <strong ref={titleRef} className={tab === 'today' || tab === 'board' ? 'date' : undefined}>{tab === 'today' || tab === 'board' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab]}</strong></button>
+          <strong ref={titleRef} className={tab === 'today' || tab === 'board' || tab === 'chat' ? 'date' : undefined}>{tab === 'today' || tab === 'board' || tab === 'chat' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab]}</strong></button>
         <span className="head-r">
           <button type="button" className={`head-i${tab === 'settings' ? ' on' : ''}`} aria-label="Einstellungen" aria-pressed={tab === 'settings'} onClick={() => setTab(tab === 'settings' ? 'today' : 'settings')}><Icon name="gear" /></button>
           <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
@@ -128,8 +131,8 @@ export function Shell() {
         </span>
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
-      <div className={`ph-body${tab === 'today' || tab === 'board' ? ' today' : ''}`}>
-        {(tab === 'today' || tab === 'board') && <WidgetView board={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} /> : undefined} toggle={() => setTab(tab === 'board' ? 'today' : 'board')} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
+      <div className={`ph-body${tab === 'today' || tab === 'board' || tab === 'chat' ? ' today' : ''}`}>
+        {(tab === 'today' || tab === 'board' || tab === 'chat') && <WidgetView big={tab === 'board' || tab === 'chat' ? tab : null} bigEl={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} /> : tab === 'chat' ? <Chat open={chatWith} opened={() => setChatWith(null)} /> : undefined} toggle={w => setTab(tab === w ? 'today' : w)} chat={id => { setChatWith(id); setTab('chat'); }} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} wk={wk} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>

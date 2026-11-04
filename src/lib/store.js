@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 import { seed } from './seed';
 import { addDays, today } from './dates';
 import { native } from './native';
-const EMPTY = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [] };
+const EMPTY = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [], chats: [] };
 class Base {
     snap = EMPTY;
     isReady = false;
@@ -95,6 +95,19 @@ class LocalStore extends Base {
                 : (ok ? { ...x, driver2_ok: true } : { ...x, driver2: null, driver2_ok: null, declined_by: s.me })) }));
     }
     async deleteMessage(id) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
+    async sendChat(to, c) {
+        const media = c.blob ? await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = no; r.readAsDataURL(c.blob); }) : null;
+        if (media && media.length > 3_000_000)
+            throw new Error('In der Beispielfamilie gehen nur kleine Dateien.');
+        this.patch(s => ({ chats: [...(s.chats ?? []), { id: uid(), from_member: s.me, to_member: to, kind: c.kind, text: c.text ?? '', media, dur: c.dur ?? null, lat: c.lat ?? null, lon: c.lon ?? null, created_at: new Date().toISOString(), read_at: null }] }));
+    }
+    async chatSeen(withId) {
+        if (!(this.snap.chats ?? []).some(c => c.from_member === withId && c.to_member === this.snap.me && !c.read_at))
+            return;
+        this.patch(s => ({ chats: (s.chats ?? []).map(c => c.from_member === withId && c.to_member === s.me && !c.read_at ? { ...c, read_at: new Date().toISOString() } : c) }));
+    }
+    async chatUrl(path) { return path; }
+    async deleteChat(id) { this.patch(s => ({ chats: (s.chats ?? []).filter(c => c.id !== id) })); }
     async attachFile(file, to) {
         if (file.data.length > 3_000_000)
             throw new Error('In der Beispielfamilie gehen nur kleine Dateien (bis 2 MB).');
@@ -237,9 +250,87 @@ class SupabaseStore extends Base {
             busy: (this.ok(busy) ?? []),
             messages: (this.ok(msg) ?? []).map(m => ({ ...m, replies: replies.filter(r => r.message_id === m.id) })),
             birthdays: (this.ok(bd) ?? []),
-            displays: (this.ok(disp) ?? [])
+            displays: (this.ok(disp) ?? []),
+            chats: this.snap.me === me ? this.snap.chats ?? [] : []
         });
+        void this.loadChats(fam, me);
         this.listen(fam);
+    }
+    // Chats getrennt laden: ohne Chat-Tabelle (Migration noch nicht ausgeführt) läuft der Rest normal weiter
+    purged = false;
+    async loadChats(fam, me) {
+        if (!this.purged) {
+            this.purged = true;
+            const p = await this.sb.rpc('chat_purge');
+            const paths = (p.data ?? []).filter((x) => !!x);
+            if (paths.length)
+                await this.sb.storage.from('chat').remove(paths);
+        }
+        const r = await this.sb.from('chats').select('*').eq('family_id', fam).order('created_at');
+        if (r.error || this.snap.me !== me)
+            return;
+        this.emit({ ...this.snap, chats: (r.data ?? []) });
+        if (!this.chatCh) {
+            this.chatCh = this.sb.channel(`chat-${fam}`).on('postgres_changes', { event: '*', schema: 'public', table: 'chats', filter: `family_id=eq.${fam}` }, () => {
+                if (this.chatTimer)
+                    clearTimeout(this.chatTimer);
+                this.chatTimer = setTimeout(() => void this.loadChats(fam, me), 300);
+            }).subscribe();
+        }
+    }
+    chatCh = null;
+    chatTimer = null;
+    signed = new Map();
+    async sendChat(to, c) {
+        const fam = this.familyId, me = this.snap.me;
+        let media = null;
+        if (c.blob) {
+            const ext = c.kind === 'voice' ? (c.blob.type.includes('mp4') ? 'm4a' : c.blob.type.includes('ogg') ? 'ogg' : 'webm') : 'jpg';
+            media = `${fam}/${me}/${crypto.randomUUID()}.${ext}`;
+            const up = await this.sb.storage.from('chat').upload(media, c.blob, { contentType: c.blob.type || undefined });
+            if (up.error)
+                throw new Error(up.error.message.includes('not found') ? 'Der Chat ist noch nicht eingerichtet (Migration 0020).' : up.error.message);
+        }
+        const r = await this.sb.from('chats').insert({ family_id: fam, from_member: me, to_member: to, kind: c.kind, text: c.text ?? '', media, dur: c.dur ?? null, lat: c.lat ?? null, lon: c.lon ?? null });
+        if (r.error) {
+            if (media)
+                await this.sb.storage.from('chat').remove([media]);
+            throw new Error(/chats/.test(r.error.message) && /exist|find/.test(r.error.message) ? 'Der Chat ist noch nicht eingerichtet (Migration 0020).' : r.error.message);
+        }
+        await this.loadChats(fam, me);
+        try {
+            native()?.changed?.();
+        }
+        catch { /* ältere App */ }
+    }
+    async chatSeen(withId) {
+        if (!(this.snap.chats ?? []).some(c => c.from_member === withId && c.to_member === this.snap.me && !c.read_at))
+            return;
+        await this.sb.rpc('chat_seen', { p_with: withId });
+        if (this.familyId && this.snap.me)
+            await this.loadChats(this.familyId, this.snap.me);
+        try {
+            native()?.changed?.();
+        }
+        catch { /* ältere App */ }
+    }
+    async chatUrl(path) {
+        const hit = this.signed.get(path);
+        if (hit && hit.until > Date.now())
+            return hit.url;
+        const r = await this.sb.storage.from('chat').createSignedUrl(path, 3600);
+        if (r.error || !r.data)
+            throw new Error('Datei nicht mehr da.');
+        this.signed.set(path, { url: r.data.signedUrl, until: Date.now() + 3_000_000 });
+        return r.data.signedUrl;
+    }
+    async deleteChat(id) {
+        const c = (this.snap.chats ?? []).find(x => x.id === id);
+        this.ok(await this.sb.from('chats').delete().eq('id', id));
+        if (c?.media)
+            await this.sb.storage.from('chat').remove([c.media]);
+        if (this.familyId && this.snap.me)
+            await this.loadChats(this.familyId, this.snap.me);
     }
     // Änderungen anderer Familienmitglieder kommen per Realtime; dann wird neu geladen
     listen(fam) {

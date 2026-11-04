@@ -487,3 +487,49 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 /* Großes Board im Startseiten-Kasten: Karten behalten ihre eigenen Farben */
 .wv-board { color: var(--ink); min-width: 0; }
 .wv-board p.note { color: var(--wv-muted) !important; }
+
+/* ---------- Chat (Person zu Person) ---------- */
+.bd-p { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.bd-n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #E25B45; color: #fff; font-size: 12px; font-style: normal; font-weight: 800; }
+.wv-msg.unread .wv-t span { font-weight: 800; }
+.ch-start, .ch-thread { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: var(--wv-fg); }
+.ch-item { all: unset; display: flex; align-items: center; gap: 12px; padding: 8px 4px; border-bottom: 1px solid var(--wv-line); cursor: pointer; min-width: 0; }
+.ch-item .ch-mid { display: grid; flex: 1; min-width: 0; }
+.ch-item .ch-mid b { font-size: 16px; }
+.ch-item .ch-mid small { color: var(--wv-muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-item.unread .ch-mid small { color: var(--wv-fg); font-weight: 700; }
+.ch-side { display: grid; justify-items: end; gap: 4px; color: var(--wv-muted); font-size: 12px; }
+.ch-side i { font-style: normal; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+.ch-new { all: unset; align-self: flex-start; margin-top: 8px; padding: 9px 18px; border-radius: 999px; border: 2.5px solid var(--accent); font-weight: 800; cursor: pointer; }
+.ch-pick-h { color: var(--wv-muted); font-size: 13px; font-weight: 700; margin-top: 6px; }
+.ch-empty { color: var(--wv-muted); font-size: 14px; padding: 12px 2px; }
+.ch-head { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--wv-line); }
+.ch-head b { font-size: 17px; }
+.ch-back { all: unset; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; }
+.ch-back .ico { width: 24px; height: 24px; }
+.ch-list { display: flex; flex-direction: column; gap: 4px; min-height: 40vh; padding: 6px 0; }
+.ch-row { display: flex; flex-direction: column; }
+.ch-day { align-self: center; margin: 8px 0 4px; padding: 2px 10px; border-radius: 999px; background: #33403A; color: var(--wv-muted); font-size: 12px; }
+.ch-b { align-self: flex-start; max-width: 82%; padding: 7px 10px 5px; border-radius: 16px 16px 16px 4px; background: #343B38; display: grid; gap: 4px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overflow-wrap: anywhere; }
+.ch-b.me { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: #1F6B4A; }
+.ch-t { white-space: pre-wrap; font-size: 15px; line-height: 1.35; }
+.ch-time { justify-self: end; color: rgba(238, 243, 240, .65); font-size: 11px; }
+.ch-img img { display: block; max-width: 100%; max-height: 300px; border-radius: 10px; }
+.ch-b audio { width: 230px; max-width: 100%; height: 40px; }
+.ch-load { color: var(--wv-muted); font-size: 13px; }
+.ch-place { display: flex; align-items: center; gap: 8px; color: inherit; text-decoration: none; }
+.ch-place .ico { width: 28px; height: 28px; color: #7FD8A8; }
+.ch-place span { display: grid; }
+.ch-place small { color: rgba(238, 243, 240, .7); }
+.ch-note { color: var(--wv-muted); font-size: 12px; text-align: center; }
+.ch-compose { display: flex; align-items: center; gap: 6px; padding-top: 6px; min-width: 0; }
+.ch-compose input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid var(--wv-line); background: #1E2321; color: var(--wv-fg); font: inherit; font-size: 15px; }
+.ch-i { all: unset; flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--wv-fg); cursor: pointer; }
+.ch-i .ico { width: 24px; height: 24px; }
+.ch-send { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
+.ch-send .ico { width: 22px; height: 22px; }
+.ch-compose.rec { justify-content: space-between; }
+.ch-rec { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.ch-rec i { width: 12px; height: 12px; border-radius: 50%; background: #E25B45; animation: chrec 1s infinite; }
+@keyframes chrec { 50% { opacity: .3; } }
+.ch-t { font-weight: 400; }

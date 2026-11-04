@@ -18,6 +18,7 @@ import { DetailSheet, BdaySheet, eventDraft } from './DetailSheet';
 import { flightShort, useFlight } from '../lib/flight';
 import { PushBanner } from './PushBanner';
 import { WidgetView } from './WidgetView';
+import { Chat } from './Chat';
 const savedFilter = () => { try {
     const v = localStorage.getItem('fk-filter');
     return v === 'home' ? v : 'all';
@@ -48,6 +49,7 @@ export function Shell() {
     const [flash, setFlash] = useState(null);
     const [focusMsg, setFocusMsg] = useState(null);
     const [replyMsg, setReplyMsg] = useState(null);
+    const [chatWith, setChatWith] = useState(null);
     // Sprung aus dem Android-Widget: ?open=event:<id> oder ?open=msg:<id>
     const deep = useRef(new URLSearchParams(location.search).get('open'));
     const toastMsg = useToast();
@@ -56,7 +58,7 @@ export function Shell() {
     const s = snap.family.settings;
     const next = upcoming(snap.birthdays)[0];
     const cake = next && s.bdLead > 0 && next.days <= s.bdLead ? next : null;
-    const titles = { today: 'Heute', week: 'Kalender', board: 'Board', settings: 'Einstellungen' };
+    const titles = { today: 'Heute', week: 'Kalender', board: 'Board', chat: 'Chat', settings: 'Einstellungen' };
     // Antippen: Details; lange drücken: gleich bearbeiten (wenn man darf)
     const open = (id, how) => {
         const ev = snapRef.current.events.find(x => x.id === id);
@@ -99,6 +101,10 @@ export function Shell() {
                 setTab('today');
             if (k === 'ask' && me.role !== 'guest')
                 setSheet({ kind: 'ask' });
+            if (k === 'chat') {
+                setChatWith(id || null);
+                setTab('chat');
+            }
             if (k === 'msg') {
                 setTab('board');
                 setFocusMsg(id);
@@ -149,10 +155,10 @@ export function Shell() {
     useLayoutEffect(() => { const el = titleRef.current; if (el && !shortT && el.scrollWidth > el.clientWidth + 1)
         setShortT(true); });
     useEffect(() => { const r = () => setShortT(false); addEventListener('resize', r); return () => removeEventListener('resize', r); }, []);
-    return (_jsxs("div", { className: "screen", style: me.app_bg ? { background: me.app_bg } : undefined, children: [_jsxs("div", { className: "ph-head wlike", children: [_jsx("button", { type: "button", className: "ph-title", onClick: () => setTab('today'), "aria-label": "Zur\u00FCck zu heute", children: _jsx("strong", { ref: titleRef, className: tab === 'today' || tab === 'board' ? 'date' : undefined, children: tab === 'today' || tab === 'board' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab] }) }), _jsxs("span", { className: "head-r", children: [_jsx("button", { type: "button", className: `head-i${tab === 'settings' ? ' on' : ''}`, "aria-label": "Einstellungen", "aria-pressed": tab === 'settings', onClick: () => setTab(tab === 'settings' ? 'today' : 'settings'), children: _jsx(Icon, { name: "gear" }) }), _jsx("button", { type: "button", className: `home-t${filter === 'home' ? ' on' : ''}`, "aria-pressed": filter === 'home', "aria-label": "Home-Modus: berufliche Termine ausblenden", onClick: () => { const k = filter === 'home' ? 'all' : 'home'; setFilter(k); try {
+    return (_jsxs("div", { className: "screen", style: me.app_bg ? { background: me.app_bg } : undefined, children: [_jsxs("div", { className: "ph-head wlike", children: [_jsx("button", { type: "button", className: "ph-title", onClick: () => setTab('today'), "aria-label": "Zur\u00FCck zu heute", children: _jsx("strong", { ref: titleRef, className: tab === 'today' || tab === 'board' || tab === 'chat' ? 'date' : undefined, children: tab === 'today' || tab === 'board' || tab === 'chat' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab] }) }), _jsxs("span", { className: "head-r", children: [_jsx("button", { type: "button", className: `head-i${tab === 'settings' ? ' on' : ''}`, "aria-label": "Einstellungen", "aria-pressed": tab === 'settings', onClick: () => setTab(tab === 'settings' ? 'today' : 'settings'), children: _jsx(Icon, { name: "gear" }) }), _jsx("button", { type: "button", className: `home-t${filter === 'home' ? ' on' : ''}`, "aria-pressed": filter === 'home', "aria-label": "Home-Modus: berufliche Termine ausblenden", onClick: () => { const k = filter === 'home' ? 'all' : 'home'; setFilter(k); try {
                                     localStorage.setItem('fk-filter', k);
                                 }
-                                catch { /* egal */ } }, children: _jsx(Icon, { name: "home" }) })] })] }), demoLink && _jsx("div", { className: "demo-bar", children: "Testversion mit Beispielfamilie. Was du \u00E4nderst, bleibt nur in diesem Browser." }), _jsxs("div", { className: `ph-body${tab === 'today' || tab === 'board' ? ' today' : ''}`, children: [(tab === 'today' || tab === 'board') && _jsx(WidgetView, { board: tab === 'board' ? _jsx(Board, { focus: focusMsg, reply: replyMsg }) : undefined, toggle: () => setTab(tab === 'board' ? 'today' : 'board'), snap: snap, filter: filter, now: now, go: { open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } } }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, add: newOn, flash: flash, wk: wk }), tab === 'settings' && _jsx(Settings, {}, nonce)] }), me.role !== 'guest' && _jsx("button", { type: "button", className: "magic fab", onClick: () => setSheet({ kind: 'ask' }), "aria-label": "Claude fragen", children: "\u2728" }), _jsxs("nav", { className: "wbar", "aria-label": "Bereiche", children: [_jsxs("button", { type: "button", className: "ring-b", onClick: () => setSheet({ kind: 'bdays' }), "aria-label": cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage', children: ["B", cake && _jsx("small", { children: cake.days === 0 ? '🎂' : cake.days })] }), _jsxs("span", { className: "kw", children: [_jsx("button", { type: "button", className: "arr", style: { visibility: tab === 'week' && wk > MIN_WK ? 'visible' : 'hidden' }, "aria-label": "Woche zur\u00FCck", onClick: () => setWk(w => Math.max(MIN_WK, w - 1)), children: "\u25C0" }), _jsxs("button", { type: "button", className: `kw-p${tab === 'week' ? ' on' : ''}`, "aria-pressed": tab === 'week', "aria-label": "Wochenansicht", onClick: () => { if (tab === 'week' && wk !== 0)
+                                catch { /* egal */ } }, children: _jsx(Icon, { name: "home" }) })] })] }), demoLink && _jsx("div", { className: "demo-bar", children: "Testversion mit Beispielfamilie. Was du \u00E4nderst, bleibt nur in diesem Browser." }), _jsxs("div", { className: `ph-body${tab === 'today' || tab === 'board' || tab === 'chat' ? ' today' : ''}`, children: [(tab === 'today' || tab === 'board' || tab === 'chat') && _jsx(WidgetView, { big: tab === 'board' || tab === 'chat' ? tab : null, bigEl: tab === 'board' ? _jsx(Board, { focus: focusMsg, reply: replyMsg }) : tab === 'chat' ? _jsx(Chat, { open: chatWith, opened: () => setChatWith(null) }) : undefined, toggle: w => setTab(tab === w ? 'today' : w), chat: id => { setChatWith(id); setTab('chat'); }, snap: snap, filter: filter, now: now, go: { open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } } }), tab === 'week' && _jsx(CalendarTab, { snap: snap, filter: filter, now: now, open: open, add: newOn, flash: flash, wk: wk }), tab === 'settings' && _jsx(Settings, {}, nonce)] }), me.role !== 'guest' && _jsx("button", { type: "button", className: "magic fab", onClick: () => setSheet({ kind: 'ask' }), "aria-label": "Claude fragen", children: "\u2728" }), _jsxs("nav", { className: "wbar", "aria-label": "Bereiche", children: [_jsxs("button", { type: "button", className: "ring-b", onClick: () => setSheet({ kind: 'bdays' }), "aria-label": cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage', children: ["B", cake && _jsx("small", { children: cake.days === 0 ? '🎂' : cake.days })] }), _jsxs("span", { className: "kw", children: [_jsx("button", { type: "button", className: "arr", style: { visibility: tab === 'week' && wk > MIN_WK ? 'visible' : 'hidden' }, "aria-label": "Woche zur\u00FCck", onClick: () => setWk(w => Math.max(MIN_WK, w - 1)), children: "\u25C0" }), _jsxs("button", { type: "button", className: `kw-p${tab === 'week' ? ' on' : ''}`, "aria-pressed": tab === 'week', "aria-label": "Wochenansicht", onClick: () => { if (tab === 'week' && wk !== 0)
                                     setWk(0);
                                 else {
                                     setWk(0);

@@ -1,12 +1,12 @@
 import { useSyncExternalStore } from 'react';
-import type { Birthday, CalEvent, FileRef, DisplayFeed, Member, Message, NewEvent, Role, Settings, Snapshot } from './types';
+import type { Birthday, CalEvent, ChatMsg, ChatOut, FileRef, DisplayFeed, Member, Message, NewEvent, Role, Settings, Snapshot } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import { supabase } from './supabase';
 import { seed } from './seed';
 import { addDays, today } from './dates';
 import { native } from './native';
 
-const EMPTY: Snapshot = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [] };
+const EMPTY: Snapshot = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [], chats: [] };
 
 export interface MemberInput { name: string; role: Role; color: string; adult: boolean }
 
@@ -43,6 +43,11 @@ export interface Store {
   removeBirthday(id: string): Promise<void>;
   updateBirthday(old: Birthday, b: Omit<Birthday, 'id'>): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
+  // Chat von Person zu Person
+  sendChat(to: string, c: ChatOut): Promise<void>;
+  chatSeen(withId: string): Promise<void>;
+  chatUrl(path: string): Promise<string>;
+  deleteChat(id: string): Promise<void>;
   addDisplay(name: string): Promise<void>;
   widgetToken(): Promise<string>;
   removeDisplay(id: string): Promise<void>;
@@ -124,6 +129,17 @@ class LocalStore extends Base implements Store {
       : (ok ? { ...x, driver2_ok: true } : { ...x, driver2: null, driver2_ok: null, declined_by: s.me })) }));
   }
   async deleteMessage(id: string) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
+  async sendChat(to: string, c: ChatOut) {
+    const media = c.blob ? await new Promise<string>((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = no; r.readAsDataURL(c.blob!); }) : null;
+    if (media && media.length > 3_000_000) throw new Error('In der Beispielfamilie gehen nur kleine Dateien.');
+    this.patch(s => ({ chats: [...(s.chats ?? []), { id: uid(), from_member: s.me!, to_member: to, kind: c.kind, text: c.text ?? '', media, dur: c.dur ?? null, lat: c.lat ?? null, lon: c.lon ?? null, created_at: new Date().toISOString(), read_at: null }] }));
+  }
+  async chatSeen(withId: string) {
+    if (!(this.snap.chats ?? []).some(c => c.from_member === withId && c.to_member === this.snap.me && !c.read_at)) return;
+    this.patch(s => ({ chats: (s.chats ?? []).map(c => c.from_member === withId && c.to_member === s.me && !c.read_at ? { ...c, read_at: new Date().toISOString() } : c) }));
+  }
+  async chatUrl(path: string) { return path; }
+  async deleteChat(id: string) { this.patch(s => ({ chats: (s.chats ?? []).filter(c => c.id !== id) })); }
   async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; birthday?: string; text?: string }) {
     if (file.data.length > 3_000_000) throw new Error('In der Beispielfamilie gehen nur kleine Dateien (bis 2 MB).');
     const ref: FileRef = { path: `data:${file.type};base64,${file.data}`, name: file.name, type: file.type, size: Math.round(file.data.length * 0.75) };
@@ -246,9 +262,67 @@ class SupabaseStore extends Base implements Store {
       busy: (this.ok(busy) ?? []) as Snapshot['busy'],
       messages: ((this.ok(msg) ?? []) as Omit<Message, 'replies'>[]).map(m => ({ ...m, replies: replies.filter(r => r.message_id === m.id) })),
       birthdays: (this.ok(bd) ?? []) as Birthday[],
-      displays: (this.ok(disp) ?? []) as Snapshot['displays']
+      displays: (this.ok(disp) ?? []) as Snapshot['displays'],
+      chats: this.snap.me === me ? this.snap.chats ?? [] : []
     });
+    void this.loadChats(fam, me);
     this.listen(fam);
+  }
+  // Chats getrennt laden: ohne Chat-Tabelle (Migration noch nicht ausgeführt) läuft der Rest normal weiter
+  private purged = false;
+  private async loadChats(fam: string, me: string) {
+    if (!this.purged) {
+      this.purged = true;
+      const p = await this.sb.rpc('chat_purge');
+      const paths = ((p.data ?? []) as (string | null)[]).filter((x): x is string => !!x);
+      if (paths.length) await this.sb.storage.from('chat').remove(paths);
+    }
+    const r = await this.sb.from('chats').select('*').eq('family_id', fam).order('created_at');
+    if (r.error || this.snap.me !== me) return;
+    this.emit({ ...this.snap, chats: (r.data ?? []) as ChatMsg[] });
+    if (!this.chatCh) {
+      this.chatCh = this.sb.channel(`chat-${fam}`).on('postgres_changes', { event: '*', schema: 'public', table: 'chats', filter: `family_id=eq.${fam}` }, () => {
+        if (this.chatTimer) clearTimeout(this.chatTimer);
+        this.chatTimer = setTimeout(() => void this.loadChats(fam, me), 300);
+      }).subscribe();
+    }
+  }
+  private chatCh: unknown = null;
+  private chatTimer: ReturnType<typeof setTimeout> | null = null;
+  private signed = new Map<string, { url: string; until: number }>();
+  async sendChat(to: string, c: ChatOut) {
+    const fam = this.familyId!, me = this.snap.me!;
+    let media: string | null = null;
+    if (c.blob) {
+      const ext = c.kind === 'voice' ? (c.blob.type.includes('mp4') ? 'm4a' : c.blob.type.includes('ogg') ? 'ogg' : 'webm') : 'jpg';
+      media = `${fam}/${me}/${crypto.randomUUID()}.${ext}`;
+      const up = await this.sb.storage.from('chat').upload(media, c.blob, { contentType: c.blob.type || undefined });
+      if (up.error) throw new Error(up.error.message.includes('not found') ? 'Der Chat ist noch nicht eingerichtet (Migration 0020).' : up.error.message);
+    }
+    const r = await this.sb.from('chats').insert({ family_id: fam, from_member: me, to_member: to, kind: c.kind, text: c.text ?? '', media, dur: c.dur ?? null, lat: c.lat ?? null, lon: c.lon ?? null });
+    if (r.error) { if (media) await this.sb.storage.from('chat').remove([media]); throw new Error(/chats/.test(r.error.message) && /exist|find/.test(r.error.message) ? 'Der Chat ist noch nicht eingerichtet (Migration 0020).' : r.error.message); }
+    await this.loadChats(fam, me);
+    try { native()?.changed?.(); } catch { /* ältere App */ }
+  }
+  async chatSeen(withId: string) {
+    if (!(this.snap.chats ?? []).some(c => c.from_member === withId && c.to_member === this.snap.me && !c.read_at)) return;
+    await this.sb.rpc('chat_seen', { p_with: withId });
+    if (this.familyId && this.snap.me) await this.loadChats(this.familyId, this.snap.me);
+    try { native()?.changed?.(); } catch { /* ältere App */ }
+  }
+  async chatUrl(path: string) {
+    const hit = this.signed.get(path);
+    if (hit && hit.until > Date.now()) return hit.url;
+    const r = await this.sb.storage.from('chat').createSignedUrl(path, 3600);
+    if (r.error || !r.data) throw new Error('Datei nicht mehr da.');
+    this.signed.set(path, { url: r.data.signedUrl, until: Date.now() + 3_000_000 });
+    return r.data.signedUrl;
+  }
+  async deleteChat(id: string) {
+    const c = (this.snap.chats ?? []).find(x => x.id === id);
+    this.ok(await this.sb.from('chats').delete().eq('id', id));
+    if (c?.media) await this.sb.storage.from('chat').remove([c.media]);
+    if (this.familyId && this.snap.me) await this.loadChats(this.familyId, this.snap.me);
   }
   // Änderungen anderer Familienmitglieder kommen per Realtime; dann wird neu geladen
   private listen(fam: string) {

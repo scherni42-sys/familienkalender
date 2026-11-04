@@ -4,6 +4,7 @@ import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, cvar, Icon, useLong } from './ui';
+import { chatPreview, chatThreads } from './Chat';
 
 // Startseite der App im Aussehen des Handy-Widgets: nur Heute, dazu das Board auf dunklem Grund
 type Filter = 'all' | 'family' | 'home';
@@ -80,18 +81,22 @@ function Day({ d, snap, filter, now, go }: { d: string; snap: Snapshot; filter: 
   </>;
 }
 
-// board: das ganze Board statt der Termine (Board-Knopf grün); antippen schaltet zurück
-export function WidgetView({ snap, filter, now, go, board, toggle }: { snap: Snapshot; filter: Filter; now: number; go: Go; board?: ReactNode; toggle: () => void }) {
+// big: Board oder Chat groß statt der Termine (Knopf grün); nochmal antippen schaltet zurück
+export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat }: { snap: Snapshot; filter: Filter; now: number; go: Go; big: 'board' | 'chat' | null; bigEl?: ReactNode; toggle: (w: 'board' | 'chat') => void; chat: (id: string) => void }) {
   const t = today();
   const s = snap.family!.settings;
   const msgs = liveMsgs(snap.messages, s);
   const m = (id: string) => snap.members.find(x => x.id === id);
+  const me = m(snap.me ?? '');
+  const threads = chatThreads(snap.chats ?? [], snap.me);
+  const unread = threads.reduce((n, x) => n + x.unread, 0);
+  const pill = (w: 'board' | 'chat', label: string, n = 0) => <div className={`wv-sec${big ? ' top' : ''}`}><button type="button" className={`kw-p bd-p${big === w ? ' on' : ''}`} aria-pressed={big === w} onClick={() => toggle(w)}>{label}{n > 0 && <i className="bd-n">{n}</i>}</button></div>;
   return (
     <div className="wv">
-      {!board && <Day d={t} snap={snap} filter={filter} now={now} go={go} />}
-      <div className={`wv-sec${board ? ' top' : ''}`}><button type="button" className={`kw-p bd-p${board ? ' on' : ''}`} aria-pressed={!!board} onClick={toggle}>Board</button></div>
-      {board && <div className="wv-board">{board}</div>}
-      {!board && <>
+      {!big && <Day d={t} snap={snap} filter={filter} now={now} go={go} />}
+      {big !== 'chat' && pill('board', 'Board')}
+      {big === 'board' && <div className="wv-board">{bigEl}</div>}
+      {!big && <>
       {!msgs.length && <div className="wv-note">Keine Nachrichten</div>}
       {msgs.map(x => {
         const last = x.replies.at(-1);
@@ -105,6 +110,15 @@ export function WidgetView({ snap, filter, now, go, board, toggle }: { snap: Sna
           <small>{nameOf(snap.members, x.from_member)}<br />{x.pinned ? '' : whenM(x)}</small>
         </div>;
       })}
+      </>}
+      {me && me.role !== 'guest' && big !== 'board' && <>
+        {pill('chat', 'Chat', big ? 0 : unread)}
+        {big === 'chat' && <div className="wv-board">{bigEl}</div>}
+        {!big && threads.slice(0, 3).map(x => <div key={x.with} className={`wv-msg${x.unread ? ' unread' : ''}`} role="button" tabIndex={0} onClick={() => chat(x.with)}>
+          <Badge m={m(x.with)} size={26} />
+          <div className="wv-txt"><div className="wv-t"><span>{x.last.from_member === snap.me ? 'Du: ' : ''}{chatPreview(x.last)}</span></div></div>
+          <small>{nameOf(snap.members, x.with)}<br />{x.unread ? <b className="bd-n">{x.unread}</b> : ''}</small>
+        </div>)}
       </>}
     </div>
   );

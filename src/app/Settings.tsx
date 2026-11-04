@@ -31,7 +31,7 @@ export function Settings() {
     const next = upcoming(snap.birthdays)[0];
     const info: Record<string, string> = {
       family: `${snap.members.length} Mitglieder · Admin: ${snap.members.filter(m => m.role === 'admin').map(m => m.name).join(', ')}`,
-      basic: `Geburtstage ${s.bdLead ? `${s.bdLead} Tage vorher` : 'aus'} · Board ${s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tage`} · Fahrzeiten ${s.showTravel ? 'an' : 'aus'}`,
+      basic: `Geburtstage ${s.bdLead ? `${s.bdLead} Tage vorher` : 'aus'} · Board ${s.ttlHours < 48 ? `${s.ttlHours} Std.` : `${s.ttlHours / 24} Tage`} · Chat ${s.chatDays ?? 7} ${(s.chatDays ?? 7) === 1 ? 'Tag' : 'Tage'} · Fahrzeiten ${s.showTravel ? 'an' : 'aus'}`,
       colors: 'Farbe und Avatar jeder Person',
       bg: 'Unifarbener Hintergrund für App und Display',
       bdays: `${snap.birthdays.length} eingetragen${next ? ` · ${next.name} ${inDays(next.days)}` : ''}`,
@@ -60,6 +60,7 @@ export function Settings() {
     {lock}
     <Sel isAdmin={isAdmin} icon="cake" text="Geburtstags-Erinnerung" value={s.bdLead} opts={[[0, 'aus'], [3, '3 Tage vorher'], [7, '7 Tage vorher'], [14, '14 Tage vorher'], [21, '21 Tage vorher'], [30, '30 Tage vorher']]} onPick={v => upd({ bdLead: v }, v ? `Geburtstage erscheinen ab ${v} Tage vorher.` : 'Geburtstags-Erinnerung aus.')} />
     <Sel isAdmin={isAdmin} icon="board" text="Board-Nachrichten verschwinden nach" value={s.ttlHours} opts={[[12, '12 Std.'], [24, '1 Tag'], [72, '3 Tagen'], [168, '1 Woche']]} onPick={v => upd({ ttlHours: v }, 'Gespeichert.')} />
+    <Sel isAdmin={isAdmin} icon="board" text="Chat-Nachrichten verschwinden nach" value={s.chatDays ?? 7} opts={[[1, '1 Tag'], [3, '3 Tagen'], [7, '1 Woche'], [14, '2 Wochen'], [30, '30 Tagen']]} onPick={v => upd({ chatDays: v }, 'Gespeichert.')} />
     <label className="setrow"><span><Icon name="car" /> Fahrzeiten anzeigen</span>{isAdmin ? <input type="checkbox" className="sw" checked={s.showTravel} onChange={e => upd({ showTravel: e.target.checked }, e.target.checked ? 'Fahrzeiten werden angezeigt.' : 'Fahrzeiten ausgeblendet.')} /> : <b>{s.showTravel ? 'ja' : 'nein'}</b>}</label>
     {s.showTravel && <>
       <label className="setrow"><span><Icon name="home" /> Zuhause (Start für Fahrten)</span>{isAdmin ? <input defaultValue={s.home} placeholder="Straße Nr., PLZ Ort" onBlur={e => e.target.value.trim() !== s.home && upd({ home: e.target.value.trim() }, 'Zuhause-Adresse gespeichert.')} /> : <b>{s.home || '–'}</b>}</label>

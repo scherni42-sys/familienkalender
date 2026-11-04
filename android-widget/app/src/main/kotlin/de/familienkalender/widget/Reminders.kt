@@ -30,6 +30,7 @@ object Reminders {
     const val REMIND = "de.familienkalender.widget.REMIND"
     const val ANSWER = "de.familienkalender.widget.DRIVER_ANSWER"
     private const val FAMILY = "fahrten"
+    private const val CHAT = "chat"
 
     fun enabled(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("remind", true)
     fun setEnabled(ctx: Context, on: Boolean) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("remind", on).apply()
@@ -77,6 +78,7 @@ object Reminders {
         try { EvAlarm.schedule(ctx, feed) } catch (e: Exception) { }
         // Neue App-Version? Dann zeigt das Widget den Update-Knopf
         try { if (Updater.check(ctx)) TodayWidget.refreshData(ctx) } catch (e: Exception) { }
+        try { chats(ctx, feed) } catch (e: Exception) { }
         if (!enabled(ctx)) { am.cancel(alarm); return }
         val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val sent = HashSet(prefs.getStringSet("sent", emptySet()) ?: emptySet())
@@ -263,6 +265,38 @@ object Reminders {
             n.addAction(android.app.Notification.Action.Builder(null, "Navigation", pi).build())
         }
         nm.notify(id, n.build())
+    }
+
+    // Neue Chat-Nachricht an mich: Benachrichtigung, antippen öffnet den Chat in der App
+    private fun chats(ctx: Context, feed: JSONObject) {
+        val me = Feed.me(feed) ?: return
+        val cs = feed.optJSONArray("chats") ?: return
+        val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val first = !prefs.contains("chatsent")
+        val sent = HashSet(prefs.getStringSet("chatsent", emptySet()) ?: emptySet())
+        val names = HashMap<String, String>()
+        feed.optJSONArray("members")?.let { m -> for (i in 0 until m.length()) m.getJSONObject(i).let { names[it.optString("id")] = it.optString("name") } }
+        val ids = ArrayList<String>()
+        for (i in 0 until cs.length()) {
+            val c = cs.getJSONObject(i)
+            val id = c.optString("id"); ids += id
+            if (c.optString("to") != me || !c.isNull("read_at") || id in sent) continue
+            sent += id
+            if (first) continue
+            if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) continue
+            val from = c.optString("from")
+            val txt = when (c.optString("kind")) { "image" -> "📷 " + c.optString("text").ifEmpty { "Foto" }; "voice" -> "🎤 Sprachnachricht"; "place" -> "📍 Standort"; else -> c.optString("text") }
+            val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            nm.createNotificationChannel(NotificationChannel(CHAT, "Chat", NotificationManager.IMPORTANCE_HIGH).apply { description = "Neue Nachrichten von der Familie" })
+            val nid = ("chat:" + from).hashCode()
+            val tap = PendingIntent.getActivity(ctx, nid, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "chat:$from")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            nm.notify(nid, android.app.Notification.Builder(ctx, CHAT).setSmallIcon(R.drawable.ic_notify)
+                .setContentTitle(names[from] ?: "Neue Nachricht").setContentText(txt).setContentIntent(tap).setAutoCancel(true)
+                .setStyle(android.app.Notification.BigTextStyle().bigText(txt)).build())
+        }
+        // Nur IDs merken, die es noch gibt
+        prefs.edit().putStringSet("chatsent", sent.filter { it in ids }.toSet()).apply()
     }
 
     // Fahrten der Familie: eigener Kanal, in den Android-Einstellungen abschaltbar

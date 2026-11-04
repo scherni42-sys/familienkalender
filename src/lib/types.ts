@@ -92,11 +92,12 @@ export interface Settings {
   boardMode: 'dynamic' | 'fixed';
   wbg: string;
   tall?: string[]; // Displays (id), die hochkant hängen
+  chatDays: number; // Chat-Nachrichten verschwinden nach 1 bis 30 Tagen
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   bdLead: 14, ttlHours: 24, split: 14 * 60, pastMode: 'fade', showTravel: true,
-  home: '', buffer: 5, remind: 10, ahead: 6, boardMode: 'dynamic', wbg: ''
+  home: '', buffer: 5, remind: 10, ahead: 6, boardMode: 'dynamic', wbg: '', chatDays: 7
 };
 
 export interface Snapshot {
@@ -108,7 +109,13 @@ export interface Snapshot {
   messages: Message[];
   birthdays: Birthday[];
   displays: DisplayDevice[];
+  // Chat von Person zu Person: nur eigene (gesendet oder empfangen), nie auf dem Display
+  chats?: ChatMsg[];
 }
+
+export type ChatKind = 'text' | 'image' | 'voice' | 'place';
+export interface ChatMsg { id: string; from_member: string; to_member: string; kind: ChatKind; text: string; media: string | null; dur: number | null; lat: number | null; lon: number | null; created_at: string; read_at: string | null }
+export type ChatOut = { kind: ChatKind; text?: string; blob?: Blob; dur?: number; lat?: number; lon?: number };
 
 export type NewEvent = Omit<CalEvent, 'id' | 'owner'>;
 

@@ -26,7 +26,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         val (feed, loadErr) = Feed.load(ctx, 20_000)
         var err = loadErr
         rows = try {
-            if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(ctx, feed) else Feed.rows(feed, if (Feed.weekMode(ctx)) Feed.weekOff(ctx) else null, Flights.lines(ctx, feed), Feed.boardMode(ctx))
+            if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(ctx, feed) else Feed.rows(feed, if (Feed.weekMode(ctx)) Feed.weekOff(ctx) else null, Flights.lines(ctx, feed), Feed.boardMode(ctx), Feed.chatMode(ctx))
         } catch (e: Exception) {
             err = "Anzeige-Fehler: ${e.message}"
             emptyList()
@@ -61,7 +61,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
             Kind.SECTION -> if (r.toggle != null) RemoteViews(ctx.packageName, R.layout.section_pill).apply {
                 setTextViewText(R.id.text, r.text)
                 setInt(R.id.text, "setBackgroundResource", if (r.toggle) R.drawable.bar_on else R.drawable.kw_off)
-                setOnClickFillInIntent(R.id.text, Intent().putExtra(OpenActivity.EXTRA_ACT, "board"))
+                setOnClickFillInIntent(R.id.text, Intent().putExtra(OpenActivity.EXTRA_ACT, r.open.removePrefix("toggle:")))
             } else RemoteViews(ctx.packageName, R.layout.section).apply {
                 setTextViewText(R.id.text, r.text)
                 if (r.open.isNotEmpty()) setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))

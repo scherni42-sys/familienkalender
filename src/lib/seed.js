@@ -36,6 +36,11 @@ export function seed() {
             { id: 'm2', from_member: 'anna', text: 'Wer kann Ben morgen von der Kita holen?', created_at: ago(15), pinned: false, done: false, taker: null, via: null, replies: [] },
             { id: 'm3', from_member: 'mia', text: 'Darf ich nach dem Training bei Lea essen?', created_at: ago(220), pinned: false, done: false, taker: null, via: null, replies: [{ id: 'r1', from_member: 'anna', text: 'Ja, aber bis 19 Uhr zurück', created_at: ago(200) }] }
         ],
+        chats: [
+            { id: 'c1', from_member: 'anna', to_member: 'jan', kind: 'text', text: 'Kannst du auf dem Rückweg Milch mitbringen?', media: null, dur: null, lat: null, lon: null, created_at: ago(95), read_at: ago(90) },
+            { id: 'c2', from_member: 'jan', to_member: 'anna', kind: 'text', text: 'Mach ich 👍', media: null, dur: null, lat: null, lon: null, created_at: ago(88), read_at: ago(80) },
+            { id: 'c3', from_member: 'mia', to_member: 'jan', kind: 'text', text: 'Papa, holst du mich um 18 Uhr ab?', media: null, dur: null, lat: null, lon: null, created_at: ago(12), read_at: null }
+        ],
         birthdays: [
             { id: 'g1', name: 'Oma Helga', rel: 'Oma', day: Number(d(1).slice(8)), month: Number(d(1).slice(5, 7)), year: Number(d(1).slice(0, 4)) - 75 },
             { id: 'g2', name: 'Ben', rel: 'Sohn', day: Number(d(9).slice(8)), month: Number(d(9).slice(5, 7)), year: Number(d(9).slice(0, 4)) - 7 },
