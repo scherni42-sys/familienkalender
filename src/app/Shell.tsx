@@ -163,9 +163,6 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
   const s = snap.family!.settings;
   const isToday = d === today();
   const past = d < today() || (isToday && !e.all_day && e.end_min <= now);
-  const tag = e.vis === 'family' ? <span className="vis-tag family"><Icon name="home" /> Familie</span>
-    : e.vis === 'busy' ? <span className="vis-tag busy"><Icon name="lock" /> Privat{e.ext_id ? ' · aus Handy-Kalender' : ''}</span>
-    : <span className="vis-tag private"><Icon name="lock" /> Privat</span>;
   const tr = travel(e, s), dep = depart(e, s);
   const soon = tr && isToday && dep > now && dep - now <= 30;
   const eta = e.driver || e.driver2 ? etaMin(e) : null;
@@ -195,10 +192,9 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
       {armed && <button type="button" className="ev-del" onClick={del} aria-label={`${e.title} löschen`}><Icon name="trash" /></button>}
       <Time e={e} d={d} />
       <div style={{ minWidth: 0 }}>
-        <div className="t"><span>{e.title}</span></div>
+        <div className="t">{e.vis !== 'family' && <span className="lock-i"><Icon name="lock" /></span>}<span>{e.title}</span></div>
         <div className="meta">
           {e.persons.length > 0 && <span>{e.persons.map(p => nameOf(snap.members, p)).join(', ')}</span>}
-          {tag}
           {e.driver && !(eta === null && driveDone(e)) && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}</span>}
           {e.trip === 'beides' && e.driver2 && <span><Icon name="car" /> {nameOf(snap.members, e.driver2)} holt ab</span>}
           {e.place && <span className="pl">{e.place}</span>}

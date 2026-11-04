@@ -439,3 +439,4 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .empty.tap { all: unset; display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--muted); font-size: 14px; padding: 4px 2px; }
 .empty.tap b { color: var(--accent); }
 .empty.tap .ico { width: 18px; height: 18px; color: var(--accent); }
+.ev .t .lock-i { display: inline-flex; margin-right: 5px; vertical-align: -2px; } .ev .t .lock-i .ico { width: 15px; height: 15px; }
