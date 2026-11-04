@@ -7,7 +7,8 @@ import { shrinkPhoto } from '../lib/ai';
 import { boardImg } from '../lib/supabase';
 import { AttachButton, FileList } from './Files';
 
-export function Board({ focus, reply: replyOpen }: { focus?: string | null; reply?: string | null }) {
+// big: Board füllt die Startseite; neue Nachrichten dann über das ＋ unten (kein Eingabefeld, mehr Platz)
+export function Board({ focus, reply: replyOpen, big }: { focus?: string | null; reply?: string | null; big?: boolean }) {
   const snap = useSnapshot();
   const s = snap.family!.settings;
   const me = snap.members.find(m => m.id === snap.me)!;
@@ -33,8 +34,8 @@ export function Board({ focus, reply: replyOpen }: { focus?: string | null; repl
   };
 
   return <>
-    <p className="note">Kurze Nachrichten für alle, auch auf dem Display. Sie verschwinden nach {ttl}, sobald jemand sie abhakt, oder bleiben angeheftet stehen.</p>
-    {msgs.length === 0 && <div className="empty smile"><Icon name="smile" />Keine Nachrichten</div>}
+    {!big && <p className="note">Kurze Nachrichten für alle, auch auf dem Display. Sie verschwinden nach {ttl}, sobald jemand sie abhakt, oder bleiben angeheftet stehen.</p>}
+    {msgs.length === 0 && <div className="empty smile"><Icon name="smile" />{big ? 'Keine Nachrichten. Mit ＋ unten rechts schreibst du eine.' : 'Keine Nachrichten'}</div>}
     {msgs.map(m => (
       <div key={m.id} id={`msg-${m.id}`} className={`msg${m.pinned ? ' pinned' : ''}${focus === m.id ? ' isnew' : ''}`}>
         <div className="from"><Badge m={member(m.from_member)} /> {nameOf(snap.members, m.from_member)} · {whenM(m)}{m.via ? ` · ${m.via}` : ''}</div>
@@ -69,7 +70,7 @@ export function Board({ focus, reply: replyOpen }: { focus?: string | null; repl
         )}
       </div>
     ))}
-    {canAct && (
+    {canAct && !big && (
       <>
         {photo && <div className="photo-prev"><img src={`data:${photo.type};base64,${photo.data}`} alt="Foto für das Board" /><button type="button" className="small-btn" onClick={() => setPhoto(null)}>Foto entfernen</button></div>}
         <form className="compose" onSubmit={e => {

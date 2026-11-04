@@ -133,14 +133,14 @@ export function Shell() {
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
       <div className={`ph-body${tab === 'today' || tab === 'board' || tab === 'chat' ? ' today' : ''}`}>
-        {(tab === 'today' || tab === 'board' || tab === 'chat') && <WidgetView big={tab === 'board' || tab === 'chat' ? tab : null} bigEl={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} /> : tab === 'chat' ? <Chat open={chatWith} opened={() => setChatWith(null)} plus={chatNew} /> : undefined} toggle={w => setTab(tab === w ? 'today' : w)} chat={id => { setChatWith(id); setTab('chat'); }} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
+        {(tab === 'today' || tab === 'board' || tab === 'chat') && <WidgetView big={tab === 'board' || tab === 'chat' ? tab : null} bigEl={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} big /> : tab === 'chat' ? <Chat open={chatWith} opened={() => setChatWith(null)} plus={chatNew} /> : undefined} toggle={w => setTab(tab === w ? 'today' : w)} chat={id => { setChatWith(id); setTab('chat'); }} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} wk={wk} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>
-      {me.role !== 'guest' && tab !== 'chat' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
+      {me.role !== 'guest' && tab !== 'chat' && tab !== 'board' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
       {/* Fußzeile wie im Widget: Geburtstage, Kalenderwoche blättern, neuer Eintrag */}
       <nav className="wbar" aria-label="Bereiche">
-        {tab === 'chat' ? <><span /><span /></> : <>
+        {tab === 'chat' || tab === 'board' ? <><span /><span /></> : <>
         <button type="button" className="ring-b" onClick={() => setSheet({ kind: 'bdays' })} aria-label={cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage'}>B{cake && <small>{cake.days === 0 ? '🎂' : cake.days}</small>}</button>
         <span className="kw">
           <button type="button" className="arr" style={{ visibility: tab === 'week' && wk > MIN_WK ? 'visible' : 'hidden' }} aria-label="Woche zurück" onClick={() => setWk(w => Math.max(MIN_WK, w - 1))}>◀</button>
@@ -149,6 +149,7 @@ export function Shell() {
         </span></>}
         {me.role === 'guest' ? <span className="ring-a ghost" /> : tab === 'chat'
           ? <button type="button" className="ring-a" aria-label="Neuer Chat" onClick={() => setChatNew(n => n + 1)}>＋</button>
+          : tab === 'board' ? <button type="button" className="ring-a" aria-label="Neue Nachricht ans Board" onClick={() => setSheet({ kind: 'mic', preset: 'board' })}>＋</button>
           : <button type="button" className="ring-a" aria-label="Termin oder Nachricht eintragen" onClick={() => setSheet({ kind: 'mic' })}>＋</button>}
       </nav>
       {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} photoFirst={sheet.photo} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
