@@ -90,7 +90,7 @@ export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat }: 
   const me = m(snap.me ?? '');
   const threads = chatThreads(snap.chats ?? [], snap.me);
   const unread = threads.reduce((n, x) => n + x.unread, 0);
-  const pill = (w: 'board' | 'chat', label: string, n = 0) => <div className={`wv-sec${big ? ' top' : ''}`}><button type="button" className={`kw-p bd-p${big === w ? ' on' : ''}`} aria-pressed={big === w} onClick={() => toggle(w)}>{label}{n > 0 && <i className="bd-n">{n}</i>}</button></div>;
+  const pill = (w: 'board' | 'chat', label: string, n = 0) => <div className={`wv-sec${big ? ' top' : ''}${w === 'chat' && big === 'chat' ? ' slotted' : ''}`}><button type="button" className={`kw-p bd-p${big === w ? ' on' : ''}`} aria-pressed={big === w} onClick={() => toggle(w)}>{label}{n > 0 && <i className="bd-n">{n}</i>}</button>{w === 'chat' && big === 'chat' && <span id="wv-chat-slot" className="wv-slot" />}</div>;
   return (
     <div className="wv">
       {!big && <Day d={t} snap={snap} filter={filter} now={now} go={go} />}

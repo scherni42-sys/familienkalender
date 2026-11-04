@@ -52,6 +52,8 @@ export function Shell() {
   const [replyMsg, setReplyMsg] = useState<string | null>(null);
   const [chatWith, setChatWith] = useState<string | null>(null);
   const [chatNew, setChatNew] = useState(0);
+  const [inThread, setInThread] = useState(false);
+  const talk = tab === 'chat' && inThread;
   // Sprung aus dem Android-Widget: ?open=event:<id> oder ?open=msg:<id>
   const deep = useRef(new URLSearchParams(location.search).get('open'));
   const toastMsg = useToast();
@@ -132,14 +134,14 @@ export function Shell() {
         </span>
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
-      <div className={`ph-body${tab === 'today' || tab === 'board' || tab === 'chat' ? ' today' : ''}`}>
-        {(tab === 'today' || tab === 'board' || tab === 'chat') && <WidgetView big={tab === 'board' || tab === 'chat' ? tab : null} bigEl={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} big /> : tab === 'chat' ? <Chat open={chatWith} opened={() => setChatWith(null)} plus={chatNew} /> : undefined} toggle={w => setTab(tab === w ? 'today' : w)} chat={id => { setChatWith(id); setTab('chat'); }} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
+      <div className={`ph-body${tab === 'today' || tab === 'board' || tab === 'chat' ? ' today' : ''}${talk ? ' fill' : ''}`}>
+        {(tab === 'today' || tab === 'board' || tab === 'chat') && <WidgetView big={tab === 'board' || tab === 'chat' ? tab : null} bigEl={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} big /> : tab === 'chat' ? <Chat open={chatWith} opened={() => setChatWith(null)} plus={chatNew} inThread={setInThread} /> : undefined} toggle={w => setTab(tab === w ? 'today' : w)} chat={id => { setChatWith(id); setTab('chat'); }} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} wk={wk} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>
       {me.role !== 'guest' && tab !== 'chat' && tab !== 'board' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen"><svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><path fill="#FFC83D" d="M18,12 Q19.3,20.7 28,22 Q19.3,23.3 18,32 Q16.7,23.3 8,22 Q16.7,20.7 18,12 Z" /><path fill="#FFC83D" d="M27.5,7.5 Q28.1,11.4 32,12 Q28.1,12.6 27.5,16.5 Q26.9,12.6 23,12 Q26.9,11.4 27.5,7.5 Z" /></svg></button>}
       {/* Fußzeile wie im Widget: Geburtstage, Kalenderwoche blättern, neuer Eintrag */}
-      <nav className="wbar" aria-label="Bereiche">
+      {!talk && <nav className="wbar" aria-label="Bereiche">
         {tab === 'chat' || tab === 'board' ? <><span /><span /></> : <>
         <button type="button" className="ring-b" onClick={() => setSheet({ kind: 'bdays' })} aria-label={cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage'}>B{cake && <small>{cake.days === 0 ? '🎂' : cake.days}</small>}</button>
         <span className="kw">
@@ -151,7 +153,7 @@ export function Shell() {
           ? <button type="button" className="ring-a" aria-label="Neuer Chat" onClick={() => setChatNew(n => n + 1)}>＋</button>
           : tab === 'board' ? <button type="button" className="ring-a" aria-label="Neue Nachricht ans Board" onClick={() => setSheet({ kind: 'mic', preset: 'board' })}>＋</button>
           : <button type="button" className="ring-a" aria-label="Termin oder Nachricht eintragen" onClick={() => setSheet({ kind: 'mic' })}>＋</button>}
-      </nav>
+      </nav>}
       {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} photoFirst={sheet.photo} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} day={sheet.day} add={newOn} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { store, useSnapshot } from '../lib/store';
 import type { ChatMsg, Member } from '../lib/types';
 import { hm, today } from '../lib/dates';
@@ -87,6 +88,9 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
   const list = (snap.chats ?? []).filter(c => (c.from_member === me && c.to_member === w.id) || (c.from_member === w.id && c.to_member === me));
   const [text, setText] = useState(''), [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
+  // Name und Bild stehen oben in der Zeile neben „Chat“ (Platz dafür legt WidgetView an)
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { setSlot(document.getElementById('wv-chat-slot')); }, []);
   const unread = list.some(c => c.to_member === me && !c.read_at);
   useEffect(() => { if (unread) void store.chatSeen(w.id).catch(() => {}); }, [unread, w.id]);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [list.length]);
@@ -112,10 +116,10 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
   let lastDay = '';
   return (
     <div className="ch-thread">
-      <div className="ch-head">
+      {(() => { const head = <div className="ch-head">
         <button type="button" className="ch-back" aria-label="Zurück zur Chatliste" onClick={back}><Icon name="back" /></button>
         <Badge m={w} size={34} /><b>{w.name}</b>
-      </div>
+      </div>; return slot ? createPortal(head, slot) : head; })()}
       <div className="ch-list">
         {!list.length && <div className="ch-empty">Noch keine Nachrichten. Nur du und {w.name} sehen diesen Chat.</div>}
         {list.map(c => {
@@ -147,7 +151,8 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
 }
 
 // plus: zählt hoch, wenn unten das ＋ gedrückt wird; dann die Auswahl „Neuer Chat mit …“
-export function Chat({ open, opened, plus = 0 }: { open?: string | null; opened?: () => void; plus?: number }) {
+// inThread: meldet nach oben, ob gerade ein Gespräch offen ist (dann ohne ＋ unten, Eingabe fest unten)
+export function Chat({ open, opened, plus = 0, inThread }: { open?: string | null; opened?: () => void; plus?: number; inThread?: (on: boolean) => void }) {
   const snap = useSnapshot();
   const me = snap.members.find(m => m.id === snap.me);
   const [w, setW] = useState<string | null>(open ?? null), [pick, setPick] = useState(false);
@@ -156,6 +161,14 @@ export function Chat({ open, opened, plus = 0 }: { open?: string | null; opened?
   if (!me || me.role === 'guest') return <div className="ch-empty">Gäste können nicht chatten.</div>;
   const people = snap.members.filter(m => m.id !== me.id && m.role !== 'guest');
   const who = people.find(m => m.id === w);
+  return <ChatInner who={who} people={people} pick={pick} setPick={setPick} setW={setW} inThread={inThread} />;
+}
+
+function ChatInner({ who, people, pick, setPick, setW, inThread }: { who?: Member; people: Member[]; pick: boolean; setPick: (b: boolean) => void; setW: (id: string | null) => void; inThread?: (on: boolean) => void }) {
+  const snap = useSnapshot();
+  const on = !!who;
+  useEffect(() => { inThread?.(on); }, [on]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => inThread?.(false), []); // eslint-disable-line react-hooks/exhaustive-deps
   if (who) return <Thread w={who} back={() => setW(null)} />;
   const threads = chatThreads(snap.chats ?? [], snap.me);
   const fresh = people.filter(p => !threads.some(t => t.with === p.id));

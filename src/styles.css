@@ -548,3 +548,17 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .mic-clip .ch-i { color: var(--ink); border: 2px solid var(--line); }
 /* Zaubertaste wie im Widget: gleich großer Ring direkt über dem ＋ */
 .magic.fab { width: 46px !important; height: 46px !important; right: 12px !important; bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; border: 2.5px solid #FFC83D; background: color-mix(in srgb, #FFC83D 20%, var(--surface)); box-shadow: none; padding: 0; }
+
+/* Offenes Gespräch: Kopfzeile (Chat, Name) und Eingabe bleiben stehen, nur die Nachrichten scrollen */
+.wv-sec.slotted { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.wv-slot { display: flex; align-items: center; min-width: 0; flex: 1; }
+.wv-slot:empty { display: none; }
+.wv-slot .ch-head { border: 0; padding: 0; gap: 8px; min-width: 0; }
+.wv-slot .ch-head b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wv-slot .ch-back { width: 32px; height: 32px; }
+.ph-body.fill { overflow: hidden; display: flex; flex-direction: column; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.ph-body.fill > .wv { flex: 1 1 auto; min-height: 0; }
+.ph-body.fill .wv > .wv-board { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.ph-body.fill .ch-thread { flex: 1 1 auto; min-height: 0; }
+.ph-body.fill .ch-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.ph-body.fill .ch-note, .ph-body.fill .ch-compose { flex: none; }
