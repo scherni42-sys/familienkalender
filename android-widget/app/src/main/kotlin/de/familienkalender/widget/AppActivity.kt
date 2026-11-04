@@ -250,7 +250,11 @@ class AppActivity : Activity() {
             val begin = parts.getOrNull(1)?.toLongOrNull()
             val i = Intent(Intent.ACTION_VIEW, android.content.ContentUris.withAppendedId(android.provider.CalendarContract.Events.CONTENT_URI, id))
             if (begin != null) i.putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, begin)
-            return try { runOnUiThread { startActivity(i) }; true } catch (e: Exception) { false }
+            // Outlook kann nicht zu einem einzelnen Termin springen: den Kalender des Handys nehmen (z. B. Samsung Kalender)
+            val apps = packageManager.queryIntentActivities(i, android.content.pm.PackageManager.MATCH_ALL)
+            val cal = apps.firstOrNull { !it.activityInfo.packageName.contains("outlook", true) && it.activityInfo.packageName != packageName }
+            if (cal != null) i.setClassName(cal.activityInfo.packageName, cal.activityInfo.name)
+            return try { runOnUiThread { startActivity(if (cal != null) i else Intent.createChooser(i, "Termin öffnen mit")) }; true } catch (e: Exception) { false }
         }
         // Web-App hat etwas gespeichert (Termin, Fahrer, Ankunftszeit): Widget sofort neu laden, nicht erst beim nächsten Takt
         @JavascriptInterface fun changed() {
