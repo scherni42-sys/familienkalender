@@ -463,3 +463,6 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .kw-p { min-width: 104px; height: 42px; border-radius: 999px; border: 2.5px solid var(--accent); background: transparent; color: var(--ink); font-weight: 800; font-size: 16px; }
 .kw-p.on { background: var(--accent); color: #fff; }
 .magic.fab { right: 18px !important; bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important; }
+/* Eingabe- und Bearbeiten-Fenster füllen den ganzen Bildschirm: oben nichts anderes mehr */
+.sheet { background: var(--surface); z-index: 20; align-items: stretch; }
+.sheet-in { max-height: 100%; height: 100%; border-radius: 0; align-content: start; padding-top: calc(18px + env(safe-area-inset-top, 0px)); }
