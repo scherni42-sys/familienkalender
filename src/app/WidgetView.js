@@ -53,7 +53,7 @@ export function WidgetView({ snap, filter, now, go }) {
     const s = snap.family.settings;
     const msgs = liveMsgs(snap.messages, s);
     const m = (id) => snap.members.find(x => x.id === id);
-    return (_jsxs("div", { className: "wv", children: [_jsx(Day, { d: t, snap: snap, filter: filter, now: now, go: go }), _jsx("div", { className: "wv-sec", children: "Board" }), !msgs.length && _jsx("div", { className: "wv-note", children: "Keine Nachrichten" }), msgs.map(x => {
+    return (_jsxs("div", { className: "wv", children: [_jsx(Day, { d: t, snap: snap, filter: filter, now: now, go: go }), _jsx("button", { type: "button", className: "wv-sec", onClick: () => go.msg(''), children: "Board \u203A" }), !msgs.length && _jsx("div", { className: "wv-note", children: "Keine Nachrichten" }), msgs.map(x => {
                 const last = x.replies.at(-1);
                 return _jsxs("div", { className: "wv-msg", role: "button", tabIndex: 0, onClick: () => go.msg(x.id), children: [_jsx(Badge, { m: m(x.from_member), size: 26 }), _jsxs("div", { className: "wv-txt", children: [_jsxs("div", { className: "wv-t", children: [x.pinned && _jsx(Icon, { name: "pin" }), _jsxs("span", { children: [x.image && !x.text.startsWith('📷') ? '📷 ' : '', x.text] })] }), x.taker ? _jsxs("div", { className: "wv-sub ok", children: ["\u2713 ", nameOf(snap.members, x.taker), " \u00FCbernimmt das"] })
                                     : last ? _jsxs("div", { className: "wv-sub", children: [nameOf(snap.members, last.from_member), ": ", last.text] }) : null] }), _jsxs("small", { children: [nameOf(snap.members, x.from_member), _jsx("br", {}), x.pinned ? '' : whenM(x)] })] }, x.id);

@@ -38,6 +38,7 @@ export function useMinute() {
 export function Shell() {
   const snap = useSnapshot();
   const [tab, setTab] = useState<Tab>('today');
+  const [wk, setWk] = useState(0);
   const [filter, setFilter] = useState<Filter>(savedFilter);
   const [sheet, setSheet] = useState<SheetState>(null);
   const [nonce, setNonce] = useState(0);
@@ -110,30 +111,33 @@ export function Shell() {
 
   return (
     <div className="screen" style={me.app_bg ? { background: me.app_bg } : undefined}>
-      <div className="ph-head">
-        <div><small>{snap.family!.name}</small><strong className={tab === 'today' ? 'date' : undefined}>{tab === 'today' ? longDate(today()) : titles[tab]}</strong></div>
+      {/* Kopfzeile wie im Widget: Datum (bzw. Woche), Zahnrad, Haus */}
+      <div className="ph-head wlike">
+        <button type="button" className="ph-title" onClick={() => setTab('today')} aria-label="Zurück zu heute">
+          <strong className={tab === 'today' ? 'date' : undefined}>{tab === 'today' ? longDate(today()) : tab === 'week' ? kwTitle(wk) : titles[tab]}</strong></button>
         <span className="head-r">
-          <button type="button" className="ring-b" onClick={() => setSheet({ kind: 'bdays' })} aria-label={cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage'}>B{cake && <small>{cake.days === 0 ? '🎂' : cake.days}</small>}</button>
-          {(tab === 'today' || tab === 'week') && <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
-            onClick={() => { const k: Filter = filter === 'home' ? 'all' : 'home'; setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}><Icon name="home" /></button>}
+          <button type="button" className={`head-i${tab === 'settings' ? ' on' : ''}`} aria-label="Einstellungen" aria-pressed={tab === 'settings'} onClick={() => setTab(tab === 'settings' ? 'today' : 'settings')}><Icon name="gear" /></button>
+          <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
+            onClick={() => { const k: Filter = filter === 'home' ? 'all' : 'home'; setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}><Icon name="home" /></button>
         </span>
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
       <div className={`ph-body${tab === 'today' ? ' today' : ''}`}>
         {tab === 'today' && <WidgetView snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
-        {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} />}
+        {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} wk={wk} />}
         {tab === 'board' && <Board focus={focusMsg} reply={replyMsg} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>
       {me.role !== 'guest' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen">✨</button>}
-      <nav className="tabs" aria-label="Bereiche">
-        <TabBtn on={tab === 'today'} icon="today" label="Heute" go={() => setTab('today')} />
-        <TabBtn on={tab === 'week'} icon="week" label="Kalender" go={() => setTab('week')} />
-        {me.role === 'guest'
-          ? <span />
-          : <button type="button" className="mic" aria-label="Termin oder Nachricht sprechen" onClick={() => setSheet({ kind: 'mic' })}><Icon name="mic" /></button>}
-        <TabBtn on={tab === 'board'} icon="board" label="Board" go={() => setTab('board')} />
-        <TabBtn on={tab === 'settings'} icon="gear" label="Einstellungen" go={() => setTab('settings')} />
+      {/* Fußzeile wie im Widget: Geburtstage, Kalenderwoche blättern, neuer Eintrag */}
+      <nav className="wbar" aria-label="Bereiche">
+        <button type="button" className="ring-b" onClick={() => setSheet({ kind: 'bdays' })} aria-label={cake ? `Geburtstage, nächster ${cake.days === 0 ? 'heute' : `in ${cake.days} Tagen`}` : 'Geburtstage'}>B{cake && <small>{cake.days === 0 ? '🎂' : cake.days}</small>}</button>
+        <span className="kw">
+          <button type="button" className="arr" style={{ visibility: tab === 'week' && wk > MIN_WK ? 'visible' : 'hidden' }} aria-label="Woche zurück" onClick={() => setWk(w => Math.max(MIN_WK, w - 1))}>◀</button>
+          <button type="button" className={`kw-p${tab === 'week' ? ' on' : ''}`} aria-pressed={tab === 'week'} aria-label="Wochenansicht" onClick={() => { if (tab === 'week' && wk !== 0) setWk(0); else { setWk(0); setTab(tab === 'week' ? 'today' : 'week'); } }}>KW{tab === 'week' ? ` ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : ''}</button>
+          <button type="button" className="arr" style={{ visibility: tab === 'week' ? 'visible' : 'hidden' }} aria-label="Woche vor" onClick={() => setWk(w => w + 1)}>▶</button>
+        </span>
+        {me.role === 'guest' ? <span className="ring-a ghost" /> : <button type="button" className="ring-a" aria-label="Termin oder Nachricht eintragen" onClick={() => setSheet({ kind: 'mic' })}>＋</button>}
       </nav>
       {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} photoFirst={sheet.photo} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
@@ -146,9 +150,6 @@ export function Shell() {
   );
 }
 
-function TabBtn({ on, icon, label, go }: { on: boolean; icon: 'today' | 'week' | 'board' | 'gear'; label: string; go: () => void }) {
-  return <button type="button" aria-pressed={on} onClick={go}><Icon name={icon} />{label}</button>;
-}
 
 /* ---------- Terminkarte ---------- */
 // Flugstatus unter dem Termin (nur rund um den Flugtag)
@@ -254,6 +255,7 @@ function DayList({ snap, d, filter, now, open, flash, empty, add }: { snap: Snap
 
 // So weit zurück lädt die App Termine (rund 3 Monate)
 const MIN_WK = -12, MIN_MO = -2;
+const kwTitle = (wk: number) => { const mon = addDays(mondayOf(today()), wk * 7), sun = addDays(mon, 6); return `KW ${isoWeek(mon)} · ${fromIso(mon).getDate()}.–${fromIso(sun).getDate()}. ${MON[fromIso(sun).getMonth()].slice(0, 3)}`; };
 // Tag lange drücken: neuer Termin an diesem Tag (wie Antippen des Tages im Widget)
 function DayHead({ d, add }: { d: string; add: (d: string) => void }) {
   const l = useLong(() => add(d));
@@ -263,25 +265,19 @@ function Cell({ d, add, pick, className, label, children }: { d: string; add: (d
   const l = useLong(() => add(d));
   return <button type="button" className={className} {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } pick(d); }} aria-label={label}>{children}</button>;
 }
-function CalendarTab({ snap, filter, now, open, add, flash }: { snap: Snapshot; filter: Filter; now: number; open: (id: string, how?: 'edit') => void; add: (d: string) => void; flash: string | null }) {
+function CalendarTab({ snap, filter, now, open, add, flash, wk }: { snap: Snapshot; filter: Filter; now: number; open: (id: string, how?: 'edit') => void; add: (d: string) => void; flash: string | null; wk: number }) {
   const [view, setView] = useState<'week' | 'month'>('week');
-  const [wk, setWk] = useState(0), [mo, setMo] = useState(0);
+  const [mo, setMo] = useState(0);
   const [sel, setSel] = useState(today());
   const t = today();
   const seg = <div className="seg" role="group" aria-label="Ansicht">
     {([['week', 'Woche'], ['month', 'Monat']] as const).map(([k, l]) => <button key={k} type="button" aria-pressed={view === k} onClick={() => setView(k)}>{l}</button>)}
   </div>;
   if (view === 'week') {
-    const mon = addDays(mondayOf(t), wk * 7), sun = addDays(mon, 6);
+    const mon = addDays(mondayOf(t), wk * 7);
     const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i)).filter(d => wk !== 0 || d >= t);
     return <>
       {seg}
-      <div className="calnav">
-        <button type="button" className="nav" aria-label="Vorige Woche" disabled={wk <= MIN_WK} onClick={() => setWk(Math.max(MIN_WK, wk - 1))}>‹</button>
-        <div className="ttl">KW {isoWeek(mon)}<small>{fromIso(mon).getDate()}. {MON[fromIso(mon).getMonth()].slice(0, 3)} – {fromIso(sun).getDate()}. {MON[fromIso(sun).getMonth()].slice(0, 3)}</small></div>
-        <button type="button" className="nav" aria-label="Nächste Woche" onClick={() => setWk(wk + 1)}>›</button>
-      </div>
-      {wk !== 0 && <button type="button" className="todaybtn" onClick={() => setWk(0)}>Diese Woche</button>}
       {days.map(d => <div key={d} style={{ display: 'grid', gap: 8 }}>
         <DayHead d={d} add={add} />
         <DayList snap={snap} d={d} filter={filter} now={now} open={open} flash={flash} empty="small" add={add} />

@@ -88,7 +88,7 @@ export function WidgetView({ snap, filter, now, go }: { snap: Snapshot; filter: 
   return (
     <div className="wv">
       <Day d={t} snap={snap} filter={filter} now={now} go={go} />
-      <div className="wv-sec">Board</div>
+      <button type="button" className="wv-sec" onClick={() => go.msg('')}>Board ›</button>
       {!msgs.length && <div className="wv-note">Keine Nachrichten</div>}
       {msgs.map(x => {
         const last = x.replies.at(-1);
