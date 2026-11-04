@@ -166,11 +166,19 @@ class AppActivity : Activity() {
 
     private var geoAsk: Pair<String, GeolocationPermissions.Callback>? = null
 
+    private fun micSettings() {
+        android.widget.Toast.makeText(this, "Bitte unter „Berechtigungen“ das Mikrofon erlauben", android.widget.Toast.LENGTH_LONG).show()
+        try { startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (e: Exception) { }
+    }
+
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
         super.onRequestPermissionsResult(code, perms, res)
         if (code == REC) {
-            recAsk?.let { if (res.any { it == android.content.pm.PackageManager.PERMISSION_GRANTED }) it.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else it.deny() }
+            val ok = res.any { it == android.content.pm.PackageManager.PERMISSION_GRANTED }
+            recAsk?.let { if (ok) it.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else it.deny() }
             recAsk = null
+            // Abgelehnt (oder Android fragt nicht mehr nach): gleich zur Freigabe in den App-Einstellungen
+            if (!ok) micSettings()
         }
         if (code == GEO) { geoAsk?.let { (o, cb) -> cb.invoke(o, res.any { it == android.content.pm.PackageManager.PERMISSION_GRANTED }, false) }; geoAsk = null }
         // Mikrofon erlaubt: Erkennung in der App; abgelehnt: das Google-Fenster als Ersatz
