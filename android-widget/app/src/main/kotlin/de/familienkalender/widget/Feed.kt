@@ -26,6 +26,8 @@ data class Row(
     val color: Int = Color.GRAY,
     val faded: Boolean = false,
     val pinned: Boolean = false,
+    // Überschrift als Knopf (Board): an = grün hinterlegt
+    val toggle: Boolean? = null,
     val open: String = "",
     // Board-Knöpfe: Nachricht und ob „Mach ich“ noch frei ist
     val msg: String = "",
@@ -57,7 +59,10 @@ object Feed {
 
     // Torten-Knopf: Widget zeigt statt Heute/Pinnwand die Geburtstage, bis er nochmal gedrückt wird
     fun bdMode(ctx: Context) = cache(ctx).getBoolean("bd", false)
-    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).putBoolean("week", false).apply()
+    fun toggleBd(ctx: Context) = cache(ctx).edit().putBoolean("bd", !bdMode(ctx)).putInt("bdPage", 0).putBoolean("week", false).putBoolean("board", false).apply()
+    // Board groß: Termine ausblenden, das Board nimmt das ganze Widget ein
+    fun boardMode(ctx: Context) = cache(ctx).getBoolean("board", false)
+    fun toggleBoard(ctx: Context) = cache(ctx).edit().putBoolean("board", !boardMode(ctx)).putBoolean("week", false).putBoolean("bd", false).apply()
 
     // Wochenvorschau: blättert ab dieser Woche bis ein Jahr voraus (so weit liefert der Server Termine)
     const val MAX_WEEKS = 52
@@ -65,7 +70,7 @@ object Feed {
     const val MIN_WEEKS = -12
     fun weekMode(ctx: Context) = cache(ctx).getBoolean("week", false)
     fun weekOff(ctx: Context) = cache(ctx).getInt("weekOff", 0)
-    fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).apply()
+    fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).putBoolean("board", false).apply()
     fun turnWeek(ctx: Context, by: Int) = cache(ctx).edit().putInt("weekOff", (weekOff(ctx) + by).coerceIn(MIN_WEEKS, MAX_WEEKS)).apply()
     // Jahr der gezeigten Woche, nur wenn es nicht das aktuelle ist (z. B. 2027 über dem KW-Knopf)
     fun weekYear(ctx: Context): Int? {
@@ -288,7 +293,7 @@ object Feed {
         return try { java.time.OffsetDateTime.parse(e.optString("eta")).toInstant().isBefore(java.time.Instant.now().minusSeconds(1800)) } catch (x: Exception) { false }
     }
 
-    fun rows(feed: JSONObject, week: Int? = null, flights: Map<String, String> = emptyMap()): List<Row> {
+    fun rows(feed: JSONObject, week: Int? = null, flights: Map<String, String> = emptyMap(), board: Boolean = false): List<Row> {
         val today = LocalDate.now().toString()
         val nowMin = LocalTime.now().let { it.hour * 60 + it.minute }
         val settings = feed.optJSONObject("family")?.optJSONObject("settings") ?: JSONObject()
@@ -381,11 +386,13 @@ object Feed {
             }
             return out
         }
-        out += Row(Kind.SECTION, "Heute")
-        day(today, true)
-        val tomorrow = LocalDate.now().plusDays(1)
-        out += Row(Kind.SECTION, "Morgen · ${dateLabel(tomorrow)}")
-        day(tomorrow.toString(), false)
+        if (!board) {
+            out += Row(Kind.SECTION, "Heute")
+            day(today, true)
+            val tomorrow = LocalDate.now().plusDays(1)
+            out += Row(Kind.SECTION, "Morgen · ${dateLabel(tomorrow)}")
+            day(tomorrow.toString(), false)
+        }
 
         val msgs = feed.optJSONArray("messages") ?: JSONArray()
         val now = System.currentTimeMillis()
@@ -395,7 +402,7 @@ object Feed {
             val at = try { OffsetDateTime.parse(m.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { now }
             now - at < ttlHours * 3_600_000L
         }.sortedWith(compareBy({ !it.optBoolean("pinned") }, { -(try { OffsetDateTime.parse(it.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { 0L }) }))
-        out += Row(Kind.SECTION, "Board")
+        out += Row(Kind.SECTION, "Board", open = "toggle:board", toggle = board)
         if (live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
         for (m in live) {
             val from = m.optString("from_member")

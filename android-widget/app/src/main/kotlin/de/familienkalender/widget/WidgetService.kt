@@ -26,7 +26,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         val (feed, loadErr) = Feed.load(ctx, 20_000)
         var err = loadErr
         rows = try {
-            if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(ctx, feed) else Feed.rows(feed, if (Feed.weekMode(ctx)) Feed.weekOff(ctx) else null, Flights.lines(ctx, feed))
+            if (feed == null) emptyList() else if (Feed.bdMode(ctx)) Feed.bdRows(ctx, feed) else Feed.rows(feed, if (Feed.weekMode(ctx)) Feed.weekOff(ctx) else null, Flights.lines(ctx, feed), Feed.boardMode(ctx))
         } catch (e: Exception) {
             err = "Anzeige-Fehler: ${e.message}"
             emptyList()
@@ -48,7 +48,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
     }
 
     override fun getCount() = rows.size
-    override fun getViewTypeCount(): Int = 6
+    override fun getViewTypeCount(): Int = 7
     override fun getItemId(position: Int) = position.toLong()
     override fun hasStableIds() = false
     override fun getLoadingView(): RemoteViews? = null
@@ -57,7 +57,12 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
         val r = rows.getOrNull(position) ?: return RemoteViews(ctx.packageName, R.layout.note)
         val v = when (r.kind) {
             // Tag-Überschrift und „frei“ öffnen in der Wochenvorschau einen neuen Termin an diesem Tag
-            Kind.SECTION -> RemoteViews(ctx.packageName, R.layout.section).apply {
+            // Board-Überschrift als Knopf wie KW: antippen macht das Board groß (grün) bzw. wieder klein
+            Kind.SECTION -> if (r.toggle != null) RemoteViews(ctx.packageName, R.layout.section_pill).apply {
+                setTextViewText(R.id.text, r.text)
+                setInt(R.id.text, "setBackgroundResource", if (r.toggle) R.drawable.bar_on else R.drawable.kw_off)
+                setOnClickFillInIntent(R.id.text, Intent().putExtra(OpenActivity.EXTRA_ACT, "board"))
+            } else RemoteViews(ctx.packageName, R.layout.section).apply {
                 setTextViewText(R.id.text, r.text)
                 if (r.open.isNotEmpty()) setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))
             }

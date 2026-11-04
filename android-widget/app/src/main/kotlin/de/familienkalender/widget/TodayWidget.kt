@@ -69,6 +69,7 @@ class TodayWidget : AppWidgetProvider() {
             // Board-Knopf aus dem Widget: ausführen, kurz melden, neu laden
             ACT -> {
                 val act = intent.getStringExtra(OpenActivity.EXTRA_ACT) ?: return
+                if (act == "board") { Feed.toggleBoard(ctx); refreshData(ctx); return }
                 val msg = intent.getStringExtra(OpenActivity.EXTRA_MSG) ?: return
                 val done = goAsync()
                 thread {
