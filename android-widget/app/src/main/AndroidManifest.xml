@@ -14,12 +14,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-    <!-- SOS: Alarm im Vollbild, auch bei „Nicht stören“; eigener Standort läuft als Vordergrund-Dienst -->
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
-    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Spracherkennung des Handys finden (Android 11+) -->
     <queries>
@@ -178,33 +172,6 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-
-        <activity
-            android:name=".SosActivity"
-            android:exported="false"
-            android:label="SOS"
-            android:taskAffinity="de.familienkalender.widget.sos"
-            android:launchMode="singleTask" />
-        <activity
-            android:name=".SosAlarmActivity"
-            android:exported="false"
-            android:label="SOS-Alarm"
-            android:taskAffinity="de.familienkalender.widget.sosalarm"
-            android:launchMode="singleTask"
-            android:excludeFromRecents="true"
-            android:showWhenLocked="true"
-            android:turnScreenOn="true" />
-        <service
-            android:name=".SosService"
-            android:exported="false"
-            android:foregroundServiceType="location" />
-        <service
-            android:name=".PushService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
-        </service>
 
         <service
             android:name=".WidgetService"

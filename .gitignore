@@ -8,4 +8,3 @@ android-widget/build/
 android-widget/app/build/
 build.log
 *.keystore
-android-widget/app/google-services.json

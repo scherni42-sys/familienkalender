@@ -30,16 +30,6 @@
             android:textStyle="bold" />
 
 
-        <!-- SOS: öffnet das Notruf-Fenster (dort 3 Sekunden halten) -->
-        <ImageView
-            android:id="@+id/sos"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginEnd="12dp"
-            android:contentDescription="SOS"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ring_sos" />
-
         <!-- Neue Version verfügbar: ein Tipp lädt und installiert sie -->
         <ImageView
             android:id="@+id/update"

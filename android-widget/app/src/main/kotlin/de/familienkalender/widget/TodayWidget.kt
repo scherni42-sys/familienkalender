@@ -147,7 +147,6 @@ class TodayWidget : AppWidgetProvider() {
         private fun background(ctx: Context) {
             thread {
                 Feed.load(ctx, 20_000).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it); CalSync.sync(ctx, it) }
-                try { Push.register(ctx) } catch (e: Throwable) { }
                 try { CalImport.maybeSync(ctx) } catch (e: Exception) { }
                 // Flugstatus (Gate, Verspätung) für heutige und morgige Flüge
                 try { Feed.cached(ctx)?.let { Flights.refresh(ctx, it) }; TodayWidget.refreshData(ctx) } catch (e: Exception) { }
@@ -243,7 +242,6 @@ class TodayWidget : AppWidgetProvider() {
             bdButton(ctx, v)
             v.setOnClickPendingIntent(R.id.weeklabel, broadcast(ctx, TOGGLE_WEEK, 24))
             v.setOnClickPendingIntent(R.id.home, broadcast(ctx, TOGGLE_HOME, 27))
-            v.setOnClickPendingIntent(R.id.sos, PendingIntent.getActivity(ctx, 77, Intent(ctx, SosActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             // Zaubertaste: App mit „Frag Claude“ öffnen
             val ask = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "ask").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.ask, PendingIntent.getActivity(ctx, 29, ask, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))

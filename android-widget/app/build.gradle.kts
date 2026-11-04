@@ -3,8 +3,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
-// Push (Firebase): nur mit google-services.json (kommt im Bau aus dem Secret GOOGLE_SERVICES_JSON); ohne läuft die App ohne Push
-if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
 
 android {
     buildFeatures { buildConfig = true }
@@ -48,7 +46,4 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     // Kamera-Foto aus der App an die Web-App übergeben
     implementation("androidx.core:core:1.13.1")
-    // Push-Nachrichten (SOS, Chat)
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-messaging")
 }

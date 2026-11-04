@@ -126,7 +126,6 @@ export function Shell() {
         <button type="button" className="ph-title" onClick={() => setTab('today')} aria-label="Zurück zu heute">
           <strong ref={titleRef} className={tab === 'today' || tab === 'board' || tab === 'chat' ? 'date' : undefined}>{tab === 'today' || tab === 'board' || tab === 'chat' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab]}</strong></button>
         <span className="head-r">
-          {native()?.sos && me.role !== 'guest' && <button type="button" className="sos-b" aria-label="SOS an die Familie" onClick={() => native()?.sos?.()}><svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#D32F2F" /><path d="M20 11v11.5" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" /><circle cx="20" cy="28.1" r="2.1" fill="#fff" /></svg></button>}
           <button type="button" className={`head-i${tab === 'settings' ? ' on' : ''}`} aria-label="Einstellungen" aria-pressed={tab === 'settings'} onClick={() => setTab(tab === 'settings' ? 'today' : 'settings')}><Icon name="gear" /></button>
           <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
             onClick={() => { const k: Filter = filter === 'home' ? 'all' : 'home'; setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}><Icon name="home" /></button>
