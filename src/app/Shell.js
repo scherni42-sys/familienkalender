@@ -234,7 +234,7 @@ function DayList({ snap, d, filter, now, open, flash, empty, add }) {
                 : _jsx(BusyCard, { b: it.b, d: d, snap: snap, now: now }, it.b.id))
                 : empty === 'big'
                     ? _jsxs("div", { className: "free", children: [_jsx(Icon, { name: "smile" }), _jsx("b", { children: "Frei" }), _jsx("span", { children: isToday ? 'Heute steht nichts mehr an.' : 'Nichts geplant.' })] })
-                    : add && d >= today() ? _jsx("button", { type: "button", className: "empty tap", onClick: () => add(d), children: _jsx("b", { children: "\uFF0B Termin" }) }) : _jsxs("div", { className: "empty smile", children: [_jsx(Icon, { name: "smile" }), "Frei"] })] });
+                    : add && d >= today() ? _jsx("button", { type: "button", className: "empty tap", onClick: () => add(d), children: _jsx("b", { children: "\uFF0B Termin" }) }) : _jsx("div", { className: "empty past-free", children: "frei" })] });
 }
 // So weit zurück lädt die App Termine (rund 3 Monate)
 const MIN_WK = -12, MIN_MO = -2;
@@ -260,8 +260,8 @@ function CalendarTab({ snap, filter, now, open, add, flash, wk }) {
     const seg = _jsx("div", { className: "seg", role: "group", "aria-label": "Ansicht", children: [['week', 'Woche'], ['month', 'Monat']].map(([k, l]) => _jsx("button", { type: "button", "aria-pressed": view === k, onClick: () => setView(k), children: l }, k)) });
     if (view === 'week') {
         const mon = addDays(mondayOf(t), wk * 7);
-        const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i)).filter(d => wk !== 0 || d >= t);
-        return _jsxs(_Fragment, { children: [seg, days.map(d => _jsxs("div", { style: { display: 'grid', gap: 8 }, children: [_jsx(DayHead, { d: d, add: add }), _jsx(DayList, { snap: snap, d: d, filter: filter, now: now, open: open, flash: flash, empty: "small", add: add })] }, d))] });
+        const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
+        return _jsxs(_Fragment, { children: [seg, days.map(d => _jsxs("div", { className: d < t ? 'day-past' : undefined, style: { display: 'grid', gap: 8 }, children: [_jsx(DayHead, { d: d, add: add }), _jsx(DayList, { snap: snap, d: d, filter: filter, now: now, open: open, flash: flash, empty: "small", add: add })] }, d))] });
     }
     const first = fromIso(t);
     first.setDate(1);

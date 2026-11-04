@@ -263,7 +263,7 @@ export function ToneRow({ kind }: { kind: 'bd' | 'ev' }) {
   const t = useTones();
   if (!t) return null;
   const cur = t[kind];
-  return <label className="setrow"><span>🔔 {kind === 'bd' ? 'Klingelton' : 'Klingelton für Termin-Wecker'}</span>
+  return <label className="setrow"><span className="tone-l"><Icon name="alarm" /> {kind === 'bd' ? 'Klingelton' : 'Klingelton für Termin-Wecker'}</span>
     <select value={cur.which} onChange={e => setTone(kind, e.target.value)}>
       <option value="birthday">Happy Birthday</option>
       <option value="beep">Piepen</option>

@@ -473,3 +473,6 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .kw-p { min-width: 0; padding: 0 16px; white-space: nowrap; flex: 0 1 auto; }
 .ev > div { min-width: 0; }
 .ev .go { max-width: 100%; box-sizing: border-box; }
+.day-past .day-h, .day-past .bd-line { opacity: .5; }
+.tone-l .ico { width: 18px; height: 18px; color: var(--accent); vertical-align: -3px; margin-right: 4px; }
+.day-past .empty { opacity: .5; }

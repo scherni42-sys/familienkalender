@@ -255,7 +255,7 @@ function DayList({ snap, d, filter, now, open, flash, empty, add }: { snap: Snap
       : <BusyCard key={it.b.id} b={it.b} d={d} snap={snap} now={now} />)
       : empty === 'big'
         ? <div className="free"><Icon name="smile" /><b>Frei</b><span>{isToday ? 'Heute steht nichts mehr an.' : 'Nichts geplant.'}</span></div>
-        : add && d >= today() ? <button type="button" className="empty tap" onClick={() => add(d)}><b>＋ Termin</b></button> : <div className="empty smile"><Icon name="smile" />Frei</div>}
+        : add && d >= today() ? <button type="button" className="empty tap" onClick={() => add(d)}><b>＋ Termin</b></button> : <div className="empty past-free">frei</div>}
   </>;
 }
 
@@ -282,10 +282,10 @@ function CalendarTab({ snap, filter, now, open, add, flash, wk }: { snap: Snapsh
   </div>;
   if (view === 'week') {
     const mon = addDays(mondayOf(t), wk * 7);
-    const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i)).filter(d => wk !== 0 || d >= t);
+    const days = Array.from({ length: 7 }, (_, i) => addDays(mon, i));
     return <>
       {seg}
-      {days.map(d => <div key={d} style={{ display: 'grid', gap: 8 }}>
+      {days.map(d => <div key={d} className={d < t ? 'day-past' : undefined} style={{ display: 'grid', gap: 8 }}>
         <DayHead d={d} add={add} />
         <DayList snap={snap} d={d} filter={filter} now={now} open={open} flash={flash} empty="small" add={add} />
       </div>)}

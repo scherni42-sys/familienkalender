@@ -168,7 +168,7 @@ export function ToneRow({ kind }) {
     if (!t)
         return null;
     const cur = t[kind];
-    return _jsxs("label", { className: "setrow", children: [_jsxs("span", { children: ["\uD83D\uDD14 ", kind === 'bd' ? 'Klingelton' : 'Klingelton für Termin-Wecker'] }), _jsxs("select", { value: cur.which, onChange: e => setTone(kind, e.target.value), children: [_jsx("option", { value: "birthday", children: "Happy Birthday" }), _jsx("option", { value: "beep", children: "Piepen" }), _jsx("option", { value: "alarm", children: "Weckton des Handys" }), cur.which === 'custom' && _jsx("option", { value: "custom", children: cur.title }), _jsx("option", { value: "pick", children: "Anderer Ton vom Handy \u2026" })] })] });
+    return _jsxs("label", { className: "setrow", children: [_jsxs("span", { className: "tone-l", children: [_jsx(Icon, { name: "alarm" }), " ", kind === 'bd' ? 'Klingelton' : 'Klingelton für Termin-Wecker'] }), _jsxs("select", { value: cur.which, onChange: e => setTone(kind, e.target.value), children: [_jsx("option", { value: "birthday", children: "Happy Birthday" }), _jsx("option", { value: "beep", children: "Piepen" }), _jsx("option", { value: "alarm", children: "Weckton des Handys" }), cur.which === 'custom' && _jsx("option", { value: "custom", children: cur.title }), _jsx("option", { value: "pick", children: "Anderer Ton vom Handy \u2026" })] })] });
 }
 // Nur für dieses Handy: App öffnet direkt die Spracheingabe (praktisch mit der Samsung-Seitentaste)
 function MicStartRow() {
