@@ -61,10 +61,12 @@ object Feed {
 
     // Wochenvorschau: blättert ab dieser Woche bis ein Jahr voraus (so weit liefert der Server Termine)
     const val MAX_WEEKS = 52
+    // Rückwärts bis 12 Wochen (so weit zurück liefert der Server Termine)
+    const val MIN_WEEKS = -12
     fun weekMode(ctx: Context) = cache(ctx).getBoolean("week", false)
     fun weekOff(ctx: Context) = cache(ctx).getInt("weekOff", 0)
     fun toggleWeek(ctx: Context) = cache(ctx).edit().putBoolean("week", !weekMode(ctx)).putInt("weekOff", 0).putBoolean("bd", false).apply()
-    fun turnWeek(ctx: Context, by: Int) = cache(ctx).edit().putInt("weekOff", (weekOff(ctx) + by).coerceIn(0, MAX_WEEKS)).apply()
+    fun turnWeek(ctx: Context, by: Int) = cache(ctx).edit().putInt("weekOff", (weekOff(ctx) + by).coerceIn(MIN_WEEKS, MAX_WEEKS)).apply()
     // Jahr der gezeigten Woche, nur wenn es nicht das aktuelle ist (z. B. 2027 über dem KW-Knopf)
     fun weekYear(ctx: Context): Int? {
         val y = LocalDate.now().with(java.time.DayOfWeek.MONDAY).plusWeeks(weekOff(ctx).toLong()).get(java.time.temporal.IsoFields.WEEK_BASED_YEAR)
@@ -318,7 +320,7 @@ object Feed {
                 val year = b.optInt("year", 0)
                 out += Row(
                     Kind.EVENT, "🎂 " + (if (b.isNull("owner")) "" else "🔒 ") + b.optString("name") + if (year > 0) " wird ${date.year - year}" else "",
-                    time = "Geb.", color = bdColor(feed, b), open = "bday:" + b.optString("id")
+                    time = "Geb.", color = bdColor(feed, b), faded = d < today, open = "bday:" + b.optString("id")
                 )
                 shown++
             }
@@ -327,8 +329,9 @@ object Feed {
                 .sortedWith(compareBy({ !it.optBoolean("all_day") }, { it.optInt("start_min") }))
             for (e in list) {
                 val allDay = e.optBoolean("all_day")
-                val past = isToday && !allDay && e.optInt("end_min") <= nowMin
-                if (past && hidePast) continue
+                // Vergangene Tage (beim Blättern) und heute schon vorbei: blass
+                val past = d < today || (isToday && !allDay && e.optInt("end_min") <= nowMin)
+                if (isToday && past && hidePast) continue
                 val persons = e.optJSONArray("persons")
                 val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
                 val driver = id(e, "driver")
@@ -362,6 +365,8 @@ object Feed {
                 )
                 shown++
             }
+            // Vergangener Tag beim Blättern: nur „frei“, ohne Eintragen
+            if (d < today) { if (shown == 0) out += Row(Kind.NOTE, "frei"); return }
             if (shown == 0) out += Row(Kind.NOTE, none ?: if (isToday) "Keine Familientermine mehr" else "Keine Familientermine", open = "new:$d")
             // Wochenvorschau: an Tagen mit Terminen eine eigene Zeile für einen weiteren Termin
             else if (none != null) out += Row(Kind.NOTE, "＋ weiterer Termin", open = "new:$d")

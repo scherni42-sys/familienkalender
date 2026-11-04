@@ -119,7 +119,7 @@ class TodayWidget : AppWidgetProvider() {
             val year = if (on) Feed.weekYear(ctx) else null
             v.setTextViewText(R.id.weekyear, year?.toString() ?: "")
             v.setViewVisibility(R.id.weekyear, if (year != null) View.VISIBLE else View.GONE)
-            v.setViewVisibility(R.id.weekprev, if (on && Feed.weekOff(ctx) > 0) View.VISIBLE else View.INVISIBLE)
+            v.setViewVisibility(R.id.weekprev, if (on && Feed.weekOff(ctx) > Feed.MIN_WEEKS) View.VISIBLE else View.INVISIBLE)
             v.setViewVisibility(R.id.weeknext, if (on && Feed.weekOff(ctx) < Feed.MAX_WEEKS) View.VISIBLE else View.INVISIBLE)
         }
 
