@@ -1,8 +1,8 @@
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { hm, longDate, today } from '../lib/dates';
-import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
+import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
-import { Badge, cvar, Icon } from './ui';
+import { Badge, Badges, cvar, Icon } from './ui';
 
 // Startseite der App im Aussehen des Handy-Widgets: nur Heute, dazu das Board auf dunklem Grund
 type Filter = 'all' | 'family' | 'home';
@@ -32,16 +32,25 @@ function Row({ e, d, snap, now, go }: { e: CalEvent; d: string; snap: Snapshot; 
     soon = go && dep > now && dep - now <= 30;
     drive = `${nm(e.driver)} ${e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}${go ? ` · los ${hm(dep)}` : ''}${e.trip === 'beides' && e.driver2 ? ` · ${nm(e.driver2)} holt ab` : ''}`;
   }
+  // Heute ausführlich: Zeitspanne, Personen, Ort mit Adresse, Fahrt, Mitbringen, Notiz, Dokumente
+  const where = [e.place, isOnline(e) ? '' : e.addr].filter(Boolean).join(' · ');
+  const left = !e.all_day && !past && e.start_min > now ? e.start_min - now : null;
   return (
-    <div className={`wv-row${past ? ' past' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))} role="button" tabIndex={0}
+    <div className={`wv-row big${past ? ' past' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))} role="button" tabIndex={0}
       onClick={() => go.open(e.id, d)} onKeyDown={k => { if (k.key === 'Enter') go.open(e.id, d); }}>
       <i className="wv-bar" />
-      <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
+      <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}{!e.all_day && <small>{hm(e.end_min)}</small>}</time>
       <div className="wv-txt">
-        <div className="wv-t">{e.vis !== 'family' && <Icon name="lock" />}<span>{e.title}</span>{e.files?.length ? <Icon name="clip" /> : null}</div>
+        <div className="wv-t wrap">{e.vis !== 'family' && <Icon name="lock" />}<span>{e.title}</span></div>
+        {e.persons.length > 0 && <div className="wv-sub who"><Badges ids={e.persons} members={snap.members} /> {e.persons.map(p => nm(p)).join(', ')}</div>}
+        {where && <div className="wv-sub wrap"><Icon name="pin" /> {where}</div>}
+        {isOnline(e) && <div className="wv-sub">Online-Besprechung</div>}
         <Flight e={e} />
-        {drive ? <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {drive}</div>
-          : e.place ? <div className="wv-sub">{e.place}</div> : null}
+        {drive && <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {soon ? `In ${dep - now} Min. losfahren · ` : ''}{drive}{tr && !eta ? ` · ${tr} Min. Fahrt` : ''}</div>}
+        {e.bring.length > 0 && <div className="wv-sub wrap">Mitbringen: {e.bring.join(', ')}</div>}
+        {e.notes && <div className="wv-sub wrap note">{e.notes}</div>}
+        {e.files?.length ? <div className="wv-sub"><Icon name="clip" /> {e.files.length === 1 ? e.files[0].name : `${e.files.length} Dokumente`}</div> : null}
+        {left !== null && left <= 120 && <div className="wv-sub soon">in {left >= 60 ? `${Math.floor(left / 60)} Std. ${left % 60 ? `${left % 60} Min.` : ''}` : `${left} Min.`}</div>}
       </div>
     </div>
   );

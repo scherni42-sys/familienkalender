@@ -394,7 +394,7 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .fl-line.bad{color:var(--warn,#d9822b)}
 
 /* Startseite im Widget-Look: immer dunkel (Anthrazit) wie das Handy-Widget */
-.wv { min-width: 0; overflow: hidden; --wv-fg: #EEF3F0; --wv-muted: #9AA8A0; --wv-line: #3A433E; background: #262B29; color: var(--wv-fg); border-radius: 22px; padding: 12px 14px 14px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.18); border: 1px solid #3A433E; }
+.wv { min-width: 0; overflow-x: clip; --wv-fg: #EEF3F0; --wv-muted: #9AA8A0; --wv-line: #3A433E; background: #262B29; color: var(--wv-fg); border-radius: 22px; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 2px; box-shadow: 0 6px 18px rgba(0,0,0,.18); border: 1px solid #3A433E; }
 .wv-head { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 2px 6px; font-size: 17px; }
 .wv-head span { color: var(--wv-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 .wv-sec { all: unset; display: block; margin-top: 8px; padding: 6px 2px 4px; border-top: 1px solid var(--wv-line); color: var(--wv-muted); font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
@@ -417,3 +417,13 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .wv-note b { color: #3dbd83; }
 .wv-msg small { flex: none; text-align: right; color: var(--wv-muted); font-size: 11px; line-height: 1.3; }
 .demo-bar { margin: 0 18px 6px; padding: 6px 10px; border-radius: 10px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 600; }
+.wv-row.big { align-items: flex-start; padding: 8px 2px; }
+.wv-row.big time { display: grid; line-height: 1.2; }
+.wv-row.big time small { color: var(--wv-muted); font-weight: 400; font-size: 12px; }
+.wv-t.wrap span, .wv-sub.wrap { white-space: normal; }
+.wv-sub.wrap { display: block; }
+.wv-sub.wrap .ico { vertical-align: -1px; }
+.wv-sub { margin-top: 2px; }
+.wv-sub.note { font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.wv-sub.who .badges .b { width: 18px; height: 18px; font-size: 9px; }
+.wv > * { flex: none; min-width: 0; }
