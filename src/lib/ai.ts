@@ -107,7 +107,7 @@ export async function askClaude(q: string, me: string, members: Member[], events
   ].join(' | ');
   const bdLine = (b: Birthday) => `${b.name}${b.rel ? ` (${b.rel})` : ''}: ${b.day}.${b.month}.${b.year ? b.year : ''}`;
   // Kassenbuch: Belege der letzten zwei Jahre, die ich sehen darf (fehlt das Kassenbuch, einfach ohne)
-  const rcs: Receipt[] = supabase ? await cashList(addDays(t, -730), addDays(t, 1)).then(r => r.slice(0, 600)).catch(() => []) : [];
+  const rcs: Receipt[] = supabase ? await cashList('2000-01-01', addDays(t, 1)).then(r => r.slice(0, 600)).catch(() => []) : [];
   const eu = (n: number) => n.toFixed(2).replace('.', ',') + ' €';
   const rcLine = (r: Receipt) => [
     r.bought_at.slice(0, 10), r.merchant, eu(r.total), r.owner === me ? 'von mir' : `von ${nm(r.owner ?? null)}`,
