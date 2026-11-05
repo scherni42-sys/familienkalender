@@ -13,7 +13,7 @@ export interface Tax { rate: number; net: number; tax: number }
 export interface Receipt {
   id?: string; owner?: string; bought_at: string; merchant: string; payment: string; card: string;
   total: number; currency: string; category: string; scope: Scope; photo: string | null; note: string; items: Item[];
-  kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean;
+  kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; grp: string;
 }
 export interface ReadResult { found: boolean; kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; box: { x0: number; y0: number; x1: number; y1: number }; merchant: string; date: string; time: string; payment: string; card: string; total: number; currency: string; category: string; items: { name: string; qty: number; price: number; vat: number; category: string }[] }
 
@@ -65,7 +65,27 @@ export async function list(from: string, to: string): Promise<Receipt[]> {
   const end = new Date(to + 'T00:00:00'); end.setDate(end.getDate() + 1);
   const r = await sb().from('receipts').select('*, receipt_items(*)').eq('family_id', ctx().fam).gte('bought_at', new Date(from + 'T00:00:00').toISOString()).lt('bought_at', end.toISOString()).order('bought_at', { ascending: false });
   if (r.error) throw new Error(missing(r.error.message));
-  return (r.data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), net: Number(x.net ?? 0), kind: x.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: x.invoice_no ?? '', items_net: !!x.items_net, taxes: Array.isArray(x.taxes) ? x.taxes.map(t => ({ rate: Number(t.rate), net: Number(t.net), tax: Number(t.tax) })) : [], items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price), vat: Number(i.vat ?? 0) })) }));
+  return rows(r.data);
+}
+
+// Alle sichtbaren Bons einer Buchungsgruppe, egal wann
+export async function listGroup(g: string): Promise<Receipt[]> {
+  if (store.demo) return demo.filter(r => r.grp === g).sort((a, b) => b.bought_at.localeCompare(a.bought_at));
+  const r = await sb().from('receipts').select('*, receipt_items(*)').eq('family_id', ctx().fam).eq('grp', g).order('bought_at', { ascending: false });
+  if (r.error) throw new Error(missing(r.error.message));
+  return rows(r.data);
+}
+
+// Namen aller Buchungsgruppen, die ich sehe (neueste zuerst)
+export async function groups(): Promise<string[]> {
+  if (store.demo) return [...new Set(demo.map(r => r.grp).filter(Boolean))];
+  const r = await sb().from('receipts').select('grp, bought_at').eq('family_id', ctx().fam).neq('grp', '').order('bought_at', { ascending: false }).limit(1000);
+  if (r.error) return [];
+  return [...new Set((r.data as { grp: string }[]).map(x => x.grp))];
+}
+
+function rows(data: unknown): Receipt[] {
+  return (data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), net: Number(x.net ?? 0), kind: x.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: x.invoice_no ?? '', items_net: !!x.items_net, grp: x.grp ?? '', taxes: Array.isArray(x.taxes) ? x.taxes.map(t => ({ rate: Number(t.rate), net: Number(t.net), tax: Number(t.tax) })) : [], items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price), vat: Number(i.vat ?? 0) })) }));
 }
 
 export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
@@ -82,7 +102,7 @@ export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
     const up = await sb().storage.from('receipts').upload(path, photo, { contentType: 'image/jpeg' });
     if (up.error) throw new Error(missing(up.error.message.includes('not found') ? 'receipts' : up.error.message));
   }
-  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net };
+  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net, ...(rc.grp ? { grp: rc.grp } : rc.id ? { grp: '' } : {}) };
   const res = rc.id ? await sb().from('receipts').update(row).eq('id', rc.id).select('id').single() : await sb().from('receipts').insert(row).select('id').single();
   if (res.error) { if (photo && path) await sb().storage.from('receipts').remove([path]); throw new Error(missing(res.error.message)); }
   const id = (res.data as { id: string }).id;

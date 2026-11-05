@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
 import { fail, toast } from './toast';
+import { native } from '../lib/native';
+import type { Cell, SheetData } from '../lib/xlsx';
 
 const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -22,17 +24,18 @@ export function CashSheet({ close }: { close: () => void }) {
   const keep = async (p: Prefs) => { await setPrefs(p); setP(p); };
   const list = () => setView({ kind: 'list' });
   // Monat und Reiter bleiben erhalten; nach dem Speichern springt die Liste in den Monat des Belegs
-  const [off, setOff] = useState(0), [tab, setTab] = useState<Tab>('mine');
+  const [per, setPer] = useState<Period>({ mode: 'month', off: 0, yoff: 0, from: '', to: '', grp: '' }), [tab, setTab] = useState<Tab>('mine');
   const saved = (rc: Receipt) => {
     const d = new Date(rc.bought_at), n = new Date();
-    if (!isNaN(d.getTime())) setOff(Math.min(0, (d.getFullYear() - n.getFullYear()) * 12 + d.getMonth() - n.getMonth()));
+    if (!isNaN(d.getTime()) && per.mode === 'month') setPer(p => ({ ...p, off: Math.min(0, (d.getFullYear() - n.getFullYear()) * 12 + d.getMonth() - n.getMonth()) }));
+    if (!isNaN(d.getTime()) && per.mode === 'year') setPer(p => ({ ...p, yoff: Math.min(0, d.getFullYear() - n.getFullYear()) }));
     if (rc.scope === 'business' && prefs.business) setTab('business'); else if (tab === 'business') setTab('mine');
     list();
   };
   if (view.kind === 'new') return <NewReceipt close={close} back={list} prefs={prefs} next={(rc, photo) => setView({ kind: 'edit', rc, photo })} />;
   if (view.kind === 'edit') return <ReceiptForm close={close} rc={view.rc} photo={view.photo} prefs={prefs} keep={keep} done={list} saved={saved} />;
   if (view.kind === 'prefs') return <CashPrefs close={close} back={list} prefs={prefs} keep={keep} />;
-  return <CashList close={close} prefs={prefs} off={off} setOff={setOff} tab={tab} setTab={setTab} add={() => setView({ kind: 'new' })} open={rc => setView({ kind: 'edit', rc })} settings={() => setView({ kind: 'prefs' })} />;
+  return <CashList close={close} prefs={prefs} per={per} setPer={setPer} tab={tab} setTab={setTab} add={() => setView({ kind: 'new' })} open={rc => setView({ kind: 'edit', rc })} settings={() => setView({ kind: 'prefs' })} />;
 }
 
 const SCOPE_LABEL: Record<Scope, string> = { private: 'Privat', family: 'Familie', business: 'Firma' };
@@ -67,56 +70,103 @@ function CashPrefs({ close, back, prefs, keep }: { close: () => void; back: () =
 }
 
 type Tab = 'mine' | 'family' | 'business';
-function CashList({ close, add, open, settings, prefs, off, setOff, tab, setTab }: { off: number; setOff: (f: (o: number) => number) => void; tab: Tab; setTab: (t: Tab) => void; close: () => void; add: () => void; open: (rc: Receipt) => void; settings: () => void; prefs: Prefs }) {
+type Mode = 'month' | 'year' | 'range' | 'group';
+export interface Period { mode: Mode; off: number; yoff: number; from: string; to: string; grp: string }
+const MS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const dmy = (s: string) => s ? `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}` : '';
+
+function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab }: { per: Period; setPer: (f: (p: Period) => Period) => void; tab: Tab; setTab: (t: Tab) => void; close: () => void; add: () => void; open: (rc: Receipt) => void; settings: () => void; prefs: Prefs }) {
   const snap = useSnapshot();
   const me = snap.me!;
-  const [fam, setFam] = useState(false);
+  const [fam, setFam] = useState(false), [grps, setGrps] = useState<string[]>([]), [umlSel, setUmlSel] = useState<string[]>([]);
   const [rows, setRows] = useState<Receipt[] | null>(null), [err, setErr] = useState('');
-  const now = new Date(), first = new Date(now.getFullYear(), now.getMonth() + off, 1), last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
-  useEffect(() => { void canViewFamily().then(setFam).catch(() => setFam(false)); }, []);
-  useEffect(() => { setRows(null); setErr(''); list(ymd(first), ymd(last)).then(setRows, e => setErr(e instanceof Error ? e.message : String(e))); }, [off]); // eslint-disable-line react-hooks/exhaustive-deps
-  const shown = (rows ?? []).filter(r => tab === 'mine' ? r.owner === me && r.scope !== 'business' : tab === 'business' ? r.owner === me && r.scope === 'business' : familyPart(r) !== 0);
-  const amount = (r: Receipt) => tab === 'family' ? familyPart(r) : r.total;
+  const now = new Date();
+  const first = new Date(now.getFullYear(), now.getMonth() + per.off, 1), last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  const year = now.getFullYear() + per.yoff;
+  const range: [string, string] | null = per.mode === 'month' ? [ymd(first), ymd(last)] : per.mode === 'year' ? [`${year}-01-01`, `${year}-12-31`] : per.mode === 'range' ? (per.from && per.to && per.from <= per.to ? [per.from, per.to] : null) : null;
+  const key = per.mode === 'group' ? `g:${per.grp}` : range ? range.join('|') : '';
+  useEffect(() => { void canViewFamily().then(setFam).catch(() => setFam(false)); void groups().then(setGrps); }, []);
+  useEffect(() => {
+    let live = true; setRows(null); setErr('');
+    const q = per.mode === 'group' ? (per.grp ? listGroup(per.grp) : Promise.resolve([])) : range ? list(range[0], range[1]) : Promise.resolve([]);
+    q.then(r => { if (live) setRows(r); }, e => { if (live) setErr(e instanceof Error ? e.message : String(e)); });
+    return () => { live = false; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const grpMode = per.mode === 'group';
+  // In der Gruppe zählen alle sichtbaren Belege (für die Kostenumlage), sonst je Reiter
+  const shown = (rows ?? []).filter(r => grpMode ? (r.owner === me || familyPart(r) !== 0) : tab === 'mine' ? r.owner === me && r.scope !== 'business' : tab === 'business' ? r.owner === me && r.scope === 'business' : familyPart(r) !== 0);
+  const amount = (r: Receipt) => grpMode ? (r.owner === me || r.scope === 'family' ? r.total : familyPart(r)) : tab === 'family' ? familyPart(r) : r.total;
   // Firma: Netto und Vorsteuer aus der MwSt-Aufstellung, sonst aus den Zeilen geschätzt
   const vat = (r: Receipt) => { const t = r.taxes.length ? r.taxes : taxesFromItems(r); return t.reduce((s, x) => s + x.tax, 0); };
-  const tax = tab === 'business' ? shown.reduce((s, r) => s + vat(r), 0) : 0;
+  const biz = !grpMode && tab === 'business';
+  const tax = biz ? shown.reduce((s, r) => s + vat(r), 0) : 0;
   const sum = shown.reduce((s, r) => s + amount(r), 0);
   // Summen je Kategorie: aus den Zeilen, sonst aus dem Bon
   const byCat = new Map<string, number>();
   for (const r of shown) {
-    const its = tab === 'family' && r.scope !== 'family' ? r.items.filter(i => i.family) : r.items;
+    const part = amount(r) !== r.total;
+    const its = part ? r.items.filter(i => i.family) : r.items;
     if (its.length && Math.abs(its.reduce((s, i) => s + gross(r, i), 0) - amount(r)) < 0.05) for (const i of its) byCat.set(i.category, (byCat.get(i.category) ?? 0) + gross(r, i));
     else byCat.set(r.category, (byCat.get(r.category) ?? 0) + amount(r));
   }
   const cats = [...byCat.entries()].sort((a, b) => b[1] - a[1]);
   const max = Math.max(1, ...cats.map(c => c[1]));
+  const byMon = per.mode === 'year' ? MS.map((_, m) => shown.filter(r => new Date(r.bought_at).getMonth() === m).reduce((s, r) => s + amount(r), 0)) : [];
+  const maxMon = Math.max(1, ...byMon);
+  const label = per.mode === 'month' ? `${MON[first.getMonth()]} ${first.getFullYear()}` : per.mode === 'year' ? String(year) : per.mode === 'range' ? `${dmy(per.from)} – ${dmy(per.to)}` : per.grp;
+  const who = (id?: string) => snap.members.find(m => m.id === id)?.name ?? '';
+  const exp = async () => {
+    try {
+      await exportXlsx(`Kassenbuch ${label}${grpMode ? '' : ` ${tab === 'mine' ? 'Meine' : tab === 'family' ? 'Familie' : 'Firma'}`}`, shown, amount, who, grpMode ? umlage(shown, amount, umlSel, who) : null);
+    } catch (e) { fail(e); }
+  };
+  const setMode = (mode: Mode) => setPer(p => ({ ...p, mode, from: p.from || ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to: p.to || ymd(now), grp: p.grp || grps[0] || '' }));
   return (
     <Sheet onClose={close} label="Kassenbuch">
       <h2>Kassenbuch</h2>
       <button type="button" className="cash-gear" aria-label="Kassenbuch einrichten" onClick={settings}><Icon name="gear" /></button>
-      {(fam || prefs.business) && <div className="cash-tabs">
+      {!grpMode && (fam || prefs.business) && <div className="cash-tabs">
         <button type="button" className={`kw-p${tab === 'mine' ? ' on' : ''}`} onClick={() => setTab('mine')}>Meine</button>
         {fam && <button type="button" className={`kw-p${tab === 'family' ? ' on' : ''}`} onClick={() => setTab('family')}>Familie</button>}
         {prefs.business && <button type="button" className={`kw-p${tab === 'business' ? ' on' : ''}`} onClick={() => setTab('business')}>Firma</button>}
       </div>}
-      <div className="cash-mon">
-        <button type="button" className="arr" aria-label="Monat zurück" onClick={() => setOff(o => o - 1)}>◀</button>
-        <b>{MON[first.getMonth()]} {first.getFullYear()}</b>
-        <button type="button" className="arr" aria-label="Monat vor" style={{ visibility: off < 0 ? 'visible' : 'hidden' }} onClick={() => setOff(o => o + 1)}>▶</button>
+      <div className="cash-modes" role="group" aria-label="Zeitraum">
+        {([['month', 'Monat'], ['year', 'Jahr'], ['range', 'Von – bis'], ['group', 'Gruppe']] as [Mode, string][]).map(([m, t]) =>
+          <button key={m} type="button" aria-pressed={per.mode === m} onClick={() => setMode(m)}>{t}</button>)}
       </div>
+      {per.mode === 'month' && <div className="cash-mon">
+        <button type="button" className="arr" aria-label="Monat zurück" onClick={() => setPer(p => ({ ...p, off: p.off - 1 }))}>◀</button>
+        <b>{label}</b>
+        <button type="button" className="arr" aria-label="Monat vor" style={{ visibility: per.off < 0 ? 'visible' : 'hidden' }} onClick={() => setPer(p => ({ ...p, off: p.off + 1 }))}>▶</button>
+      </div>}
+      {per.mode === 'year' && <div className="cash-mon">
+        <button type="button" className="arr" aria-label="Jahr zurück" onClick={() => setPer(p => ({ ...p, yoff: p.yoff - 1 }))}>◀</button>
+        <b>{label}</b>
+        <button type="button" className="arr" aria-label="Jahr vor" style={{ visibility: per.yoff < 0 ? 'visible' : 'hidden' }} onClick={() => setPer(p => ({ ...p, yoff: p.yoff + 1 }))}>▶</button>
+      </div>}
+      {per.mode === 'range' && <div className="row2">
+        <label className="field"><span>Von</span><input type="date" value={per.from} onChange={e => setPer(p => ({ ...p, from: e.target.value }))} /></label>
+        <label className="field"><span>Bis</span><input type="date" value={per.to} onChange={e => setPer(p => ({ ...p, to: e.target.value }))} /></label>
+      </div>}
+      {grpMode && (grps.length ? <label className="field"><span>Buchungsgruppe</span><select value={per.grp} onChange={e => setPer(p => ({ ...p, grp: e.target.value }))}>{grps.map(g => <option key={g} value={g}>{g}</option>)}</select></label>
+        : <p>Noch keine Buchungsgruppen. Trag beim Beleg unter „Buchungsgruppe“ z. B. „Urlaub Dänemark 2026“ ein, dann siehst du hier alle Ausgaben dazu und wer wem wie viel schuldet.</p>)}
       {err ? <p className="cash-err">{err}</p> : rows === null ? <p>Lädt …</p> : <>
-        <div className="cash-sum"><span>{tab === 'mine' ? 'Meine Ausgaben' : tab === 'business' ? (prefs.firm || 'Firma') + ' brutto' : 'Familienausgaben'}</span><b>{eur(sum)}</b></div>
-        {tab === 'business' && <div className="cash-net"><span>Netto <b>{eur(sum - tax)}</b></span><span>Vorsteuer <b>{eur(tax)}</b></span></div>}
+        <div className="cash-sum"><span>{grpMode ? 'Gesamt' : tab === 'mine' ? 'Meine Ausgaben' : biz ? (prefs.firm || 'Firma') + ' brutto' : 'Familienausgaben'}</span><b>{eur(sum)}</b></div>
+        {biz && <div className="cash-net"><span>Netto <b>{eur(sum - tax)}</b></span><span>Vorsteuer <b>{eur(tax)}</b></span></div>}
+        {grpMode && shown.length > 0 && <Umlage key={per.grp} shown={shown} amount={amount} onSel={setUmlSel} />}
+        {per.mode === 'year' && sum > 0 && <div className="cash-cats">{byMon.map((v, m) => <div key={m} className="cash-cat mon">
+          <span>{MS[m]}</span><i style={{ width: `${v ? Math.max(2, v / maxMon * 100) : 0}%` }} /><b>{v ? eur(v) : '–'}</b></div>)}</div>}
         {cats.length > 0 && <div className="cash-cats">{cats.map(([c, v]) => <div key={c} className="cash-cat">
           <span><CatIcon c={c} size={18} /> {c}</span><i style={{ width: `${Math.max(3, v / max * 100)}%` }} /><b>{eur(v)}</b></div>)}</div>}
-        {!shown.length && <p>{tab === 'mine' ? 'In diesem Monat noch keine Belege. Mit „＋ Beleg“ fotografierst du einen Kassenbon.' : tab === 'business' ? 'In diesem Monat keine Firmenbelege.' : 'In diesem Monat keine Familienausgaben.'}</p>}
+        {!shown.length && !(grpMode && !grps.length) && <p>{per.mode !== 'month' ? 'Keine Belege in dieser Auswahl.' : tab === 'mine' ? 'In diesem Monat noch keine Belege. Mit „＋ Beleg“ fotografierst du einen Kassenbon.' : biz ? 'In diesem Monat keine Firmenbelege.' : 'In diesem Monat keine Familienausgaben.'}</p>}
+        {shown.length > 0 && <button type="button" className="btn sm ghost cash-xl" onClick={() => void exp()}><Icon name="share" /> Excel-Export</button>}
         <div className="cash-list">{shown.map(r => {
-          const who = snap.members.find(m => m.id === r.owner);
+          const m = snap.members.find(x => x.id === r.owner);
           const d = new Date(r.bought_at);
           return <button key={r.id} type="button" className="cash-row" onClick={() => open(r)}>
             <span className="cash-ic"><CatIcon c={r.category} size={24} /></span>
-            <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}.{r.kind === 'rechnung' ? '' : ` ${pad(d.getHours())}:${pad(d.getMinutes())}`}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.scope === 'family' ? ' · Familie' : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
-            {tab === 'family' && who && who.id !== me && <Badge m={who} size={24} plain />}
+            <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}.{per.mode === 'month' ? '' : String(d.getFullYear()).slice(2)}{r.kind === 'rechnung' ? '' : ` ${pad(d.getHours())}:${pad(d.getMinutes())}`}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.grp && !grpMode ? ` · ${r.grp}` : ''}{r.scope === 'family' ? ' · Familie' : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
+            {(tab === 'family' || grpMode) && m && m.id !== me && <Badge m={m} size={24} plain />}
             <b className="cash-amt">{eur(amount(r))}</b>
           </button>;
         })}</div>
@@ -126,12 +176,71 @@ function CashList({ close, add, open, settings, prefs, off, setOff, tab, setTab 
   );
 }
 
+// Kostenumlage: wer hat wie viel bezahlt, gleich aufgeteilt auf die gewählten Personen, wer zahlt wem
+function umlage(shown: Receipt[], amount: (r: Receipt) => number, people: string[], who: (id?: string) => string) {
+  const paid = new Map<string, number>();
+  for (const r of shown) if (r.owner) paid.set(r.owner, (paid.get(r.owner) ?? 0) + amount(r));
+  const ids = [...new Set([...paid.keys(), ...people])].filter(id => people.includes(id) || paid.has(id));
+  const total = [...paid.values()].reduce((s, v) => s + v, 0), share = ids.length ? total / ids.length : 0;
+  const bal = ids.map(id => ({ id, name: who(id), paid: paid.get(id) ?? 0, diff: (paid.get(id) ?? 0) - share }));
+  const pay: { from: string; to: string; eur: number }[] = [];
+  const deb = bal.filter(b => b.diff < -0.005).map(b => ({ ...b, v: -b.diff })), cre = bal.filter(b => b.diff > 0.005).map(b => ({ ...b, v: b.diff }));
+  for (const d of deb) for (const c of cre) { const x = Math.min(d.v, c.v); if (x > 0.005) { pay.push({ from: d.name, to: c.name, eur: Math.round(x * 100) / 100 }); d.v -= x; c.v -= x; } }
+  return { total, share, bal, pay };
+}
+
+function Umlage({ shown, amount, onSel }: { shown: Receipt[]; amount: (r: Receipt) => number; onSel: (s: string[]) => void }) {
+  const snap = useSnapshot();
+  const all = snap.members.filter(m => m.role !== 'guest');
+  const payers = [...new Set(shown.map(r => r.owner!))];
+  const [sel, setSel] = useState<string[]>(() => all.map(m => m.id).filter(id => payers.includes(id) || id === snap.me));
+  useEffect(() => { onSel(sel); }, [sel]); // eslint-disable-line react-hooks/exhaustive-deps
+  const who = (id?: string) => snap.members.find(m => m.id === id)?.name ?? '?';
+  const u = umlage(shown, amount, sel, who);
+  return <div className="cash-uml">
+    <b>Kostenumlage</b>
+    <div className="cash-uml-who">{all.map(m => <label key={m.id} className={sel.includes(m.id) ? 'on' : ''}>
+      <input type="checkbox" checked={sel.includes(m.id)} disabled={payers.includes(m.id)} onChange={e => setSel(s => e.target.checked ? [...s, m.id] : s.filter(x => x !== m.id))} />{m.name}</label>)}</div>
+    <div className="cash-uml-t">{u.bal.map(b => <div key={b.id}><span>{b.name}</span><span>bezahlt {eur(b.paid)}</span><b className={b.diff >= 0 ? 'plus' : 'minus'}>{b.diff >= 0 ? '+' : '−'}{eur(Math.abs(b.diff))}</b></div>)}</div>
+    <small>Anteil je Person: {eur(u.share)} ({u.bal.length} {u.bal.length === 1 ? 'Person' : 'Personen'})</small>
+    {u.pay.length ? u.pay.map((p, i) => <p key={i} className="cash-pay">{p.from} zahlt an {p.to}: <b>{eur(p.eur)}</b></p>) : <p className="cash-pay">Alles ausgeglichen.</p>}
+    <small>Es zählen alle Belege der Gruppe, die du sehen darfst. Belege der anderen bitte als „Familie“ speichern.</small>
+  </div>;
+}
+
+// Excel-Datei bauen und teilen (App) bzw. herunterladen (Browser)
+async function exportXlsx(title: string, shown: Receipt[], amount: (r: Receipt) => number, who: (id?: string) => string, uml: ReturnType<typeof umlage> | null) {
+  const { xlsx } = await import('../lib/xlsx');
+  const SC: Record<string, string> = { private: 'Privat', family: 'Familie', business: 'Firma' };
+  const sorted = [...shown].sort((a, b) => a.bought_at.localeCompare(b.bought_at));
+  const vatOf = (r: Receipt) => (r.taxes.length ? r.taxes : taxesFromItems(r)).reduce((s, t) => s + t.tax, 0);
+  const sheets: SheetData[] = [{
+    name: 'Belege', widths: [11, 26, 14, 14, 18, 18, 9, 9, 14, 7, 12, 12, 12, 12, 30],
+    rows: [['Datum', 'Händler', 'Person', 'Kategorie', 'Buchungsgruppe', 'Rechnungsnr.', 'Art', 'Zuordnung', 'Bezahlt mit', 'Karte', 'Netto', 'MwSt', 'Brutto', 'Betrag', 'Notiz'],
+      ...sorted.map(r => { const v = vatOf(r); return [{ date: new Date(r.bought_at) }, r.merchant, who(r.owner), r.category, r.grp, r.invoice_no, r.kind === 'rechnung' ? 'Rechnung' : 'Bon', SC[r.scope], r.payment, r.card, { eur: r.net || r.total - v }, { eur: v }, { eur: r.total }, { eur: amount(r) }, r.note]; }),
+      ['Summe', '', '', '', '', '', '', '', '', '', { eur: sorted.reduce((s, r) => s + (r.net || r.total - vatOf(r)), 0) }, { eur: sorted.reduce((s, r) => s + vatOf(r), 0) }, { eur: sorted.reduce((s, r) => s + r.total, 0) }, { eur: sorted.reduce((s, r) => s + amount(r), 0) }, '']]
+  }, {
+    name: 'Positionen', widths: [11, 26, 32, 8, 14, 7, 12, 9],
+    rows: [['Datum', 'Händler', 'Position', 'Menge', 'Kategorie', 'MwSt %', 'Betrag', 'Familie'],
+      ...sorted.flatMap(r => r.items.map(i => [{ date: new Date(r.bought_at) }, r.merchant, i.name, i.qty, i.category, i.vat || null, { eur: i.price }, r.scope === 'family' || i.family ? 'ja' : ''] as Cell[]))]
+  }];
+  if (uml) sheets.push({ name: 'Kostenumlage', widths: [18, 14, 14, 14], rows: [['Person', 'Bezahlt', 'Anteil', 'Saldo'], ...uml.bal.map(b => [b.name, { eur: b.paid }, { eur: uml.share }, { eur: b.diff }] as Cell[]), [], ['Ausgleich'], ...uml.pay.map(p => [`${p.from} → ${p.to}`, { eur: p.eur }] as Cell[])] });
+  const data = xlsx(sheets);
+  const name = `${title.replace(/[^\wÄÖÜäöüß .-]+/g, ' ').trim()}.xlsx`, mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  const n = native();
+  if (n?.shareFile) { let bin = ''; for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode(...data.subarray(i, i + 0x8000)); n.shareFile(name, mime, btoa(bin)); return; }
+  if (n) { toast('Für den Export bitte die App aktualisieren (Einstellungen → App-Update).'); return; }
+  const url = URL.createObjectURL(new Blob([data as Uint8Array<ArrayBuffer>], { type: mime }));
+  const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
 // Neuer Bon: Foto aufnehmen oder wählen, auslesen lassen, zuschneiden
 function NewReceipt({ close, back, next, prefs }: { close: () => void; back: () => void; prefs: Prefs; next: (rc: Receipt, photo: HTMLCanvasElement | null) => void }) {
   const cam = useRef<HTMLInputElement>(null), gal = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(''), [img, setImg] = useState<HTMLCanvasElement | null>(null), [rc, setRc] = useState<Receipt | null>(null);
   const [box, setBox] = useState({ x0: 0, y0: 0, x1: 1, y1: 1 });
-  const blank = (): Receipt => ({ bought_at: new Date().toISOString(), merchant: '', payment: '', card: '', total: 0, currency: 'EUR', category: 'Sonstiges', scope: 'private', photo: null, note: '', items: [], kind: 'bon', invoice_no: '', net: 0, taxes: [], items_net: false });
+  const blank = (): Receipt => ({ bought_at: new Date().toISOString(), merchant: '', payment: '', card: '', total: 0, currency: 'EUR', category: 'Sonstiges', scope: 'private', photo: null, note: '', items: [], kind: 'bon', invoice_no: '', net: 0, taxes: [], items_net: false, grp: '' });
   const pick = async (f?: File) => {
     if (!f) return;
     try {
@@ -212,7 +321,8 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
   const inv = rc.kind === 'rechnung';
   const biz = prefs.business || start.scope === 'business';
   const known = cardScope(prefs, rc.card);
-  const [remember, setRemember] = useState(false);
+  const [remember, setRemember] = useState(false), [grpList, setGrpList] = useState<string[]>([]);
+  useEffect(() => { void groups().then(setGrpList); }, []);
   const itemSum = rc.items.reduce((s, i) => s + gross(rc, i), 0), itemNet = rc.items.reduce((s, i) => s + i.price, 0);
   const famSum = familyPart(rc);
   const taxNet = rc.taxes.reduce((s, t) => s + t.net, 0), taxSum = rc.taxes.reduce((s, t) => s + t.tax, 0);
@@ -226,7 +336,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
     if (!rc.merchant.trim() && !rc.total) { toast('Bitte mindestens Händler oder Betrag eintragen.'); return; }
     setBusy(true);
     try {
-      await save({ ...rc, merchant: rc.merchant.trim() }, photo ? await toBlob(photo) : null);
+      await save({ ...rc, merchant: rc.merchant.trim(), grp: rc.grp.trim() }, photo ? await toBlob(photo) : null);
       if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope }] }).catch(() => {}); toast('Beleg gespeichert.'); saved(rc); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
@@ -286,6 +396,8 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
         </div>)}</div>
         {!ro && <button type="button" className="btn sm" onClick={() => setRc(r => ({ ...r, items: [...r.items, { name: '', qty: 1, price: 0, vat: r.items.at(-1)?.vat ?? 0, category: r.category, family: false }] }))}>＋ Zeile</button>}
         <p className="cash-check">Positionen: {inv && rc.items_net ? `netto ${eur(itemNet)} · brutto ${eur(itemSum)}` : eur(itemSum)}{rc.items.length && Math.abs(itemSum - rc.total) > 0.05 ? ` · weicht von der Summe ${eur(rc.total)} ab` : ''}{famSum ? ` · Familie: ${eur(famSum)}` : ''}</p>
+        <label className="field"><span>Buchungsgruppe (optional)</span><input value={rc.grp} list="cash-grps" maxLength={100} placeholder="z. B. Urlaub Dänemark 2026" onChange={e => set({ grp: e.target.value })} onBlur={e => set({ grp: e.target.value.trim() })} />
+          <datalist id="cash-grps">{grpList.map(g => <option key={g} value={g} />)}</datalist></label>
         <label className="field"><span>Notiz</span><textarea value={rc.note} onChange={e => set({ note: e.target.value })} maxLength={2000} rows={2} /></label>
       </fieldset>
       <div className="btn-row">

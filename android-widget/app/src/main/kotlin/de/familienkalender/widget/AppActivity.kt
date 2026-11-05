@@ -281,6 +281,15 @@ class AppActivity : Activity() {
             return "asked"
         }
         @JavascriptInterface fun appSettings() { runOnUiThread { micSettings() } }
+        // Datei aus der Web-App (z. B. Excel-Export) speichern und teilen: Excel, Mail, Drive …
+        @JavascriptInterface fun shareFile(name: String, mime: String, b64: String) {
+            val dir = java.io.File(cacheDir, "export").apply { mkdirs() }
+            val f = java.io.File(dir, name.replace(Regex("[^A-Za-z0-9ÄÖÜäöüß._ -]"), "_").ifBlank { "export" })
+            f.writeBytes(android.util.Base64.decode(b64, android.util.Base64.DEFAULT))
+            val u = androidx.core.content.FileProvider.getUriForFile(this@AppActivity, "$packageName.files", f)
+            val send = Intent(Intent.ACTION_SEND).setType(mime).putExtra(Intent.EXTRA_STREAM, u).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            runOnUiThread { startActivity(Intent.createChooser(send, f.name)) }
+        }
         @JavascriptInterface fun changed() {
             val ctx = applicationContext
             Thread {
