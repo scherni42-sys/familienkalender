@@ -138,8 +138,10 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
   const setMode = (mode: Mode) => setPer(p => ({ ...p, mode, from: p.from || ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to: p.to || ymd(now), grp: p.grp || grps[0] || '' }));
   return (
     <Sheet onClose={close} label="Kassenbuch">
-      <h2>Kassenbuch</h2>
-      <button type="button" className="cash-gear" aria-label="Kassenbuch einrichten" onClick={settings}><Icon name="gear" /></button>
+      <div className="cash-top">
+        <h2>Kassenbuch</h2>
+        <button type="button" className="head-i" aria-label="Kassenbuch einrichten" onClick={settings}><Icon name="gear" /></button>
+      </div>
       {per.mode !== 'group' && !find && (fam || prefs.business) && <div className="cash-tabs">
         <button type="button" className={`kw-p${tab === 'mine' ? ' on' : ''}`} onClick={() => setTab('mine')}>Meine</button>
         {fam && <button type="button" className={`kw-p${tab === 'family' ? ' on' : ''}`} onClick={() => setTab('family')}>Familie</button>}
