@@ -743,5 +743,5 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 /* Kassenbuch-Kopfzeile wie die Startseite: Titel links, Zahnrad rechts in einer Zeile */
 .cash-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -8px -4px 0 0; }
 .cash-top h2 { margin: 0; font-family: var(--font-display); font-size: 21px; font-weight: 700; }
-.cash-tabs { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; }
-.cash-tabs .kw-p { min-width: 0; }
+.cash-tabs { display: flex; justify-content: center; gap: 10px; }
+.cash-tabs .kw-p { min-width: 0; width: 96px; flex: 0 1 96px; height: 32px; padding: 0 8px; font-size: 14px; border-width: 1.5px; }
