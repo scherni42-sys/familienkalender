@@ -237,7 +237,7 @@
             <TextView
                 android:id="@+id/weeklabel"
                 android:layout_width="wrap_content"
-                android:layout_height="42dp"
+                android:layout_height="34dp"
                 android:paddingStart="22dp"
                 android:paddingEnd="22dp"
                 android:background="@drawable/kw_off"

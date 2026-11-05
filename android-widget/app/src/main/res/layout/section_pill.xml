@@ -18,6 +18,7 @@
         android:id="@+id/text"
         android:layout_width="wrap_content"
         android:layout_height="34dp"
+        android:minWidth="110dp"
         android:background="@drawable/kw_off"
         android:gravity="center"
         android:paddingStart="18dp"

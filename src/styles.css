@@ -590,3 +590,7 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .ch-t > .ch-time { float: right; margin: 0 0 0 10px; position: relative; top: 5px; line-height: 1.6; white-space: nowrap; }
 .ch-t::after { content: ''; display: block; clear: both; }
 .ch-b { padding-bottom: 6px; }
+
+/* Board und Chat gleich breit, KW gleich hoch wie die beiden (wie im Widget) */
+.wv-sec .bd-p { min-width: 110px; height: 34px; }
+.wbar .kw-p { height: 34px; }
