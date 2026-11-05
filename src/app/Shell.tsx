@@ -163,7 +163,7 @@ export function Shell() {
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} day={sheet.day} add={newOn} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
       {sheet?.kind === 'ask' && <AskSheet close={() => setSheet(null)} open={id => setSheet({ kind: 'detail', id })} edit={draft => setSheet({ kind: 'edit', draft, fresh: false })} toDraft={draft => setSheet({ kind: 'edit', draft, fresh: true })} bdays={() => setSheet({ kind: 'bdays' })} receipt={rc => setSheet({ kind: 'cash', rc })} />}
-      {sheet?.kind === 'cash' && <CashSheet close={() => setSheet(null)} share={sheet.share} rc={sheet.rc} />}
+      {sheet?.kind === 'cash' && <CashSheet key={nonce} close={() => setSheet(null)} share={sheet.share} rc={sheet.rc} />}
       {sheet?.kind === 'bdays' && <BdaySheet key={sheet.open ?? ''} adding={sheet.adding} open={sheet.open} close={() => setSheet(null)} />}
       <PushBanner now={now} />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
