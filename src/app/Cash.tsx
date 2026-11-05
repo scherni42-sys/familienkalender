@@ -115,7 +115,7 @@ function CashList({ close, add, open, settings, prefs, off, setOff, tab, setTab 
           const d = new Date(r.bought_at);
           return <button key={r.id} type="button" className="cash-row" onClick={() => open(r)}>
             <span className="cash-ic"><CatIcon c={r.category} size={24} /></span>
-            <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}. {pad(d.getHours())}:{pad(d.getMinutes())}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.scope === 'family' ? ' · Familie' : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
+            <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}.{r.kind === 'rechnung' ? '' : ` ${pad(d.getHours())}:${pad(d.getMinutes())}`}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.scope === 'family' ? ' · Familie' : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
             {tab === 'family' && who && who.id !== me && <Badge m={who} size={24} plain />}
             <b className="cash-amt">{eur(amount(r))}</b>
           </button>;
@@ -250,11 +250,11 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
         <label className="field"><span>{inv ? 'Rechnungssteller' : 'Händler'}</span><input value={rc.merchant} onChange={e => set({ merchant: e.target.value })} maxLength={200} placeholder="z. B. REWE" /></label>
         <div className="row2">
           <label className="field"><span>Datum</span><input type="date" value={date} onChange={e => e.target.value && setWhen(e.target.value, time)} /></label>
-          <label className="field"><span>Uhrzeit</span><input type="time" value={time} onChange={e => e.target.value && setWhen(date, e.target.value)} /></label>
+          {inv && <label className="field"><span>Rechnungsnr.</span><input value={rc.invoice_no} onChange={e => set({ invoice_no: e.target.value })} maxLength={60} /></label>}
+          {!inv && <label className="field"><span>Uhrzeit</span><input type="time" value={time} onChange={e => e.target.value && setWhen(date, e.target.value)} /></label>}
           <label className="field"><span>Bezahlt mit</span><input value={rc.payment} onChange={e => set({ payment: e.target.value })} maxLength={100} placeholder="Bar, EC-Karte …" /></label>
           <label className="field"><span>Karte (letzte 4)</span><input value={rc.card} inputMode="numeric" onChange={e => { const card = e.target.value.replace(/\D/g, '').slice(0, 4); const by = cardScope(prefs, card); set(by && !start.id ? { card, scope: by } : { card }); }} placeholder="1234" /></label>
           {!ro && rc.card.length === 4 && known !== rc.scope && <label className="cash-v wide"><input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} /> Karte …{rc.card} immer als „{SCOPE_LABEL[rc.scope]}“ zuordnen</label>}
-          {inv && <label className="field"><span>Rechnungsnr.</span><input value={rc.invoice_no} onChange={e => set({ invoice_no: e.target.value })} maxLength={60} /></label>}
           {inv && <label className="field"><span>Netto (€)</span><input inputMode="decimal" defaultValue={rc.net ? fmt(rc.net) : ''} onChange={e => set({ net: num(e.target.value) })} placeholder="0,00" /></label>}
           <label className="field"><span>{inv ? 'Brutto (€)' : 'Summe (€)'}</span><input inputMode="decimal" defaultValue={rc.total ? fmt(rc.total) : ''} onChange={e => set({ total: num(e.target.value) })} placeholder="0,00" /></label>
           <div className="field"><span>Kategorie</span><CatPick value={rc.category} disabled={ro} set={c => set({ category: c })} /></div>
