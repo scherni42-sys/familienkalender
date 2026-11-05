@@ -24,7 +24,7 @@ export const eventDraft = (e: CalEvent): Draft => ({
   });
 const Row = ({ k, children }: { k: string; children: ReactNode }) => <div className="r"><span>{k}</span><div>{children}</div></div>;
 
-export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: string; add?: (date: string) => void; close: () => void; edit: (d: Draft) => void }) {
+export function DetailSheet({ id, close, edit }: { id: string; day?: string; add?: (date: string) => void; close: () => void; edit: (d: Draft) => void }) {
   const snap = useSnapshot();
   const s = snap.family!.settings;
   const e = snap.events.find(x => x.id === id);
@@ -145,7 +145,6 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
         {canEdit && <button type="button" className="btn ghost del-btn" aria-label="Termin löschen" onClick={async () => {
           try { await store.deleteEvent(e.id); toast(e.ext_id ? 'Gelöscht. Im Handy-Kalender bleibt er, beim nächsten Abgleich kommt er wieder.' : 'Termin gelöscht.'); close(); } catch (x) { fail(x); }
         }}><Icon name="trash" /></button>}</div>
-      {add && me.role !== 'guest' && <button type="button" className="btn ghost" style={{ width: '100%', marginTop: 8 }} onClick={() => add(day ?? e.date)}>＋ Weiterer Termin an diesem Tag</button>}
     </Sheet>
   );
 }
