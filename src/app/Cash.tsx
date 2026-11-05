@@ -250,6 +250,7 @@ function ReceiptForm({ close, rc: start, photo, done, prefs, keep }: { close: ()
           <label className="field"><span>Kategorie</span><select value={rc.category} onChange={e => set({ category: e.target.value })}>{CATS.map(c => <option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}</select></label>
         </div>
         {inv && <div className="cash-tax">
+          <p className="cash-check">Steuerübersicht wie unten auf der Rechnung: je MwSt-Satz eine Zeile.</p>
           <div className="th"><span>MwSt</span><span>Netto</span><span>Steuer</span><span>Brutto</span><span /></div>
           {rc.taxes.map((t, i) => <div key={i} className="tr">
             <span><input inputMode="decimal" defaultValue={String(t.rate).replace('.', ',')} onChange={e => setTax(i, { rate: num(e.target.value) })} aria-label="Steuersatz" />%</span>
@@ -259,7 +260,8 @@ function ReceiptForm({ close, rc: start, photo, done, prefs, keep }: { close: ()
             {!ro ? <button type="button" className="x" aria-label="Steuersatz löschen" onClick={() => setRc(r => ({ ...r, taxes: r.taxes.filter((_, k) => k !== i) }))}>✕</button> : <span />}
           </div>)}
           <div className="tr sum"><span>Summe</span><b>{fmt(taxNet)}</b><b>{fmt(taxSum)}</b><b>{fmt(taxNet + taxSum)}</b><span /></div>
-          {!ro && <button type="button" className="btn sm" onClick={() => setRc(r => ({ ...r, taxes: [...r.taxes, { rate: 19, net: 0, tax: 0 }] }))}>＋ Steuersatz</button>}
+          {!ro && <button type="button" className="btn sm" onClick={() => setRc(r => ({ ...r, taxes: [...r.taxes, { rate: 19, net: 0, tax: 0 }] }))}>＋ weiterer MwSt-Satz</button>}
+          {!ro && rc.items.some(i => i.vat) && <button type="button" className="btn sm ghost" onClick={() => setRc(r => ({ ...r, taxes: taxesFromItems(r) }))}>Aus Positionen berechnen</button>}
           {rc.taxes.length > 0 && (Math.abs(taxNet + taxSum - rc.total) > 0.02 || (rc.net && Math.abs(taxNet - rc.net) > 0.02)) ? <p className="cash-warn">Netto + MwSt ergibt {eur(taxNet + taxSum)}, auf der Rechnung stehen {rc.net ? `netto ${eur(rc.net)} und ` : ''}brutto {eur(rc.total)}. Bitte prüfen.</p> : null}
           <label className="cash-v"><input type="checkbox" checked={rc.items_net} onChange={e => set({ items_net: e.target.checked })} /> Positionspreise sind netto</label>
         </div>}
