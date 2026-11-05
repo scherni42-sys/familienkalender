@@ -1,4 +1,4 @@
-// Edge Function „receipt“: liest einen fotografierten Kassenbon aus (Händler, Datum, Karte, Positionen, Summe, Kategorien)
+// Edge Function „receipt“: liest einen fotografierten Kassenbon oder eine PDF-Rechnung aus (Händler, Datum, Karte, Positionen, Summe, Kategorien)
 // und meldet, wo der Bon im Foto liegt, damit die App ihn freistellen kann. Nur für angemeldete Familienmitglieder.
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -26,7 +26,7 @@ const schema = {
     merchant: { type: 'string', description: 'Händler bzw. Geschäft, kurz, z. B. „REWE“ oder „Aral Tankstelle Kiel“' },
     date: { type: 'string', description: 'Kaufdatum YYYY-MM-DD, leer wenn nicht lesbar' },
     time: { type: 'string', description: 'Uhrzeit HH:MM, leer wenn nicht lesbar' },
-    payment: { type: 'string', description: 'Zahlungsart, z. B. „Bar“, „EC-Karte“, „Visa“, „Mastercard“, „PayPal“, „Apple Pay“' },
+    payment: { type: 'string', description: 'Zahlungsart, z. B. „Bar“, „EC-Karte“, „Visa“, „Mastercard“, „PayPal“, „Apple Pay“, „Überweisung“' },
     card: { type: 'string', description: 'Letzte 4 Ziffern der Karte, sonst leer' },
     total: { type: 'number', description: 'Gesamtbetrag brutto (inkl. MwSt), der zu zahlen ist' },
     currency: { type: 'string', description: 'ISO-Code, meist EUR' },
@@ -48,8 +48,8 @@ Deno.serve(async req => {
     const { image, today } = await req.json();
     if (!image || typeof image.data !== 'string' || image.data.length > 6_000_000 || !/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(image.type)) throw new Error('Kein Foto');
     const doc = image.type === 'application/pdf'
-      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: image.data } }
-      : { type: 'image', source: { type: 'base64', media_type: image.type, data: image.data } };
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: image.data } } as const
+      : { type: 'image', source: { type: 'base64', media_type: image.type, data: image.data } } as const;
     const r = await client.beta.messages.create({
       model: 'claude-opus-5-5', max_tokens: 8000,
       betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
