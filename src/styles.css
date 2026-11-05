@@ -584,3 +584,8 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .emo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); height: 220px; overflow-y: auto; overscroll-behavior: contain; align-content: start; }
 .emo-grid button { border: 0; background: none; font-size: 26px; height: 44px; border-radius: 10px; cursor: pointer; padding: 0; }
 .emo-grid button:active { background: #343B38; }
+
+/* Uhrzeit in der Textzeile (spart eine Zeile pro Nachricht) */
+.ch-t > .ch-time { float: right; margin: 0 0 0 10px; position: relative; top: 5px; line-height: 1.6; white-space: nowrap; }
+.ch-t::after { content: ''; display: block; clear: both; }
+.ch-b { padding-bottom: 6px; }

@@ -49,16 +49,17 @@ function Media({ c }: { c: ChatMsg }) {
 
 function Bubble({ c, mine, del }: { c: ChatMsg; mine: boolean; del: () => void }) {
   const l = useLong(() => { if (mine) del(); });
+  const time = <small className="ch-time">
+    {/* Sprachnachricht, Foto, Datei: lange drücken trifft oft das Bedienfeld, daher ein eigener Papierkorb */}
+    {mine && c.media && <button type="button" className="ch-del" aria-label="Nachricht löschen" onClick={del}><Icon name="trash" /></button>}
+    {timeOf(c.created_at)}{mine ? (c.read_at ? ' ✓✓' : ' ✓') : ''}</small>;
   const maps = c.lat != null && c.lon != null ? `https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lon}` : '';
   return (
     <div className={`ch-b${mine ? ' me' : ''}`} {...l.on}>
       {c.kind === 'place' ? <a className="ch-place" href={maps} target="_blank" rel="noreferrer"><Icon name="place" /><span><b>Standort</b><small>In Karte öffnen</small></span></a> : null}
       {c.media ? <Media c={c} /> : null}
-      {c.text && !(c.kind === 'text' && c.media) && <div className="ch-t">{c.text}</div>}
-      <small className="ch-time">
-        {/* Sprachnachricht, Foto, Datei: lange drücken trifft oft das Bedienfeld, daher ein eigener Papierkorb */}
-        {mine && c.media && <button type="button" className="ch-del" aria-label="Nachricht löschen" onClick={del}><Icon name="trash" /></button>}
-        {timeOf(c.created_at)}{mine ? (c.read_at ? ' ✓✓' : ' ✓') : ''}</small>
+      {/* Uhrzeit wie bei WhatsApp: rechts in der letzten Textzeile, wenn dort Platz ist */}
+      {c.text && !(c.kind === 'text' && c.media) ? <div className="ch-t">{c.text}{time}</div> : time}
     </div>
   );
 }
