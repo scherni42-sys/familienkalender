@@ -105,7 +105,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 }
                 setViewVisibility(R.id.pin, if (r.pinned) View.VISIBLE else View.GONE)
                 // Avatar nur bei Board-Nachrichten
-                val av = if (r.kind == Kind.MESSAGE && r.avatar.isNotEmpty()) Photos.avatar(ctx, r.avatar, r.color) else null
+                val av = if (r.kind == Kind.MESSAGE && r.avatar.isNotEmpty()) Photos.avatar(ctx, r.avatar, if (r.open.startsWith("chat:")) 0 else r.color) else null
                 if (av != null) setImageViewBitmap(R.id.av, av)
                 setViewVisibility(R.id.av, if (av != null) View.VISIBLE else View.GONE)
                 if (r.faded) {

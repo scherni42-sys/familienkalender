@@ -115,7 +115,7 @@ export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat }: 
         {pill('chat', 'Chat', big ? 0 : unread)}
         {big === 'chat' && <div className="wv-board">{bigEl}</div>}
         {!big && threads.slice(0, 3).map(x => <div key={x.with} className={`wv-msg${x.unread ? ' unread' : ''}`} role="button" tabIndex={0} onClick={() => chat(x.with)}>
-          <Badge m={m(x.with)} size={26} />
+          <Badge m={m(x.with)} size={32} plain />
           <div className="wv-txt"><div className="wv-t"><span>{x.last.from_member === snap.me ? 'Du: ' : ''}{chatPreview(x.last)}</span></div></div>
           <small>{nameOf(snap.members, x.with)}<br />{x.unread ? <b className="bd-n">{x.unread}</b> : ''}</small>
         </div>)}

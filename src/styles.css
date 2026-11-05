@@ -104,6 +104,7 @@ button { cursor: pointer; }
 .ev .meta { font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin-top: 3px; }
 .badges { display: inline-flex; gap: 3px; }
 .b.av { overflow: hidden; box-shadow: 0 0 0 2px var(--c); }
+.b.av.plain { box-shadow: none; }
 .b.av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
 .b { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--c); }
 .vis-tag { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }

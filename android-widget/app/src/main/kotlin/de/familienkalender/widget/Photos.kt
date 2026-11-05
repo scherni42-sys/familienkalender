@@ -47,7 +47,9 @@ object Photos {
         val scaled = Bitmap.createScaledBitmap(crop, n, n, true)
         val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
         p.shader = android.graphics.BitmapShader(scaled, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP)
-        c.drawCircle(n / 2f, n / 2f, n / 2f - 5f, p)
+        // ring = 0: ohne farbigen Rand (Chat), Bild füllt den ganzen Kreis
+        c.drawCircle(n / 2f, n / 2f, if (ring == 0) n / 2f else n / 2f - 5f, p)
+        if (ring == 0) return out
         val r = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { style = android.graphics.Paint.Style.STROKE; strokeWidth = 6f; color = ring }
         c.drawCircle(n / 2f, n / 2f, n / 2f - 4f, r)
         return out

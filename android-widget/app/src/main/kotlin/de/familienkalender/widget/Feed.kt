@@ -106,6 +106,20 @@ object Feed {
         return BD_GOLD
     }
 
+    // Tage bis zum nächsten Geburtstag, nur wenn er in der Erinnerungszeit liegt (Einstellung bdLead, wie in der App)
+    fun nextBdDays(feed: JSONObject): Int? {
+        val lead = feed.optJSONObject("family")?.optJSONObject("settings")?.optInt("bdLead", 14) ?: 14
+        if (lead <= 0) return null
+        val today = LocalDate.now()
+        val bds = feed.optJSONArray("birthdays") ?: return null
+        val min = (0 until bds.length()).mapNotNull { i ->
+            val b = bds.optJSONObject(i) ?: return@mapNotNull null
+            val t = try { LocalDate.of(today.year, b.optInt("month"), b.optInt("day")) } catch (e: Exception) { return@mapNotNull null }
+            java.time.temporal.ChronoUnit.DAYS.between(today, if (t.isBefore(today)) t.plusYears(1) else t).toInt()
+        }.minOrNull() ?: return null
+        return if (min <= lead) min else null
+    }
+
     fun bdRows(ctx: Context, feed: JSONObject): List<Row> {
         val today = LocalDate.now()
         val bds = feed.optJSONArray("birthdays") ?: JSONArray()

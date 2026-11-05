@@ -42,9 +42,10 @@ export function Icon({ name }: { name: IconName }) {
 
 export const cvar = (color: string) => ({ '--c': color } as CSSProperties);
 
-export function Badge({ m, size }: { m?: Member; size?: number }) {
+// plain: Foto ohne farbigen Ring (Chat)
+export function Badge({ m, size, plain }: { m?: Member; size?: number; plain?: boolean }) {
   const a = avatarOf(m);
-  return <span className={`b${a ? ' av' : ''}`} title={m?.name} style={{ ...cvar(m?.color ?? '#7a8590'), ...(size ? { width: size, height: size, fontSize: size * .46 } : {}) }}>{a ? <img src={a} alt="" /> : initial(m)}</span>;
+  return <span className={`b${a ? ' av' : ''}${plain ? ' plain' : ''}`} title={m?.name} style={{ ...cvar(m?.color ?? '#7a8590'), ...(size ? { width: size, height: size, fontSize: size * .46 } : {}) }}>{a ? <img src={a} alt="" /> : initial(m)}</span>;
 }
 export function Badges({ ids, members }: { ids: string[]; members: Member[] }) {
   return <span className="badges">{ids.map(id => <Badge key={id} m={members.find(x => x.id === id)} />)}</span>;

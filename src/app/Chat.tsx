@@ -139,7 +139,7 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
     <div className="ch-thread">
       {(() => { const head = <div className="ch-head">
         <button type="button" className="ch-back" aria-label="Zurück zur Chatliste" onClick={back}><Icon name="back" /></button>
-        <Badge m={w} size={34} /><b>{w.name}</b>
+        <Badge m={w} size={40} plain /><b>{w.name}</b>
       </div>; return slot ? createPortal(head, slot) : head; })()}
       <div className="ch-list">
         {!list.length && <div className="ch-empty">Noch keine Nachrichten. Nur du und {w.name} sehen diesen Chat.</div>}
@@ -205,7 +205,7 @@ function ChatInner({ who, people, pick, setPick, setW, inThread }: { who?: Membe
       {threads.map(t => {
         const m = snap.members.find(x => x.id === t.with);
         return <button key={t.with} type="button" className={`ch-item${t.unread ? ' unread' : ''}`} onClick={() => setW(t.with)}>
-          <Badge m={m} size={40} />
+          <Badge m={m} size={50} plain />
           <span className="ch-mid"><b>{m?.name ?? 'Unbekannt'}</b><small>{t.last.from_member === snap.me ? 'Du: ' : ''}{chatPreview(t.last)}</small></span>
           <span className="ch-side"><small>{whenC(t.last.created_at)}</small>{t.unread > 0 && <i>{t.unread}</i>}</span>
         </button>;
@@ -213,7 +213,7 @@ function ChatInner({ who, people, pick, setPick, setW, inThread }: { who?: Membe
       {!threads.length && !pick && <div className="ch-empty">Noch keine Chats. Mit ＋ unten rechts schreibst du jemandem aus der Familie.</div>}
       {pick ? <div className="ch-pick">
         <div className="ch-pick-h">Neuer Chat mit …</div>
-        {[...fresh, ...people.filter(p => !fresh.includes(p))].map(p => <button key={p.id} type="button" className="ch-item" onClick={() => { setPick(false); setW(p.id); }}><Badge m={p} size={40} /><span className="ch-mid"><b>{p.name}</b></span></button>)}
+        {[...fresh, ...people.filter(p => !fresh.includes(p))].map(p => <button key={p.id} type="button" className="ch-item" onClick={() => { setPick(false); setW(p.id); }}><Badge m={p} size={50} plain /><span className="ch-mid"><b>{p.name}</b></span></button>)}
         {!people.length && <div className="ch-empty">In der Familie ist sonst noch niemand.</div>}
         <button type="button" className="ch-new" onClick={() => setPick(false)}>Abbrechen</button>
       </div> : null}
