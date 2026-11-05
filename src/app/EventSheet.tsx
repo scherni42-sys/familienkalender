@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
 import type { NewEvent } from '../lib/types';
-import { dayLabel, hm, toMin } from '../lib/dates';
+import { hm, toMin } from '../lib/dates';
 import { conflicts, isOnline, nameOf, whenText } from '../lib/model';
 import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
@@ -26,6 +26,10 @@ export const toNewEvent = (d: Draft, bringTxt = d.bring.join(', ')): NewEvent =>
   // Hin/Abholen nur mitschicken, wenn gewählt (ältere Datenbank ohne diese Spalten bleibt so verwendbar)
   ...(d.trip ? { trip: d.driver ? d.trip : 'hin', driver2: d.driver && d.trip === 'beides' ? d.driver2 ?? null : null } : {})
 });
+
+// Auswahl für die Dauer eines Termins
+const DURS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300, 360, 480, 600];
+const durText = (m: number) => { const h = Math.floor(m / 60), r = m % 60; return h ? `${h} Std.${r ? ` ${r} Min.` : ''}` : `${r} Min.`; };
 
 export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft; fresh: boolean; close: () => void; back: () => void; saved: (id: string) => void }) {
   const snap = useSnapshot();
@@ -139,16 +143,19 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
 
       <label className="field"><span>Titel</span><input value={d.title} onChange={e => set({ title: e.target.value })} maxLength={80} /></label>
       <div className="row2">
-        <label className="busyopt wide"><input type="checkbox" checked={d.all_day} onChange={e => set(e.target.checked ? { all_day: true } : { all_day: false, start_min: 18 * 60, end_min: 19 * 60 })} /> Ganztägig</label>
         {d.all_day ? <>
           <label className="field"><span>Von</span><input type="date" value={d.date} onChange={e => e.target.value && set({ date: e.target.value, end_date: d.end_date < e.target.value ? e.target.value : d.end_date })} /></label>
           <label className="field"><span>Bis</span><input type="date" value={d.end_date < d.date ? d.date : d.end_date} min={d.date} onChange={e => e.target.value && set({ end_date: e.target.value })} /></label>
           <span className="note wide">{whenText({ ...d, end_date: d.end_date < d.date ? d.date : d.end_date })}</span>
         </> : <>
-          <label className="field wide"><span>Datum · {dayLabel(d.date)}</span><input type="date" value={d.date} onChange={e => e.target.value && set({ date: e.target.value, end_date: e.target.value })} /></label>
+          <label className="field wide"><span>Datum</span><input type="date" value={d.date} onChange={e => e.target.value && set({ date: e.target.value, end_date: e.target.value })} /></label>
           <label className="field"><span>Beginn</span><input type="time" value={hm(d.start_min)} onChange={e => { if (!e.target.value) return; const n = toMin(e.target.value), len = d.end_min - d.start_min; set({ start_min: n, end_min: Math.min(n + Math.max(len, 15), 1439) }); }} /></label>
-          <label className="field"><span>Ende</span><input type="time" value={hm(d.end_min)} onChange={e => e.target.value && set({ end_min: toMin(e.target.value) })} /></label>
+          {/* Dauer statt Ende: das Ende ergibt sich daraus (höchstens bis 23:59) */}
+          <label className="field"><span>Dauer</span><select value={d.end_min - d.start_min} onChange={e => set({ end_min: Math.min(d.start_min + Number(e.target.value), 1439) })}>
+            {[...new Set([...DURS, d.end_min - d.start_min])].filter(m => m > 0).sort((a, b) => a - b).map(m => <option key={m} value={m}>{durText(m)}</option>)}
+          </select></label>
         </>}
+        <label className="busyopt wide"><input type="checkbox" checked={d.all_day} onChange={e => set(e.target.checked ? { all_day: true } : { all_day: false, start_min: 18 * 60, end_min: 19 * 60 })} /> Ganztägig</label>
       </div>
       <div className="field"><span>Wer ist dabei?</span>
         <div className="ptoggle">{people.map(m => <button key={m.id} type="button" style={cvar(m.color)} aria-pressed={d.persons.includes(m.id)}
