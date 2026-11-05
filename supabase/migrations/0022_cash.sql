@@ -22,7 +22,7 @@ create table if not exists public.receipts (
   total numeric(12,2) not null default 0,
   currency text not null default 'EUR',
   category text not null default 'Sonstiges',
-  scope text not null default 'private' check (scope in ('private', 'family')),
+  scope text not null default 'private' check (scope in ('private', 'family', 'business')),
   photo text,
   note text not null default '' check (length(note) <= 2000),
   archived boolean not null default false
@@ -91,6 +91,30 @@ create policy rc_get on storage.objects for select to authenticated
 drop policy if exists rc_rm on storage.objects;
 create policy rc_rm on storage.objects for delete to authenticated
   using (bucket_id = 'receipts' and ((storage.foldername(name))[2])::uuid = public.my_member(((storage.foldername(name))[1])::uuid));
+
+/* Rechnungen mit Netto, MwSt und Brutto (Nachtrag, darf mehrfach laufen) */
+alter table public.receipts add column if not exists kind text not null default 'bon';
+alter table public.receipts add column if not exists invoice_no text not null default '';
+alter table public.receipts add column if not exists net numeric(12,2) not null default 0;
+alter table public.receipts add column if not exists taxes jsonb not null default '[]'::jsonb;
+alter table public.receipts add column if not exists items_net boolean not null default false;
+alter table public.receipt_items add column if not exists vat numeric(5,2) not null default 0;
+
+/* Firma: Belege für Unternehmer, nur für den Besitzer sichtbar */
+alter table public.receipts drop constraint if exists receipts_scope_check;
+alter table public.receipts add constraint receipts_scope_check check (scope in ('private', 'family', 'business'));
+
+/* Eigene Kassenbuch-Einstellungen: Firma an/aus, Firmenname, Karten mit fester Zuordnung */
+create table if not exists public.cash_prefs (
+  member uuid primary key references public.members(id) on delete cascade,
+  family_id uuid not null references public.families(id) on delete cascade,
+  business boolean not null default false,
+  firm text not null default '' check (length(firm) <= 200),
+  cards jsonb not null default '[]'::jsonb
+);
+alter table public.cash_prefs enable row level security;
+drop policy if exists cp_all on public.cash_prefs;
+create policy cp_all on public.cash_prefs for all using (member = public.my_member(family_id)) with check (member = public.my_member(family_id));
 
 do $$ begin
   if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'receipts') then

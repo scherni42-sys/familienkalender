@@ -11,9 +11,16 @@ const CATS = ['Lebensmittel', 'Drogerie', 'Kraftstoff', 'Essen gehen', 'Haushalt
 
 const schema = {
   type: 'object', additionalProperties: false,
-  required: ['found', 'box', 'merchant', 'date', 'time', 'payment', 'card', 'total', 'currency', 'category', 'items'],
+  required: ['found', 'kind', 'box', 'merchant', 'invoice_no', 'net', 'taxes', 'items_net', 'date', 'time', 'payment', 'card', 'total', 'currency', 'category', 'items'],
   properties: {
     found: { type: 'boolean', description: 'false, wenn auf dem Foto kein Kassenbon oder keine Rechnung zu sehen ist' },
+    kind: { type: 'string', enum: ['bon', 'rechnung'], description: 'rechnung: Rechnung, die Netto, MwSt und Brutto ausdrücklich getrennt ausweist (Handwerker, Firma, Werkstatt, Online-Shop mit Rechnungsnummer, Netto-Positionen). bon: normaler Kassenbon für Endverbraucher mit Bruttopreisen, auch wenn unten eine kleine MwSt-Aufstellung steht.' },
+    invoice_no: { type: 'string', description: 'Rechnungsnummer, sonst leer' },
+    net: { type: 'number', description: 'Nettosumme (ohne MwSt) wie gedruckt, 0 wenn nicht angegeben' },
+    taxes: { type: 'array', description: 'MwSt-Aufstellung je Steuersatz wie gedruckt, leer wenn keine',
+      items: { type: 'object', additionalProperties: false, required: ['rate', 'net', 'tax'],
+        properties: { rate: { type: 'number', description: 'Steuersatz in Prozent, z. B. 19 oder 7' }, net: { type: 'number', description: 'Nettobetrag zu diesem Satz' }, tax: { type: 'number', description: 'Steuerbetrag zu diesem Satz' } } } },
+    items_net: { type: 'boolean', description: 'true, wenn die Positionspreise netto (ohne MwSt) gedruckt sind' },
     box: { type: 'object', additionalProperties: false, required: ['x0', 'y0', 'x1', 'y1'], description: 'Rechteck um den Bon als Anteil von Bildbreite bzw. -höhe (0 bis 1), knapp um das Papier',
       properties: { x0: { type: 'number' }, y0: { type: 'number' }, x1: { type: 'number' }, y1: { type: 'number' } } },
     merchant: { type: 'string', description: 'Händler bzw. Geschäft, kurz, z. B. „REWE“ oder „Aral Tankstelle Kiel“' },
@@ -21,12 +28,12 @@ const schema = {
     time: { type: 'string', description: 'Uhrzeit HH:MM, leer wenn nicht lesbar' },
     payment: { type: 'string', description: 'Zahlungsart, z. B. „Bar“, „EC-Karte“, „Visa“, „Mastercard“, „PayPal“, „Apple Pay“' },
     card: { type: 'string', description: 'Letzte 4 Ziffern der Karte, sonst leer' },
-    total: { type: 'number', description: 'Gezahlter Gesamtbetrag' },
+    total: { type: 'number', description: 'Gesamtbetrag brutto (inkl. MwSt), der zu zahlen ist' },
     currency: { type: 'string', description: 'ISO-Code, meist EUR' },
     category: { type: 'string', enum: CATS, description: 'Hauptkategorie des ganzen Bons' },
     items: { type: 'array', description: 'Alle Positionen in der Reihenfolge des Bons; Pfand, Rabatte als eigene Zeilen (Rabatt negativ)',
-      items: { type: 'object', additionalProperties: false, required: ['name', 'qty', 'price', 'category'],
-        properties: { name: { type: 'string' }, qty: { type: 'number', description: 'Menge, sonst 1' }, price: { type: 'number', description: 'Zeilenbetrag gesamt' }, category: { type: 'string', enum: CATS } } } }
+      items: { type: 'object', additionalProperties: false, required: ['name', 'qty', 'price', 'vat', 'category'],
+        properties: { name: { type: 'string' }, qty: { type: 'number', description: 'Menge, sonst 1' }, price: { type: 'number', description: 'Zeilenbetrag gesamt, genau wie gedruckt (netto, wenn die Rechnung netto ausweist)' }, vat: { type: 'number', description: 'Steuersatz der Zeile in Prozent, 0 wenn nicht erkennbar' }, category: { type: 'string', enum: CATS } } } }
   }
 };
 
@@ -43,12 +50,14 @@ Deno.serve(async req => {
     const r = await client.beta.messages.create({
       model: 'claude-opus-5-5', max_tokens: 8000,
       betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
-      output_config: { effort: 'low', format: { type: 'json_schema', schema } },
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema } },
       system: `Du liest deutsche Kassenbons und Rechnungen für ein Familien-Kassenbuch. Heute ist ${today}.
 Übernimm Beträge genau wie gedruckt. Abkürzungen auf dem Bon schreibst du verständlich aus, wenn es eindeutig ist (z. B. „BIO VOLLM.“ → „Bio Vollmilch“).
 Kategorien: Lebensmittel (Supermarkt, Bäcker, Getränke), Drogerie (dm, Rossmann, Hygiene), Kraftstoff (Tanken, Laden), Essen gehen (Restaurant, Imbiss, Lieferdienst),
 Haushalt (Baumarkt, Möbel, Putzmittel, Elektro), Kleidung, Freizeit (Kino, Sport, Ausflug, Bücher, Spiele), Gesundheit (Apotheke, Arzt), Kinder/Schule, sonst Sonstiges.
-Ohne lesbares Datum leer lassen, nicht raten.`,
+Ohne lesbares Datum leer lassen, nicht raten.
+Unterscheide genau zwischen Netto und Brutto: total ist immer der Bruttobetrag. Bei Rechnungen mit Netto-Positionen übernimm die Nettopreise in die Zeilen, setze items_net und gib die MwSt-Aufstellung vollständig an.
+Auf Kassenbons stehen Steuersätze oft als Buchstaben (A = 19 %, B = 7 %); ordne sie den Zeilen zu, wenn die Legende auf dem Bon steht.`,
       messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: image.type, data: image.data } }, { type: 'text', text: 'Lies diesen Beleg aus.' }] }]
     });
     if (r.stop_reason === 'refusal') throw new Error('abgelehnt');

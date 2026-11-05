@@ -6,18 +6,39 @@ import { today } from './dates';
 export const CATS = ['Lebensmittel', 'Drogerie', 'Kraftstoff', 'Essen gehen', 'Haushalt', 'Kleidung', 'Freizeit', 'Gesundheit', 'Kinder/Schule', 'Sonstiges'] as const;
 export const CAT_ICON: Record<string, string> = { Lebensmittel: '🛒', Drogerie: '🧴', Kraftstoff: '⛽', 'Essen gehen': '🍽️', Haushalt: '🏠', Kleidung: '👕', Freizeit: '🎟️', Gesundheit: '💊', 'Kinder/Schule': '🎒', Sonstiges: '📦' };
 
-export interface Item { id?: string; name: string; qty: number; price: number; category: string; family: boolean }
+export interface Item { id?: string; name: string; qty: number; price: number; vat: number; category: string; family: boolean }
+export type Scope = 'private' | 'family' | 'business';
+export interface Prefs { business: boolean; firm: string; cards: { card: string; scope: Scope }[] }
+export interface Tax { rate: number; net: number; tax: number }
 export interface Receipt {
   id?: string; owner?: string; bought_at: string; merchant: string; payment: string; card: string;
-  total: number; currency: string; category: string; scope: 'private' | 'family'; photo: string | null; note: string; items: Item[];
+  total: number; currency: string; category: string; scope: Scope; photo: string | null; note: string; items: Item[];
+  kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean;
 }
-export interface ReadResult { found: boolean; box: { x0: number; y0: number; x1: number; y1: number }; merchant: string; date: string; time: string; payment: string; card: string; total: number; currency: string; category: string; items: { name: string; qty: number; price: number; category: string }[] }
+export interface ReadResult { found: boolean; kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; box: { x0: number; y0: number; x1: number; y1: number }; merchant: string; date: string; time: string; payment: string; card: string; total: number; currency: string; category: string; items: { name: string; qty: number; price: number; vat: number; category: string }[] }
 
 const ctx = () => { const s = store.get(); return { fam: s.family!.id, me: s.me! }; };
 const sb = () => { if (!supabase) throw new Error('Keine Verbindung'); return supabase; };
-const missing = (m: string) => /receipt|cash_view|schema cache|does not exist|find the table/i.test(m) ? 'Das Kassenbuch ist noch nicht eingerichtet (Migration 0022).' : m;
+const missing = (m: string) => /receipt|cash_view|cash_prefs|schema cache|does not exist|find the table/i.test(m) ? 'Das Kassenbuch ist noch nicht eingerichtet (Migration 0022).' : m;
 
 let demo: Receipt[] = [];
+let demoPrefs: Prefs = { business: false, firm: '', cards: [] };
+
+// Eigene Einstellungen: Firma, Karten mit fester Zuordnung (privat, Familie, Firma)
+export async function getPrefs(): Promise<Prefs> {
+  if (store.demo) return demoPrefs;
+  const r = await sb().from('cash_prefs').select('business, firm, cards').eq('member', ctx().me).maybeSingle();
+  if (r.error) throw new Error(missing(r.error.message));
+  const d = r.data as Prefs | null;
+  return { business: !!d?.business, firm: d?.firm ?? '', cards: Array.isArray(d?.cards) ? d!.cards : [] };
+}
+export async function setPrefs(p: Prefs) {
+  if (store.demo) { demoPrefs = p; return; }
+  const { fam, me } = ctx();
+  const r = await sb().from('cash_prefs').upsert({ member: me, family_id: fam, ...p });
+  if (r.error) throw new Error(missing(r.error.message.includes('cash_prefs') ? 'receipts' : r.error.message));
+}
+export const cardScope = (p: Prefs, card: string) => card ? p.cards.find(c => c.card === card)?.scope : undefined;
 
 export async function canViewFamily(): Promise<boolean> {
   const s = store.get(); const me = s.members.find(m => m.id === s.me);
@@ -44,7 +65,7 @@ export async function list(from: string, to: string): Promise<Receipt[]> {
   const end = new Date(to + 'T00:00:00'); end.setDate(end.getDate() + 1);
   const r = await sb().from('receipts').select('*, receipt_items(*)').eq('family_id', ctx().fam).gte('bought_at', new Date(from + 'T00:00:00').toISOString()).lt('bought_at', end.toISOString()).order('bought_at', { ascending: false });
   if (r.error) throw new Error(missing(r.error.message));
-  return (r.data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price) })) }));
+  return (r.data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), net: Number(x.net ?? 0), kind: x.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: x.invoice_no ?? '', items_net: !!x.items_net, taxes: Array.isArray(x.taxes) ? x.taxes.map(t => ({ rate: Number(t.rate), net: Number(t.net), tax: Number(t.tax) })) : [], items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price), vat: Number(i.vat ?? 0) })) }));
 }
 
 export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
@@ -61,13 +82,13 @@ export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
     const up = await sb().storage.from('receipts').upload(path, photo, { contentType: 'image/jpeg' });
     if (up.error) throw new Error(missing(up.error.message.includes('not found') ? 'receipts' : up.error.message));
   }
-  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note };
+  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net };
   const res = rc.id ? await sb().from('receipts').update(row).eq('id', rc.id).select('id').single() : await sb().from('receipts').insert(row).select('id').single();
   if (res.error) { if (photo && path) await sb().storage.from('receipts').remove([path]); throw new Error(missing(res.error.message)); }
   const id = (res.data as { id: string }).id;
   if (rc.id) await sb().from('receipt_items').delete().eq('receipt_id', id);
   if (rc.items.length) {
-    const ir = await sb().from('receipt_items').insert(rc.items.map((i, pos) => ({ receipt_id: id, family_id: fam, owner: me, pos, name: i.name, qty: i.qty, price: i.price, category: i.category, family: rc.scope === 'family' ? true : i.family })));
+    const ir = await sb().from('receipt_items').insert(rc.items.map((i, pos) => ({ receipt_id: id, family_id: fam, owner: me, pos, name: i.name, qty: i.qty, price: i.price, vat: i.vat, category: i.category, family: rc.scope === 'family' ? true : rc.scope === 'business' ? false : i.family })));
     if (ir.error) throw new Error(missing(ir.error.message));
   }
   // altes Foto aufräumen, wenn ersetzt
@@ -94,8 +115,8 @@ export async function photoUrl(path: string): Promise<string> {
 
 // Bon vorlesen lassen (Claude über die Edge Function „receipt“)
 export async function read(image: { type: string; data: string }): Promise<ReadResult> {
-  if (store.demo || !supabase) return { found: true, box: { x0: 0.08, y0: 0.04, x1: 0.92, y1: 0.96 }, merchant: 'Testmarkt', date: today(), time: '10:15', payment: 'EC-Karte', card: '1234', total: 7.47, currency: 'EUR', category: 'Lebensmittel',
-    items: [{ name: 'Bio Vollmilch', qty: 1, price: 1.49, category: 'Lebensmittel' }, { name: 'Brötchen', qty: 6, price: 2.4, category: 'Lebensmittel' }, { name: 'Zahnpasta', qty: 1, price: 3.58, category: 'Drogerie' }] };
+  if (store.demo || !supabase) return { found: true, kind: 'bon', invoice_no: '', net: 6.65, taxes: [{ rate: 7, net: 3.64, tax: 0.25 }, { rate: 19, net: 3.01, tax: 0.57 }], items_net: false, box: { x0: 0.08, y0: 0.04, x1: 0.92, y1: 0.96 }, merchant: 'Testmarkt', date: today(), time: '10:15', payment: 'EC-Karte', card: '1234', total: 7.47, currency: 'EUR', category: 'Lebensmittel',
+    items: [{ name: 'Bio Vollmilch', qty: 1, price: 1.49, vat: 7, category: 'Lebensmittel' }, { name: 'Brötchen', qty: 6, price: 2.4, vat: 7, category: 'Lebensmittel' }, { name: 'Zahnpasta', qty: 1, price: 3.58, vat: 19, category: 'Drogerie' }] };
   const { data, error } = await supabase.functions.invoke('receipt', { body: { image, today: today() } });
   if (error || !data?.receipt) throw new Error('Der Bon ließ sich nicht lesen. Du kannst ihn von Hand eintragen.');
   return data.receipt as ReadResult;
@@ -122,4 +143,12 @@ export const toBlob = (c: HTMLCanvasElement) => new Promise<Blob>((ok, no) => c.
 
 export const eur = (n: number) => n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
 // Betrag, der als Familienausgabe zählt: ganzer Familienbon, sonst die Familienzeilen
-export const familyPart = (r: Receipt) => r.scope === 'family' ? r.total : r.items.filter(i => i.family).reduce((s, i) => s + i.price, 0);
+// Bruttobetrag einer Zeile: bei Netto-Rechnungen mit MwSt aufgeschlagen
+export const gross = (r: Receipt, i: Item) => r.items_net ? Math.round(i.price * (100 + (i.vat || 0))) / 100 : i.price;
+export const familyPart = (r: Receipt) => r.scope === 'family' ? r.total : r.scope === 'business' ? 0 : r.items.filter(i => i.family).reduce((s, i) => s + gross(r, i), 0);
+// MwSt-Aufstellung aus den Zeilen berechnen (wenn auf dem Beleg keine steht)
+export function taxesFromItems(r: Receipt): Tax[] {
+  const m = new Map<number, number>();
+  for (const i of r.items) if (i.vat) m.set(i.vat, (m.get(i.vat) ?? 0) + (r.items_net ? i.price : i.price / (1 + i.vat / 100)));
+  return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([rate, n]) => ({ rate, net: Math.round(n * 100) / 100, tax: Math.round(n * rate) / 100 }));
+}
