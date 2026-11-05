@@ -2,6 +2,7 @@
 import { store } from './store';
 import { supabase } from './supabase';
 import { today } from './dates';
+import { native } from './native';
 
 export const CATS = ['Lebensmittel', 'Drogerie', 'Kraftstoff', 'Essen gehen', 'Haushalt', 'Kleidung', 'Freizeit', 'Gesundheit', 'Kinder/Schule', 'Sonstiges'] as const;
 export const CAT_ICON: Record<string, string> = { Lebensmittel: '🛒', Drogerie: '🧴', Kraftstoff: '⛽', 'Essen gehen': '🍽️', Haushalt: '🏠', Kleidung: '👕', Freizeit: '🎟️', Gesundheit: '💊', 'Kinder/Schule': '🎒', Sonstiges: '📦' };
@@ -91,15 +92,16 @@ function rows(data: unknown): Receipt[] {
 export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
   if (store.demo) {
     const id = rc.id ?? crypto.randomUUID();
-    const url = photo ? URL.createObjectURL(photo) : rc.photo;
+    const url = photo ? URL.createObjectURL(photo) + (photo.type === 'application/pdf' ? '#.pdf' : '') : rc.photo;
     demo = [...demo.filter(x => x.id !== id), { ...rc, id, owner: ctx().me, photo: url }];
     return id;
   }
   const { fam, me } = ctx();
   let path = rc.photo;
   if (photo) {
-    path = `${fam}/${me}/${crypto.randomUUID()}.jpg`;
-    const up = await sb().storage.from('receipts').upload(path, photo, { contentType: 'image/jpeg' });
+    const pdf = photo.type === 'application/pdf';
+    path = `${fam}/${me}/${crypto.randomUUID()}.${pdf ? 'pdf' : 'jpg'}`;
+    const up = await sb().storage.from('receipts').upload(path, photo, { contentType: pdf ? 'application/pdf' : 'image/jpeg' });
     if (up.error) throw new Error(missing(up.error.message.includes('not found') ? 'receipts' : up.error.message));
   }
   const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net, ...(rc.grp ? { grp: rc.grp } : rc.id ? { grp: '' } : {}) };
@@ -131,6 +133,25 @@ export async function photoUrl(path: string): Promise<string> {
   if (r.error || !r.data) throw new Error('Foto nicht gefunden.');
   urls.set(path, { url: r.data.signedUrl, until: Date.now() + 3_000_000 });
   return r.data.signedUrl;
+}
+
+// PDF eines Belegs öffnen (App: passendes Programm, Browser: neuer Tab)
+export async function openPdf(path: string) {
+  const app = !!native();
+  const w = app ? null : window.open('', '_blank');
+  try { const url = await photoUrl(path); if (w) w.location.href = url; else location.href = url; }
+  catch (e) { w?.close(); throw e; }
+}
+
+// Mit FamTO geteilte Datei aus der Android-App abholen (einmalig)
+export function takeShared(): File | null {
+  try {
+    const raw = native()?.takeShared?.(); if (!raw) return null;
+    const j = JSON.parse(raw) as { name: string; mime: string; b64: string };
+    const bin = atob(j.b64), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return new File([u], j.name || 'beleg', { type: j.mime });
+  } catch { return null; }
 }
 
 // Bon vorlesen lassen (Claude über die Edge Function „receipt“)

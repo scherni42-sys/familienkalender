@@ -46,7 +46,10 @@ Deno.serve(async req => {
     const { data: mine } = u.user ? await sb.from('members').select('id, role').eq('user_id', u.user.id).eq('active', true).limit(1) : { data: null };
     if (!mine?.length || mine[0].role === 'guest') return json({ error: 'Nicht angemeldet' }, 401);
     const { image, today } = await req.json();
-    if (!image || typeof image.data !== 'string' || image.data.length > 6_000_000 || !/^image\/(jpeg|png|webp)$/.test(image.type)) throw new Error('Kein Foto');
+    if (!image || typeof image.data !== 'string' || image.data.length > 6_000_000 || !/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(image.type)) throw new Error('Kein Foto');
+    const doc = image.type === 'application/pdf'
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: image.data } }
+      : { type: 'image', source: { type: 'base64', media_type: image.type, data: image.data } };
     const r = await client.beta.messages.create({
       model: 'claude-opus-5-5', max_tokens: 8000,
       betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
@@ -58,7 +61,7 @@ Haushalt (Baumarkt, Möbel, Putzmittel, Elektro), Kleidung, Freizeit (Kino, Spor
 Ohne lesbares Datum leer lassen, nicht raten.
 Unterscheide genau zwischen Netto und Brutto: total ist immer der Bruttobetrag. Bei Rechnungen mit Netto-Positionen übernimm die Nettopreise in die Zeilen, setze items_net und gib die MwSt-Aufstellung vollständig an.
 Auf Kassenbons stehen Steuersätze oft als Buchstaben (A = 19 %, B = 7 %); ordne sie den Zeilen zu, wenn die Legende auf dem Bon steht.`,
-      messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: image.type, data: image.data } }, { type: 'text', text: 'Lies diesen Beleg aus.' }] }]
+      messages: [{ role: 'user', content: [doc, { type: 'text', text: image.type === 'application/pdf' ? 'Lies diese Rechnung (PDF) aus. box: 0, 0, 1, 1.' : 'Lies diesen Beleg aus.' }] }]
     });
     if (r.stop_reason === 'refusal') throw new Error('abgelehnt');
     const block = r.content.find(b => b.type === 'text');

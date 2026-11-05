@@ -281,6 +281,17 @@ class AppActivity : Activity() {
             return "asked"
         }
         @JavascriptInterface fun appSettings() { runOnUiThread { micSettings() } }
+        // Mit FamTO geteilte Datei abholen (einmalig, höchstens 10 Minuten alt): {name, mime, b64}
+        @JavascriptInterface fun takeShared(): String {
+            val p = getSharedPreferences(ShareActivity.PREF, MODE_PRIVATE)
+            val f = ShareActivity.pending(this@AppActivity)
+            val fresh = System.currentTimeMillis() - p.getLong("at", 0) < 600_000
+            if (!f.exists() || !fresh || f.length() > 8_000_000) { f.delete(); return "" }
+            val out = org.json.JSONObject().put("name", p.getString("name", "beleg")).put("mime", p.getString("mime", "application/pdf"))
+                .put("b64", android.util.Base64.encodeToString(f.readBytes(), android.util.Base64.NO_WRAP)).toString()
+            f.delete(); p.edit().clear().apply()
+            return out
+        }
         // Datei aus der Web-App (z. B. Excel-Export) speichern und teilen: Excel, Mail, Drive …
         @JavascriptInterface fun shareFile(name: String, mime: String, b64: String) {
             val dir = java.io.File(cacheDir, "export").apply { mkdirs() }

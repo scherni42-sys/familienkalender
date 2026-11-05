@@ -715,3 +715,6 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-uml-t .plus { color: var(--accent); } .cash-uml-t .minus { color: #d9534f; }
 .cash-pay { margin: 0; font-size: 14.5px; }
 .cash-xl.btn { height: 38px; min-height: 0; padding: 0 14px; flex: none; width: auto; }
+.cash-pdf { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--ink); font: inherit; text-align: left; cursor: pointer; width: 100%; }
+.cash-pdf:disabled { cursor: default; opacity: 1; }
+.cash-pdf span { display: grid; } .cash-pdf small { color: var(--muted); font-size: 12.5px; }

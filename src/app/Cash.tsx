@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
@@ -14,11 +14,13 @@ const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.ge
 const num = (s: string) => { const n = Number(s.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 const fmt = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
 
-type View = { kind: 'list' } | { kind: 'new' } | { kind: 'prefs' } | { kind: 'edit'; rc: Receipt; photo?: HTMLCanvasElement | null };
+type Photo = HTMLCanvasElement | Blob | null;
+type View = { kind: 'list' } | { kind: 'new'; file?: File } | { kind: 'prefs' } | { kind: 'edit'; rc: Receipt; photo?: Photo };
 
 // Kassenbuch: Monatsübersicht, Bons fotografieren, auslesen, privat oder Familie
-export function CashSheet({ close }: { close: () => void }) {
-  const [view, setView] = useState<View>({ kind: 'list' });
+export function CashSheet({ close, share }: { close: () => void; share?: boolean }) {
+  // Mit FamTO geteilte Datei (PDF-Rechnung, Foto): gleich einen neuen Beleg damit anlegen
+  const [view, setView] = useState<View>(() => { const f = share ? takeShared() : null; return f ? { kind: 'new', file: f } : { kind: 'list' }; });
   const [prefs, setP] = useState<Prefs>({ business: false, firm: '', cards: [] });
   useEffect(() => { void getPrefs().then(setP).catch(() => {}); }, []);
   const keep = async (p: Prefs) => { await setPrefs(p); setP(p); };
@@ -32,7 +34,7 @@ export function CashSheet({ close }: { close: () => void }) {
     if (rc.scope === 'business' && prefs.business) setTab('business'); else if (tab === 'business') setTab('mine');
     list();
   };
-  if (view.kind === 'new') return <NewReceipt close={close} back={list} prefs={prefs} next={(rc, photo) => setView({ kind: 'edit', rc, photo })} />;
+  if (view.kind === 'new') return <NewReceipt close={close} back={list} prefs={prefs} file={view.file} next={(rc, photo) => setView({ kind: 'edit', rc, photo })} />;
   if (view.kind === 'edit') return <ReceiptForm close={close} rc={view.rc} photo={view.photo} prefs={prefs} keep={keep} done={list} saved={saved} />;
   if (view.kind === 'prefs') return <CashPrefs close={close} back={list} prefs={prefs} keep={keep} />;
   return <CashList close={close} prefs={prefs} per={per} setPer={setPer} tab={tab} setTab={setTab} add={() => setView({ kind: 'new' })} open={rc => setView({ kind: 'edit', rc })} settings={() => setView({ kind: 'prefs' })} />;
@@ -236,13 +238,36 @@ async function exportXlsx(title: string, shown: Receipt[], amount: (r: Receipt) 
 }
 
 // Neuer Bon: Foto aufnehmen oder wählen, auslesen lassen, zuschneiden
-function NewReceipt({ close, back, next, prefs }: { close: () => void; back: () => void; prefs: Prefs; next: (rc: Receipt, photo: HTMLCanvasElement | null) => void }) {
+function NewReceipt({ close, back, next, prefs, file }: { close: () => void; back: () => void; prefs: Prefs; file?: File; next: (rc: Receipt, photo: Photo) => void }) {
   const cam = useRef<HTMLInputElement>(null), gal = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(''), [img, setImg] = useState<HTMLCanvasElement | null>(null), [rc, setRc] = useState<Receipt | null>(null);
   const [box, setBox] = useState({ x0: 0, y0: 0, x1: 1, y1: 1 });
   const blank = (): Receipt => ({ bought_at: new Date().toISOString(), merchant: '', payment: '', card: '', total: 0, currency: 'EUR', category: 'Sonstiges', scope: 'private', photo: null, note: '', items: [], kind: 'bon', invoice_no: '', net: 0, taxes: [], items_net: false, grp: '' });
+  const fill = (r: ReadResult): Receipt => {
+    const at = r.date ? new Date(`${r.date}T${/^\d\d:\d\d$/.test(r.time) ? r.time : '12:00'}:00`) : new Date();
+    const card = r.card.replace(/\D/g, '').slice(-4), by = cardScope(prefs, card);
+    if (by) toast(`Karte …${card}: ${SCOPE_LABEL[by]}`);
+    return { ...blank(), scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })) };
+  };
+  // PDF (z. B. Rechnung aus der Mail): direkt lesen lassen, kein Zuschneiden
+  const pdf = async (f: File) => {
+    if (f.size > 4_500_000) { toast('Die PDF ist zu groß (höchstens 4,5 MB).'); return; }
+    setBusy('Die Rechnung wird gelesen …');
+    let rc = blank();
+    try {
+      const b = new Uint8Array(await f.arrayBuffer()); let bin = '';
+      for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000));
+      const r = await read({ type: 'application/pdf', data: btoa(bin) });
+      if (!r.found) toast('In der PDF ist keine Rechnung zu erkennen. Du kannst trotzdem alles eintragen.');
+      rc = fill(r);
+    } catch (e) { fail(e); }
+    finally { setBusy(''); }
+    next(rc, f);
+  };
+  useEffect(() => { if (file) void pick(file); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const pick = async (f?: File) => {
     if (!f) return;
+    if (f.type === 'application/pdf' || /\.pdf$/i.test(f.name)) { await pdf(f); return; }
     try {
       setBusy('Foto wird geladen …');
       const c = await loadPhoto(f); setImg(c);
@@ -250,10 +275,7 @@ function NewReceipt({ close, back, next, prefs }: { close: () => void; back: () 
       try {
         const r = await read(toB64(c));
         if (!r.found) toast('Auf dem Foto ist kein Bon zu erkennen. Du kannst trotzdem alles eintragen.');
-        const at = r.date ? new Date(`${r.date}T${/^\d\d:\d\d$/.test(r.time) ? r.time : '12:00'}:00`) : new Date();
-        const card = r.card.replace(/\D/g, '').slice(-4), by = cardScope(prefs, card);
-        if (by) toast(`Karte …${card}: ${SCOPE_LABEL[by]}`);
-        setRc({ ...blank(), scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })) });
+        setRc(fill(r));
         if (r.found && r.box && r.box.x1 - r.box.x0 > 0.1 && r.box.y1 - r.box.y0 > 0.1) setBox({ x0: Math.max(0, r.box.x0 - 0.01), y0: Math.max(0, r.box.y0 - 0.01), x1: Math.min(1, r.box.x1 + 0.01), y1: Math.min(1, r.box.y1 + 0.01) });
       } catch (e) { fail(e); setRc(blank()); }
     } catch { toast('Das Foto ließ sich nicht öffnen.'); }
@@ -263,7 +285,7 @@ function NewReceipt({ close, back, next, prefs }: { close: () => void; back: () 
     <Sheet onClose={close} label="Neuer Beleg">
       <h2>Neuer Beleg</h2>
       <input ref={cam} type="file" accept="image/*" capture="environment" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
-      <input ref={gal} type="file" accept="image/*" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+      <input ref={gal} type="file" accept="image/*,application/pdf" hidden onChange={e => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
       {busy ? <div className="cash-busy"><span className="spin" /> {busy}</div> : img && rc ? <>
         <p>Zieh die Ecken so, dass nur der Bon im Rahmen ist.</p>
         <CropBox img={img} box={box} set={setBox} />
@@ -271,7 +293,7 @@ function NewReceipt({ close, back, next, prefs }: { close: () => void; back: () 
         <p>Fotografiere den Kassenbon möglichst gerade und flach. FamTO liest Händler, Datum, Karte, Positionen und Summe aus (bei Rechnungen auch Netto und MwSt) und stellt den Bon frei.</p>
         <div className="cash-pick">
           <button type="button" className="btn" onClick={() => cam.current?.click()}><Icon name="camera" /> Fotografieren</button>
-          <button type="button" className="btn ghost" onClick={() => gal.current?.click()}><Icon name="image" /> Aus der Galerie</button>
+          <button type="button" className="btn ghost" onClick={() => gal.current?.click()}><Icon name="image" /> Foto oder PDF wählen</button>
           <button type="button" className="btn ghost" onClick={() => next(blank(), null)}>Ohne Foto eintragen</button>
         </div>
       </>}
@@ -309,11 +331,12 @@ function CropBox({ img, box, set }: { img: HTMLCanvasElement; box: { x0: number;
 }
 
 // Bon prüfen und speichern (neu oder bearbeiten)
-function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { saved: (rc: Receipt) => void; close: () => void; rc: Receipt; photo?: HTMLCanvasElement | null; done: () => void; prefs: Prefs; keep: (p: Prefs) => Promise<void> }) {
+function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { saved: (rc: Receipt) => void; close: () => void; rc: Receipt; photo?: Photo; done: () => void; prefs: Prefs; keep: (p: Prefs) => Promise<void> }) {
   const snap = useSnapshot();
   const mine = !start.owner || start.owner === snap.me;
   const [rc, setRc] = useState<Receipt>(start), [busy, setBusy] = useState(false), [url, setUrl] = useState(''), [big, setBig] = useState(false);
-  useEffect(() => { if (photo) setUrl(photo.toDataURL('image/jpeg', 0.8)); else if (rc.photo) void photoUrl(rc.photo).then(setUrl).catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const isPdf = photo instanceof Blob || !!rc.photo?.endsWith('.pdf');
+  useEffect(() => { if (photo instanceof HTMLCanvasElement) setUrl(photo.toDataURL('image/jpeg', 0.8)); else if (rc.photo && !isPdf) void photoUrl(rc.photo).then(setUrl).catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (p: Partial<Receipt>) => setRc(r => ({ ...r, ...p }));
   const setItem = (i: number, p: Partial<Item>) => setRc(r => ({ ...r, items: r.items.map((x, k) => k === i ? { ...x, ...p } : x) }));
   const d = new Date(rc.bought_at), date = ymd(d), time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -336,7 +359,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
     if (!rc.merchant.trim() && !rc.total) { toast('Bitte mindestens Händler oder Betrag eintragen.'); return; }
     setBusy(true);
     try {
-      await save({ ...rc, merchant: rc.merchant.trim(), grp: rc.grp.trim() }, photo ? await toBlob(photo) : null);
+      await save({ ...rc, merchant: rc.merchant.trim(), grp: rc.grp.trim() }, photo instanceof HTMLCanvasElement ? await toBlob(photo) : photo ?? null);
       if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope }] }).catch(() => {}); toast('Beleg gespeichert.'); saved(rc); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
@@ -345,6 +368,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
   return (
     <Sheet onClose={close} label="Beleg">
       <h2>{start.id ? (ro ? 'Beleg' : 'Beleg bearbeiten') : 'Beleg prüfen'}</h2>
+      {isPdf && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
       {url && <button type="button" className={`cash-photo${big ? ' big' : ''}`} onClick={() => setBig(!big)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /></button>}
       {ro && <p>Von {snap.members.find(m => m.id === rc.owner)?.name ?? 'jemandem'}. Nur der Besitzer kann den Beleg ändern.</p>}
       <fieldset disabled={ro} className="cash-form">
