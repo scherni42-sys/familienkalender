@@ -4,6 +4,7 @@ import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, t
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
+import { ZoomView } from './ZoomView';
 import { fail, toast } from './toast';
 import { native } from '../lib/native';
 import type { Cell, SheetData } from '../lib/xlsx';
@@ -385,7 +386,8 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
     <Sheet onClose={close} label="Beleg">
       <h2>{start.id ? (ro ? 'Beleg' : 'Beleg bearbeiten') : 'Beleg prüfen'}</h2>
       {isPdf && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
-      {url && <button type="button" className={`cash-photo${big ? ' big' : ''}`} onClick={() => setBig(!big)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /></button>}
+      {url && <button type="button" className="cash-photo" onClick={() => setBig(true)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /><span className="cash-photo-tip">Antippen zum Vergrößern</span></button>}
+      {big && url && <ZoomView src={url} close={() => setBig(false)} />}
       {ro && <p>Von {snap.members.find(m => m.id === rc.owner)?.name ?? 'jemandem'}. Nur der Besitzer kann den Beleg ändern.</p>}
       <fieldset disabled={ro} className="cash-form">
         {!ro && <div className={`visbig${biz ? ' three' : ''}`} role="group" aria-label="Privat, Familie oder Firma">
