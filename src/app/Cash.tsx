@@ -409,7 +409,17 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
   const mine = !start.owner || start.owner === snap.me;
   const [rc, setRc] = useState<Receipt>(start), [busy, setBusy] = useState(false), [url, setUrl] = useState(''), [big, setBig] = useState(false);
   const isPdf = photo instanceof Blob || !!rc.photo?.endsWith('.pdf');
-  useEffect(() => { if (photo instanceof HTMLCanvasElement) setUrl(photo.toDataURL('image/jpeg', 0.8)); else if (rc.photo && !isPdf) void photoUrl(rc.photo).then(setUrl).catch(() => {}); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (photo instanceof HTMLCanvasElement) setUrl(photo.toDataURL('image/jpeg', 0.8));
+    else if (rc.photo && !isPdf) void photoUrl(rc.photo).then(setUrl).catch(() => {});
+    else if (isPdf) void (async () => {
+      // PDF-Rechnung: erste Seiten als Vorschau zeichnen
+      const buf = photo instanceof Blob ? await photo.arrayBuffer() : rc.photo ? await (await fetch(await photoUrl(rc.photo))).arrayBuffer() : null;
+      if (!buf) return;
+      const { pdfPreview } = await import('../lib/pdfprev');
+      setUrl(await pdfPreview(new Uint8Array(buf)));
+    })().catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (p: Partial<Receipt>) => setRc(r => ({ ...r, ...p }));
   const setItem = (i: number, p: Partial<Item>) => setRc(r => ({ ...r, items: r.items.map((x, k) => k === i ? { ...x, ...p } : x) }));
   const d = new Date(rc.bought_at), date = ymd(d), time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
