@@ -751,3 +751,8 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-firmsel { width: 100%; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 700; }
 .cash-card .cf { flex: 1 1 100%; }
 .sheet-in > .btn.sm { align-self: flex-start; height: auto; min-height: 38px; flex: none; }
+/* Positionen: Block seitlich wischen, damit lange Namen lesbar bleiben */
+.cash-items { overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; margin: 0 -18px; padding: 0 18px 4px; scrollbar-width: thin; }
+.cash-items .cash-it { width: max-content; min-width: 100%; }
+.cash-items .cash-it .nm { flex: 1 0 auto; width: 260px; min-width: 260px; }
+.cash-items .cash-it .pr { width: 86px; }

@@ -496,6 +496,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
           <label className="cash-v"><input type="checkbox" checked={rc.items_net} onChange={e => set({ items_net: e.target.checked })} /> Positionspreise sind netto</label>
         </div>}
         <div className="field"><span>Positionen{inv ? (rc.items_net ? ' (netto)' : ' (brutto)') : ''}{rc.scope === 'private' && !ro ? ' · Haken = zählt als Familienausgabe' : ''}</span></div>
+        {rc.items.length > 0 && <small className="cash-check">Tipp: Die Positionen lassen sich seitlich wischen.</small>}
         <div className="cash-items">{rc.items.map((it, i) => <div key={i} className="cash-it">
           {rc.scope === 'private' && <input type="checkbox" aria-label="Familienausgabe" title="Familienausgabe" checked={it.family} onChange={e => setItem(i, { family: e.target.checked })} />}
           <input className="nm" value={it.name} onChange={e => setItem(i, { name: e.target.value })} aria-label="Position" />
