@@ -457,7 +457,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
   return (
     <Sheet onClose={close} label="Beleg">
       <h2>{start.id ? (ro ? 'Beleg' : 'Beleg bearbeiten') : 'Beleg prüfen'}</h2>
-      {isPdf && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
+      {isPdf && !url && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
       {url && <button type="button" className="cash-photo" onClick={() => setBig(true)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /><span className="cash-photo-tip">Antippen zum Vergrößern</span></button>}
       {big && url && <ZoomView src={url} close={() => setBig(false)} />}
       {start.id && rc.photo && !rc.photo.endsWith('.pdf') && <button type="button" className="btn sm ghost cash-xl" disabled={pdfBusy} onClick={() => void savePdf()}><Icon name="share" /> {pdfBusy ? 'PDF/A wird erstellt …' : 'Als PDF/A speichern'}</button>}
