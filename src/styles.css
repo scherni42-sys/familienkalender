@@ -525,7 +525,10 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .ch-place small { color: rgba(238, 243, 240, .7); }
 .ch-note { color: var(--wv-muted); font-size: 12px; text-align: center; }
 .ch-compose { display: flex; align-items: center; gap: 6px; padding-top: 6px; min-width: 0; }
-.ch-compose input { flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid var(--wv-line); background: #1E2321; color: var(--wv-fg); font: inherit; font-size: 15px; }
+.ch-field { flex: 1; min-width: 0; position: relative; display: flex; }
+.ch-emo { position: absolute; left: 4px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border: 0; padding: 0; border-radius: 50%; background: none; color: var(--wv-muted); display: grid; place-items: center; cursor: pointer; }
+.ch-emo.on { color: var(--accent); }
+.ch-compose input { flex: 1; min-width: 0; height: 44px; padding: 0 14px 0 42px; border-radius: 22px; border: 1px solid var(--wv-line); background: #1E2321; color: var(--wv-fg); font: inherit; font-size: 15px; }
 .ch-i { all: unset; flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; color: var(--wv-fg); cursor: pointer; }
 .ch-i .ico { width: 24px; height: 24px; }
 .ch-send { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--accent); color: #fff; cursor: pointer; }
@@ -572,3 +575,12 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .ask-row { display: flex; justify-content: flex-end; gap: 6px; }
 .ask-row button { border: 0; background: none; color: #6FD3A0; font: inherit; font-size: 15px; font-weight: 700; padding: 10px 14px; border-radius: 10px; }
 .ask-row .ask-ok { background: #2E8B57; color: #fff; }
+
+/* Emoji-Auswahl unter dem Eingabefeld (wie bei WhatsApp statt der Tastatur) */
+.emo { flex: none; margin-top: 6px; border-top: 1px solid var(--wv-line); }
+.emo-tabs { display: flex; gap: 2px; overflow-x: auto; padding: 4px 0; }
+.emo-tabs button { flex: none; border: 0; background: none; font-size: 20px; width: 40px; height: 36px; border-radius: 10px; opacity: .55; cursor: pointer; }
+.emo-tabs button.on { opacity: 1; background: #343B38; }
+.emo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); height: 220px; overflow-y: auto; overscroll-behavior: contain; align-content: start; }
+.emo-grid button { border: 0; background: none; font-size: 26px; height: 44px; border-radius: 10px; cursor: pointer; padding: 0; }
+.emo-grid button:active { background: #343B38; }

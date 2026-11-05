@@ -6,6 +6,7 @@ import { hm, today } from '../lib/dates';
 import { shrinkPhoto } from '../lib/ai';
 import { Badge, Icon, useLong } from './ui';
 import { ClipMenu } from './ClipMenu';
+import { EmojiPanel } from './Emoji';
 import { native } from '../lib/native';
 import { fail, toast } from './toast';
 import { ask } from './ask';
@@ -98,7 +99,14 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
   const snap = useSnapshot();
   const me = snap.me!;
   const list = (snap.chats ?? []).filter(c => (c.from_member === me && c.to_member === w.id) || (c.from_member === w.id && c.to_member === me));
-  const [text, setText] = useState(''), [busy, setBusy] = useState(false);
+  const [text, setText] = useState(''), [busy, setBusy] = useState(false), [emo, setEmo] = useState(false);
+  const inp = useRef<HTMLInputElement>(null);
+  // Emoji an der Schreibmarke einfügen
+  const addEmoji = (e: string) => {
+    const el = inp.current, a = el?.selectionStart ?? text.length, b = el?.selectionEnd ?? text.length;
+    setText(text.slice(0, a) + e + text.slice(b));
+    requestAnimationFrame(() => { if (el) { el.setSelectionRange(a + e.length, a + e.length); } });
+  };
   const end = useRef<HTMLDivElement>(null);
   // Name und Bild stehen oben in der Zeile neben „Chat“ (Platz dafür legt WidgetView an)
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -153,11 +161,18 @@ function Thread({ w, back }: { w: Member; back: () => void }) {
       ) : (
         <form className="ch-compose" onSubmit={e => { e.preventDefault(); const v = text.trim(); if (!v || busy) return; void go(store.sendChat(w.id, { kind: 'text', text: v })).then(() => setText('')); }}>
           <ClipMenu image={f => void photo(f)} doc={doc} place={place} disabled={busy} />
-          <input value={text} onChange={e => setText(e.target.value)} placeholder={`Nachricht an ${w.name}`} maxLength={2000} aria-label="Nachricht" />
+          <span className="ch-field">
+            <button type="button" className={`ch-emo${emo ? ' on' : ''}`} aria-label={emo ? 'Tastatur' : 'Emoji'} aria-pressed={emo} onClick={() => { setEmo(!emo); if (emo) inp.current?.focus(); else inp.current?.blur(); }}>
+              {emo ? <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.8" /><path d="M6 9.5h1M9.5 9.5h1M13 9.5h1M16.5 9.5h1M6 12.5h1M9.5 12.5h1M13 12.5h1M16.5 12.5h1M8 15.2h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                : <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" strokeWidth="1.8" /><circle cx="9" cy="10" r="1.2" fill="currentColor" /><circle cx="15" cy="10" r="1.2" fill="currentColor" /><path d="M8 14.2q4 3.6 8 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>}
+            </button>
+            <input ref={inp} value={text} onChange={e => setText(e.target.value)} onFocus={() => setEmo(false)} placeholder={`Nachricht an ${w.name}`} maxLength={2000} aria-label="Nachricht" />
+          </span>
           {text.trim() ? <button className="ch-send" aria-label="Senden" disabled={busy}>{busy ? <span className="spin" /> : <Icon name="send" />}</button>
             : <button type="button" className="ch-send" aria-label="Sprachnachricht aufnehmen" disabled={busy} onClick={() => void voice.start()}>{busy ? <span className="spin" /> : <Icon name="mic" />}</button>}
         </form>
       )}
+      {emo && voice.sec === null && <EmojiPanel pick={addEmoji} />}
     </div>
   );
 }
