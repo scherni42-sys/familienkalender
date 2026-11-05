@@ -465,7 +465,13 @@ function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt
   const e = rc.einv ?? {};
   const upd = (p: Partial<EInv>) => set({ einv: { ...e, ...p } });
   // Käufer leer: eigene Rechnungsanschrift aus den Einstellungen
-  const full: Receipt = { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer: e.buyer?.name ? e.buyer : { ...(prefs.addr ?? {} as Party), ...(e.buyer ?? {}), name: e.buyer?.name || prefs.addr?.name || prefs.firm } } };
+  // Steht auf der Rechnung die eigene Anschrift (gleiche PLZ und Straße oder gleicher Name), fehlende Käuferfelder daraus ergänzen
+  const n = (v?: string) => (v ?? '').toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+  const me = prefs.addr, eb = e.buyer;
+  const same = !!me && !!eb?.name && ((!!n(me.name) && n(me.name) === n(eb.name)) || (!!n(me.zip) && n(me.zip) === n(eb.zip) && !!n(me.street) && n(me.street) === n(eb.street)));
+  const fillB = (have: Party, add?: Party) => { const o = { ...have } as Record<string, string>; for (const [k, v] of Object.entries(add ?? {})) if (v && !o[k]) o[k] = v; return o as unknown as Party; };
+  const buyer: Party = !eb?.name ? { ...(me ?? {} as Party), ...(eb ?? {}), name: eb?.name || me?.name || prefs.firm } : same ? fillB(eb, me) : eb;
+  const full: Receipt = { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer } };
   const chk = xCheck(full);
   const [busy, setBusy] = useState(false);
   // Leere Felder aus dem gespeicherten Beleg nachtragen, Eingetragenes bleibt
