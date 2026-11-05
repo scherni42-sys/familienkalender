@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
-import { CAT_ICON, CATS, canViewFamily, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { CATS, canViewFamily, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
+import { CatIcon, CatPick } from './CashIcons';
 import { fail, toast } from './toast';
 
 const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
@@ -20,10 +21,18 @@ export function CashSheet({ close }: { close: () => void }) {
   useEffect(() => { void getPrefs().then(setP).catch(() => {}); }, []);
   const keep = async (p: Prefs) => { await setPrefs(p); setP(p); };
   const list = () => setView({ kind: 'list' });
+  // Monat und Reiter bleiben erhalten; nach dem Speichern springt die Liste in den Monat des Belegs
+  const [off, setOff] = useState(0), [tab, setTab] = useState<Tab>('mine');
+  const saved = (rc: Receipt) => {
+    const d = new Date(rc.bought_at), n = new Date();
+    if (!isNaN(d.getTime())) setOff(Math.min(0, (d.getFullYear() - n.getFullYear()) * 12 + d.getMonth() - n.getMonth()));
+    if (rc.scope === 'business' && prefs.business) setTab('business'); else if (tab === 'business') setTab('mine');
+    list();
+  };
   if (view.kind === 'new') return <NewReceipt close={close} back={list} prefs={prefs} next={(rc, photo) => setView({ kind: 'edit', rc, photo })} />;
-  if (view.kind === 'edit') return <ReceiptForm close={close} rc={view.rc} photo={view.photo} prefs={prefs} keep={keep} done={list} />;
+  if (view.kind === 'edit') return <ReceiptForm close={close} rc={view.rc} photo={view.photo} prefs={prefs} keep={keep} done={list} saved={saved} />;
   if (view.kind === 'prefs') return <CashPrefs close={close} back={list} prefs={prefs} keep={keep} />;
-  return <CashList close={close} prefs={prefs} add={() => setView({ kind: 'new' })} open={rc => setView({ kind: 'edit', rc })} settings={() => setView({ kind: 'prefs' })} />;
+  return <CashList close={close} prefs={prefs} off={off} setOff={setOff} tab={tab} setTab={setTab} add={() => setView({ kind: 'new' })} open={rc => setView({ kind: 'edit', rc })} settings={() => setView({ kind: 'prefs' })} />;
 }
 
 const SCOPE_LABEL: Record<Scope, string> = { private: 'Privat', family: 'Familie', business: 'Firma' };
@@ -57,10 +66,11 @@ function CashPrefs({ close, back, prefs, keep }: { close: () => void; back: () =
   );
 }
 
-function CashList({ close, add, open, settings, prefs }: { close: () => void; add: () => void; open: (rc: Receipt) => void; settings: () => void; prefs: Prefs }) {
+type Tab = 'mine' | 'family' | 'business';
+function CashList({ close, add, open, settings, prefs, off, setOff, tab, setTab }: { off: number; setOff: (f: (o: number) => number) => void; tab: Tab; setTab: (t: Tab) => void; close: () => void; add: () => void; open: (rc: Receipt) => void; settings: () => void; prefs: Prefs }) {
   const snap = useSnapshot();
   const me = snap.me!;
-  const [off, setOff] = useState(0), [tab, setTab] = useState<'mine' | 'family' | 'business'>('mine'), [fam, setFam] = useState(false);
+  const [fam, setFam] = useState(false);
   const [rows, setRows] = useState<Receipt[] | null>(null), [err, setErr] = useState('');
   const now = new Date(), first = new Date(now.getFullYear(), now.getMonth() + off, 1), last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
   useEffect(() => { void canViewFamily().then(setFam).catch(() => setFam(false)); }, []);
@@ -98,13 +108,13 @@ function CashList({ close, add, open, settings, prefs }: { close: () => void; ad
         <div className="cash-sum"><span>{tab === 'mine' ? 'Meine Ausgaben' : tab === 'business' ? (prefs.firm || 'Firma') + ' brutto' : 'Familienausgaben'}</span><b>{eur(sum)}</b></div>
         {tab === 'business' && <div className="cash-net"><span>Netto <b>{eur(sum - tax)}</b></span><span>Vorsteuer <b>{eur(tax)}</b></span></div>}
         {cats.length > 0 && <div className="cash-cats">{cats.map(([c, v]) => <div key={c} className="cash-cat">
-          <span>{CAT_ICON[c] ?? '📦'} {c}</span><i style={{ width: `${Math.max(3, v / max * 100)}%` }} /><b>{eur(v)}</b></div>)}</div>}
+          <span><CatIcon c={c} size={18} /> {c}</span><i style={{ width: `${Math.max(3, v / max * 100)}%` }} /><b>{eur(v)}</b></div>)}</div>}
         {!shown.length && <p>{tab === 'mine' ? 'In diesem Monat noch keine Belege. Mit „＋ Beleg“ fotografierst du einen Kassenbon.' : tab === 'business' ? 'In diesem Monat keine Firmenbelege.' : 'In diesem Monat keine Familienausgaben.'}</p>}
         <div className="cash-list">{shown.map(r => {
           const who = snap.members.find(m => m.id === r.owner);
           const d = new Date(r.bought_at);
           return <button key={r.id} type="button" className="cash-row" onClick={() => open(r)}>
-            <span className="cash-ic">{CAT_ICON[r.category] ?? '📦'}</span>
+            <span className="cash-ic"><CatIcon c={r.category} size={24} /></span>
             <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}. {pad(d.getHours())}:{pad(d.getMinutes())}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.scope === 'family' ? ' · Familie' : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
             {tab === 'family' && who && who.id !== me && <Badge m={who} size={24} plain />}
             <b className="cash-amt">{eur(amount(r))}</b>
@@ -190,7 +200,7 @@ function CropBox({ img, box, set }: { img: HTMLCanvasElement; box: { x0: number;
 }
 
 // Bon prüfen und speichern (neu oder bearbeiten)
-function ReceiptForm({ close, rc: start, photo, done, prefs, keep }: { close: () => void; rc: Receipt; photo?: HTMLCanvasElement | null; done: () => void; prefs: Prefs; keep: (p: Prefs) => Promise<void> }) {
+function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { saved: (rc: Receipt) => void; close: () => void; rc: Receipt; photo?: HTMLCanvasElement | null; done: () => void; prefs: Prefs; keep: (p: Prefs) => Promise<void> }) {
   const snap = useSnapshot();
   const mine = !start.owner || start.owner === snap.me;
   const [rc, setRc] = useState<Receipt>(start), [busy, setBusy] = useState(false), [url, setUrl] = useState(''), [big, setBig] = useState(false);
@@ -217,7 +227,7 @@ function ReceiptForm({ close, rc: start, photo, done, prefs, keep }: { close: ()
     setBusy(true);
     try {
       await save({ ...rc, merchant: rc.merchant.trim() }, photo ? await toBlob(photo) : null);
-      if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope }] }).catch(() => {}); toast('Beleg gespeichert.'); done(); }
+      if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope }] }).catch(() => {}); toast('Beleg gespeichert.'); saved(rc); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
   const del = async () => { if (!(await ask('Diesen Beleg mit Foto löschen?', 'Löschen'))) return; try { await remove(rc); toast('Beleg gelöscht.'); done(); } catch (e) { fail(e); } };
@@ -229,13 +239,13 @@ function ReceiptForm({ close, rc: start, photo, done, prefs, keep }: { close: ()
       {ro && <p>Von {snap.members.find(m => m.id === rc.owner)?.name ?? 'jemandem'}. Nur der Besitzer kann den Beleg ändern.</p>}
       <fieldset disabled={ro} className="cash-form">
         {!ro && <div className={`visbig${biz ? ' three' : ''}`} role="group" aria-label="Privat, Familie oder Firma">
-          <button type="button" className="private" aria-pressed={rc.scope === 'private'} onClick={() => set({ scope: 'private' })}><Icon name="lock" />Privat<small>nur ich</small></button>
+          <button type="button" className="private" aria-pressed={rc.scope === 'private'} onClick={() => setRc(r => ({ ...r, scope: 'private', items: r.scope === 'family' ? r.items.map(i => ({ ...i, family: false })) : r.items }))}><Icon name="lock" />Privat<small>nur ich</small></button>
           <button type="button" className="family" aria-pressed={rc.scope === 'family'} onClick={() => set({ scope: 'family' })}><Icon name="home" />Familie<small>Familienkasse</small></button>
           {biz && <button type="button" className="business" aria-pressed={rc.scope === 'business'} onClick={() => setRc(r => ({ ...r, scope: 'business', items: r.items.map(i => ({ ...i, family: false })) }))}><Icon name="work" />Firma<small>{prefs.firm || 'nur ich'}</small></button>}
         </div>}
         {!ro && <div className="cash-kind" role="group" aria-label="Belegart">
-          <button type="button" aria-pressed={!inv} onClick={() => setKind('bon')}>🧾 Kassenbon<small>Bruttopreise</small></button>
-          <button type="button" aria-pressed={inv} onClick={() => setKind('rechnung')}>📄 Rechnung<small>Netto · MwSt · Brutto</small></button>
+          <button type="button" aria-pressed={!inv} onClick={() => setKind('bon')}><span className="k"><CatIcon c="bon" size={20} /> Kassenbon</span><small>Bruttopreise</small></button>
+          <button type="button" aria-pressed={inv} onClick={() => setKind('rechnung')}><span className="k"><CatIcon c="rechnung" size={20} /> Rechnung</span><small>Netto · MwSt · Brutto</small></button>
         </div>}
         <label className="field"><span>{inv ? 'Rechnungssteller' : 'Händler'}</span><input value={rc.merchant} onChange={e => set({ merchant: e.target.value })} maxLength={200} placeholder="z. B. REWE" /></label>
         <div className="row2">
@@ -247,7 +257,7 @@ function ReceiptForm({ close, rc: start, photo, done, prefs, keep }: { close: ()
           {inv && <label className="field"><span>Rechnungsnr.</span><input value={rc.invoice_no} onChange={e => set({ invoice_no: e.target.value })} maxLength={60} /></label>}
           {inv && <label className="field"><span>Netto (€)</span><input inputMode="decimal" defaultValue={rc.net ? fmt(rc.net) : ''} onChange={e => set({ net: num(e.target.value) })} placeholder="0,00" /></label>}
           <label className="field"><span>{inv ? 'Brutto (€)' : 'Summe (€)'}</span><input inputMode="decimal" defaultValue={rc.total ? fmt(rc.total) : ''} onChange={e => set({ total: num(e.target.value) })} placeholder="0,00" /></label>
-          <label className="field"><span>Kategorie</span><select value={rc.category} onChange={e => set({ category: e.target.value })}>{CATS.map(c => <option key={c} value={c}>{CAT_ICON[c]} {c}</option>)}</select></label>
+          <div className="field"><span>Kategorie</span><CatPick value={rc.category} disabled={ro} set={c => set({ category: c })} /></div>
         </div>
         {inv && <div className="cash-tax">
           <p className="cash-check">Steuerübersicht wie unten auf der Rechnung: je MwSt-Satz eine Zeile.</p>
@@ -269,7 +279,7 @@ function ReceiptForm({ close, rc: start, photo, done, prefs, keep }: { close: ()
         <div className="cash-items">{rc.items.map((it, i) => <div key={i} className="cash-it">
           {rc.scope === 'private' && <input type="checkbox" aria-label="Familienausgabe" title="Familienausgabe" checked={it.family} onChange={e => setItem(i, { family: e.target.checked })} />}
           <input className="nm" value={it.name} onChange={e => setItem(i, { name: e.target.value })} aria-label="Position" />
-          <select value={it.category} onChange={e => setItem(i, { category: e.target.value })} aria-label="Kategorie">{CATS.map(c => <option key={c} value={c}>{CAT_ICON[c]}</option>)}</select>
+          <CatPick compact value={it.category} disabled={ro} set={c => setItem(i, { category: c })} />
           {inv && <select className="vat" value={it.vat} onChange={e => setItem(i, { vat: Number(e.target.value) })} aria-label="MwSt">{[...new Set([0, 7, 19, it.vat])].sort((a, b) => a - b).map(v => <option key={v} value={v}>{v ? `${v}%` : '–'}</option>)}</select>}
           <input className="pr" inputMode="decimal" defaultValue={fmt(it.price)} onChange={e => setItem(i, { price: num(e.target.value) })} aria-label="Preis" />
           {!ro && <button type="button" className="x" aria-label="Zeile löschen" onClick={() => setRc(r => ({ ...r, items: r.items.filter((_, k) => k !== i) }))}>✕</button>}
