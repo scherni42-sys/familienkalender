@@ -338,10 +338,14 @@ a.addr { text-decoration: underline; text-decoration-color: color-mix(in srgb, c
 
 /* Zaubertaste: Claude fragen */
 .magic { width: 34px; height: 34px; border-radius: 999px; border: 1.5px solid #f5b800; background: color-mix(in srgb, #ffc83d 22%, var(--surface)); font-size: 17px; line-height: 1; display: inline-grid; place-items: center; cursor: pointer; }
-.ask-in { display: flex; gap: 8px; align-items: stretch; margin: 10px 0; }
-.ask-in textarea { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--line, #d0d4d9); background: var(--surface); color: var(--ink); resize: none; }
-.ask-mic { flex: none; width: 48px; padding: 0; display: grid; place-items: center; }
+.ask-in { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 4px; }
+.ask-in textarea { width: 100%; box-sizing: border-box; min-height: 84px; font: inherit; font-size: 17px; line-height: 1.4; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line, #d0d4d9); background: var(--surface); color: var(--ink); resize: none; overflow-y: auto; }
+.ask-bar { display: flex; align-items: center; gap: 12px; min-height: 52px; }
+.ask-hint { flex: 1; color: var(--muted); font-size: 13.5px; }
+.ask-mic { flex: none; width: 52px; height: 52px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
 .ask-mic.on { background: #e53935; color: #fff; border-color: #e53935; }
+.wave { flex: 1; min-width: 0; height: 40px; display: flex; align-items: center; justify-content: space-between; gap: 3px; overflow: hidden; }
+.wave i { flex: 1; max-width: 6px; min-height: 4px; border-radius: 3px; background: var(--accent); transition: height 70ms linear; }
 .ask-ideas { display: flex; flex-wrap: wrap; gap: 6px; }
 .ask-ideas button { border: 1px solid var(--line, #d0d4d9); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 11px; font: inherit; font-size: 14px; cursor: pointer; }
 .ask-busy { animation: askp 1.4s ease-in-out infinite; }

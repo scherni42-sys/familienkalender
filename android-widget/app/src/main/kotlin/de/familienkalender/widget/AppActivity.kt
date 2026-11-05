@@ -389,6 +389,7 @@ class AppActivity : Activity() {
     private var inlineActive = false
     private var askingMic = false
     private var recognizer: android.speech.SpeechRecognizer? = null
+    private var lastRms = 0L
 
     private fun speechEvent(name: String, text: String) =
         web.evaluateJavascript("window.dispatchEvent(new CustomEvent('$name',{detail:" + org.json.JSONObject.quote(text) + "}))", null)
@@ -399,7 +400,14 @@ class AppActivity : Activity() {
         r.setRecognitionListener(object : android.speech.RecognitionListener {
             override fun onReadyForSpeech(p: Bundle?) { speechEvent("famto-speech-state", "listening") }
             override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(v: Float) {}
+            // Lautstärke für die Pegelbalken in der Web-App (0…1, höchstens alle 60 ms)
+            override fun onRmsChanged(v: Float) {
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastRms < 60) return
+                lastRms = now
+                val l = ((v + 2f) / 12f).coerceIn(0f, 1f)
+                web.evaluateJavascript("window.dispatchEvent(new CustomEvent('famto-speech-level',{detail:" + String.format(java.util.Locale.US, "%.2f", l) + "}))", null)
+            }
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() { speechEvent("famto-speech-state", "thinking") }
             override fun onEvent(t: Int, b: Bundle?) {}
