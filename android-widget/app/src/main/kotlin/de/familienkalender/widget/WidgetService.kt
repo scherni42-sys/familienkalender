@@ -108,6 +108,8 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 val av = if (r.kind == Kind.MESSAGE && r.avatar.isNotEmpty()) Photos.avatar(ctx, r.avatar, if (r.open.startsWith("chat:")) 0 else r.color) else null
                 if (av != null) setImageViewBitmap(R.id.av, av)
                 setViewVisibility(R.id.av, if (av != null) View.VISIBLE else View.GONE)
+                // Chat mit Bild: kein farbiger Balken davor
+                setViewVisibility(R.id.bar, if (av != null && r.open.startsWith("chat:")) View.GONE else View.VISIBLE)
                 if (r.faded) {
                     // Vergangene Termine blass: Textfarbe mit Transparenz statt setAlpha (nicht in RemoteViews erlaubt)
                     val faded = (ctx.getColor(R.color.fg) and 0x00FFFFFF) or 0x73000000
