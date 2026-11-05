@@ -554,7 +554,7 @@ function einvFull(rc: Receipt, prefs: Prefs): Receipt {
   const n = (v?: string) => (v ?? '').toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
   const eb = e.buyer, own = rc.firm || matchFirm(prefs, eb);
   const me = prefs.firms.find(f => f.name === own) ?? prefs.addr ?? (prefs.firms.length === 1 ? prefs.firms[0] : undefined);
-  const same = !!me && !!eb?.name && ((!!n(me.name) && n(me.name) === n(eb.name)) || (!!n(me.zip) && n(me.zip) === n(eb.zip) && !!n(me.street) && n(me.street) === n(eb.street)));
+  const same = !!me && !!eb?.name && (rc.firm === me.name || matchFirm(prefs, eb) === me.name || (!!n(me.name) && n(me.name) === n(eb.name)) || (!!n(me.zip) && n(me.zip) === n(eb.zip) && !!n(me.street) && n(me.street) === n(eb.street)));
   const fillB = (have: Party, add?: Party) => { const o = { ...have } as Record<string, string>; for (const [k, v] of Object.entries(add ?? {})) if (v && !o[k]) o[k] = v; return o as unknown as Party; };
   const buyer: Party = !eb?.name ? { ...(me ?? {} as Party), ...(eb ?? {}), name: eb?.name || me?.name || rc.firm || prefs.firm } : same ? fillB(eb, me) : eb;
   return { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer } };
