@@ -677,7 +677,7 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-opt { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 12px; background: var(--surface-2); }
 .cash-opt span { display: grid; gap: 2px; } .cash-opt small { color: var(--muted); font-size: 12.5px; }
 .cash-cards { display: grid; gap: 6px; }
-.cash-card { display: flex; gap: 6px; align-items: center; }
+.cash-card { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .cash-card input, .cash-card select { height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); font: inherit; padding: 0 8px; }
 .cash-card input { width: 80px; } .cash-card select { flex: 1; }
 .cash-card .x { border: 0; background: none; color: var(--muted); font-size: 16px; width: 28px; }
@@ -747,3 +747,7 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-tabs .kw-p { min-width: 0; width: 96px; flex: 0 1 96px; height: 32px; padding: 0 8px; font-size: 14px; border-width: 1.5px; }
 
 .cash-exp { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.cash-firmsel { width: 100%; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-weight: 700; }
+.cash-card .cf { flex: 1 1 100%; }
+.sheet-in > .btn.sm { align-self: flex-start; height: auto; min-height: 38px; flex: none; }

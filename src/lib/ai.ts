@@ -111,8 +111,10 @@ export async function askClaude(q: string, me: string, members: Member[], events
   const eu = (n: number) => n.toFixed(2).replace('.', ',') + ' €';
   const rcLine = (r: Receipt) => [
     r.bought_at.slice(0, 10), r.merchant, eu(r.total), r.owner === me ? 'von mir' : `von ${nm(r.owner ?? null)}`,
-    r.scope === 'family' ? 'Familie' : r.scope === 'business' ? 'Firma' : r.owner !== me ? `Familienanteil ${eu(familyPart(r))}` : 'privat',
-    r.category, r.kind === 'rechnung' ? `Rechnung ${r.invoice_no}` : '', r.payment, r.grp ? `Gruppe ${r.grp}` : '',
+    r.scope === 'family' ? 'Familie' : r.scope === 'business' ? (r.firm ? `Firma ${r.firm}` : 'Firma') : r.owner !== me ? `Familienanteil ${eu(familyPart(r))}` : 'privat',
+    r.category, r.kind === 'rechnung' ? `Rechnung ${r.invoice_no}` : '',
+    r.einv?.seller?.name && r.einv.seller.name !== r.merchant ? `von ${r.einv.seller.name}` : '',
+    r.einv?.buyer?.name ? `an ${[r.einv.buyer.name, r.einv.buyer.street, r.einv.buyer.city].filter(Boolean).join(', ')}` : '', r.payment, r.grp ? `Gruppe ${r.grp}` : '',
     r.items.slice(0, 25).map(i => `${i.name} ${eu(i.price)}`).join('; ').slice(0, 400), r.note.slice(0, 80)
   ].filter(Boolean).join(' | ');
   const pick = (r: { answer: string; events: number[]; birthdays: number[]; receipts?: number[]; action: AskResult['action']; target: number | null; new_text: string | null }): AskResult => ({

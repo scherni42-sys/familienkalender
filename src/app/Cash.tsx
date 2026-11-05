@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, cardFirm, matchFirm, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
@@ -23,7 +23,7 @@ type View = { kind: 'list' } | { kind: 'new'; file?: File } | { kind: 'prefs' } 
 export function CashSheet({ close, share, rc: openRc }: { close: () => void; share?: boolean; rc?: Receipt }) {
   // Mit FamTO geteilte Datei (PDF-Rechnung, Foto): gleich einen neuen Beleg damit anlegen
   const [view, setView] = useState<View>(() => { const f = share ? takeShared() : null; return f ? { kind: 'new', file: f } : openRc ? { kind: 'edit', rc: openRc } : { kind: 'list' }; });
-  const [prefs, setP] = useState<Prefs>({ business: false, firm: '', cards: [] });
+  const [prefs, setP] = useState<Prefs>({ business: false, firm: '', cards: [], firms: [] });
   useEffect(() => { void getPrefs().then(setP).catch(() => {}); }, []);
   const keep = async (p: Prefs) => { await setPrefs(p); setP(p); };
   const list = () => setView({ kind: 'list' });
@@ -47,21 +47,32 @@ const SCOPE_LABEL: Record<Scope, string> = { private: 'Privat', family: 'Familie
 // Eigene Einstellungen: Firma-Belege und feste Kartenzuordnung
 function CashPrefs({ close, back, prefs, keep }: { close: () => void; back: () => void; prefs: Prefs; keep: (p: Prefs) => Promise<void> }) {
   const [p, setP] = useState<Prefs>(prefs), [busy, setBusy] = useState(false);
+  const [openFirm, setOpenFirm] = useState(-1);
+  const setFirm = (i: number, a: Partial<Party>) => setP(x => ({ ...x, firms: x.firms.map((f, k) => k === i ? { ...f, ...a } : f) }));
   const setCard = (i: number, c: Partial<Prefs['cards'][number]>) => setP(x => ({ ...x, cards: x.cards.map((y, k) => k === i ? { ...y, ...c } : y) }));
   const go = async () => {
     setBusy(true);
-    try { await keep({ ...p, firm: p.firm.trim(), cards: p.cards.filter(c => c.card.length === 4) }); toast('Gespeichert.'); back(); }
+    try { const firms = p.firms.map(f => ({ ...f, name: (f.name ?? '').trim() })).filter(f => f.name); await keep({ ...p, firms, firm: firms[0]?.name ?? p.firm.trim(), cards: p.cards.filter(c => c.card.length === 4) }); toast('Gespeichert.'); back(); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
   return (
     <Sheet onClose={close} label="Kassenbuch einrichten">
       <h2>Kassenbuch einrichten</h2>
       <label className="cash-opt"><input type="checkbox" checked={p.business} onChange={e => setP({ ...p, business: e.target.checked })} /><span><b>Ich bin Unternehmer</b><small>Zeigt die Taste „Firma“. Firmenbelege sieht nur du, mit Netto und Vorsteuer.</small></span></label>
-      {p.business && <label className="field"><span>Firmenname</span><input value={p.firm} onChange={e => setP({ ...p, firm: e.target.value })} maxLength={200} placeholder="z. B. Muster GmbH" /></label>}
-      <details className="cash-einv"><summary>Meine Rechnungsanschrift (für E-Rechnungen)</summary>
+      {p.business && <>
+        <div className="field"><span>Meine Firmen</span></div>
+        <p className="cash-check">Steht eine dieser Firmen als Rechnungsempfänger auf dem Beleg, ordnet FamTO ihn gleich dieser Firma zu. Die Anschrift wird für E-Rechnungen als Käufer eingesetzt.</p>
+        {p.firms.map((f, i) => <details key={i} className="cash-einv" open={openFirm === i} onToggle={e => { const o = (e.currentTarget as HTMLDetailsElement).open; setOpenFirm(v => o ? i : v === i ? -1 : v); }}>
+          <summary>{f.name || 'Neue Firma'}</summary>
+          <PartyFields p={f} set={a => setFirm(i, a)} buyer />
+          <button type="button" className="btn sm ghost" onClick={() => setP(x => ({ ...x, firms: x.firms.filter((_, k) => k !== i) }))}>Firma entfernen</button>
+        </details>)}
+        <button type="button" className="btn sm" onClick={() => { setOpenFirm(p.firms.length); setP(x => ({ ...x, firms: [...x.firms, { name: '' } as Party] })); }}>＋ Firma</button>
+      </>}
+      {!p.business && <details className="cash-einv"><summary>Meine Rechnungsanschrift (für E-Rechnungen)</summary>
         <p className="cash-check">Wird als Käufer eingesetzt, wenn auf der Rechnung keiner zu erkennen ist.</p>
         <PartyFields p={p.addr ?? {}} set={a => setP(x => ({ ...x, addr: { ...x.addr, ...a } as Party }))} buyer />
-      </details>
+      </details>}
       <div className="field"><span>Meine Karten</span></div>
       <p className="cash-check">Wird ein Beleg mit einer dieser Karten bezahlt, ordnet FamTO ihn gleich richtig zu.</p>
       <div className="cash-cards">{p.cards.map((c, i) => <div key={i} className="cash-card">
@@ -69,6 +80,9 @@ function CashPrefs({ close, back, prefs, keep }: { close: () => void; back: () =
         <select value={c.scope} onChange={e => setCard(i, { scope: e.target.value as Scope })} aria-label="Zuordnung">
           {(['private', 'family', ...(p.business || c.scope === 'business' ? ['business'] as const : [])] as Scope[]).map(v => <option key={v} value={v}>{SCOPE_LABEL[v]}</option>)}
         </select>
+        {c.scope === 'business' && p.firms.filter(f => f.name).length > 1 && <select className="cf" value={c.firm ?? ''} onChange={e => setCard(i, { firm: e.target.value || undefined })} aria-label="Firma">
+          <option value="">Firma wählen …</option>{p.firms.filter(f => f.name).map(f => <option key={f.name}>{f.name}</option>)}
+        </select>}
         <button type="button" className="x" aria-label="Karte löschen" onClick={() => setP(x => ({ ...x, cards: x.cards.filter((_, k) => k !== i) }))}>✕</button>
       </div>)}</div>
       <button type="button" className="btn sm" onClick={() => setP(x => ({ ...x, cards: [...x.cards, { card: '', scope: x.business ? 'business' : 'private' }] }))}>＋ Karte</button>
@@ -109,7 +123,9 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
   const hay = (r: Receipt) => [r.merchant, r.note, r.grp, r.invoice_no, r.category, r.payment, r.card, fmt(r.total), ...r.items.map(i => i.name)].join(' ').toLowerCase();
   const base = find ? (all ?? []).filter(r => words.every(w => hay(r).includes(w))) : rows ?? [];
   // In der Gruppe zählen alle sichtbaren Belege (für die Kostenumlage), sonst je Reiter
-  const shown = base.filter(r => find ? (r.owner === me || familyPart(r) !== 0) : grpMode ? (r.owner === me || familyPart(r) !== 0) : tab === 'mine' ? r.owner === me && r.scope !== 'business' : tab === 'business' ? r.owner === me && r.scope === 'business' : familyPart(r) !== 0);
+  const [firmSel, setFirmSel] = useState('');
+  const firmNames = [...new Set([...prefs.firms.map(f => f.name), ...(rows ?? []).filter(r => r.scope === 'business' && r.firm).map(r => r.firm!)].filter(Boolean))];
+  const shown = base.filter(r => !(tab === 'business' && !find && !grpMode && firmSel && r.firm !== firmSel)).filter(r => find ? (r.owner === me || familyPart(r) !== 0) : grpMode ? (r.owner === me || familyPart(r) !== 0) : tab === 'mine' ? r.owner === me && r.scope !== 'business' : tab === 'business' ? r.owner === me && r.scope === 'business' : familyPart(r) !== 0);
   const amount = (r: Receipt) => grpMode || find ? (r.owner === me || r.scope === 'family' ? r.total : familyPart(r)) : tab === 'family' ? familyPart(r) : r.total;
   // Firma: Netto und Vorsteuer aus der MwSt-Aufstellung, sonst aus den Zeilen geschätzt
   const vat = (r: Receipt) => { const t = r.taxes.length ? r.taxes : taxesFromItems(r); return t.reduce((s, x) => s + x.tax, 0); };
@@ -163,6 +179,9 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
         {fam && <button type="button" className={`kw-p${tab === 'family' ? ' on' : ''}`} onClick={() => setTab('family')}>Familie</button>}
         {prefs.business && <button type="button" className={`kw-p${tab === 'business' ? ' on' : ''}`} onClick={() => setTab('business')}>Firma</button>}
       </div>}
+      {tab === 'business' && per.mode !== 'group' && !find && firmNames.length > 1 && <select className="cash-firmsel" value={firmSel} onChange={e => setFirmSel(e.target.value)} aria-label="Firma">
+        <option value="">Alle Firmen</option>{firmNames.map(n => <option key={n}>{n}</option>)}
+      </select>}
       <div className="cash-modes" role="group" aria-label="Zeitraum">
         {([['month', 'Monat'], ['year', 'Jahr'], ['range', 'Von – bis'], ['group', 'Gruppe']] as [Mode, string][]).map(([m, t]) =>
           <button key={m} type="button" aria-pressed={per.mode === m} onClick={() => setMode(m)}>{t}</button>)}
@@ -185,7 +204,7 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
       {grpMode && !find && (grps.length ? <label className="field"><span>Buchungsgruppe</span><select value={per.grp} onChange={e => setPer(p => ({ ...p, grp: e.target.value }))}>{grps.map(g => <option key={g} value={g}>{g}</option>)}</select></label>
         : <p>Noch keine Buchungsgruppen. Trag beim Beleg unter „Buchungsgruppe“ z. B. „Urlaub Dänemark 2026“ ein, dann siehst du hier alle Ausgaben dazu und wer wem wie viel schuldet.</p>)}
       {err && !find ? <p className="cash-err">{err}</p> : (find ? all === null : rows === null) ? <p>Lädt …</p> : <>
-        <div className="cash-sum"><span>{find ? `${shown.length} Treffer` : grpMode ? 'Gesamt' : tab === 'mine' ? 'Meine Ausgaben' : biz ? (prefs.firm || 'Firma') + ' brutto' : 'Familienausgaben'}</span><b>{eur(sum)}</b></div>
+        <div className="cash-sum"><span>{find ? `${shown.length} Treffer` : grpMode ? 'Gesamt' : tab === 'mine' ? 'Meine Ausgaben' : biz ? (firmSel || (firmNames.length === 1 ? firmNames[0] : 'Firmen')) + ' brutto' : 'Familienausgaben'}</span><b>{eur(sum)}</b></div>
         {biz && <div className="cash-net"><span>Netto <b>{eur(sum - tax)}</b></span><span>Vorsteuer <b>{eur(tax)}</b></span></div>}
         {grpMode && shown.length > 0 && <Umlage key={per.grp} shown={shown} amount={amount} onSel={setUmlSel} />}
         {!find && per.mode === 'year' && sum > 0 && <div className="cash-cats">{byMon.map((v, m) => <div key={m} className="cash-cat mon">
@@ -202,7 +221,7 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
           const d = new Date(r.bought_at);
           return <button key={r.id} type="button" className="cash-row" onClick={() => open(r)}>
             <span className="cash-ic"><CatIcon c={r.category} size={24} /></span>
-            <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}.{per.mode === 'month' && !find ? '' : String(d.getFullYear()).slice(2)}{r.kind === 'rechnung' ? '' : ` ${pad(d.getHours())}:${pad(d.getMinutes())}`}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.grp && !grpMode ? ` · ${r.grp}` : ''}{r.scope === 'family' ? ' · Familie' : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
+            <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}.{per.mode === 'month' && !find ? '' : String(d.getFullYear()).slice(2)}{r.kind === 'rechnung' ? '' : ` ${pad(d.getHours())}:${pad(d.getMinutes())}`}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.grp && !grpMode ? ` · ${r.grp}` : ''}{r.scope === 'family' ? ' · Familie' : r.scope === 'business' && r.firm ? ` · ${r.firm}` : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
             {(tab === 'family' || grpMode || find) && m && m.id !== me && <Badge m={m} size={24} plain />}
             <b className="cash-amt">{eur(amount(r))}</b>
           </button>;
@@ -254,7 +273,7 @@ async function exportXlsx(title: string, shown: Receipt[], amount: (r: Receipt) 
   const sheets: SheetData[] = [{
     name: 'Belege', widths: [11, 26, 14, 14, 18, 18, 9, 9, 14, 7, 12, 12, 12, 12, 30],
     rows: [['Datum', 'Händler', 'Person', 'Kategorie', 'Buchungsgruppe', 'Rechnungsnr.', 'Art', 'Zuordnung', 'Bezahlt mit', 'Karte', 'Netto', 'MwSt', 'Brutto', 'Betrag', 'Notiz'],
-      ...sorted.map(r => { const v = vatOf(r); return [{ date: new Date(r.bought_at) }, r.merchant, who(r.owner), r.category, r.grp, r.invoice_no, r.kind === 'rechnung' ? 'Rechnung' : 'Bon', SC[r.scope], r.payment, r.card, { eur: r.net || r.total - v }, { eur: v }, { eur: r.total }, { eur: amount(r) }, r.note]; }),
+      ...sorted.map(r => { const v = vatOf(r); return [{ date: new Date(r.bought_at) }, r.merchant, who(r.owner), r.category, r.grp, r.invoice_no, r.kind === 'rechnung' ? 'Rechnung' : 'Bon', r.scope === 'business' && r.firm ? `Firma: ${r.firm}` : SC[r.scope], r.payment, r.card, { eur: r.net || r.total - v }, { eur: v }, { eur: r.total }, { eur: amount(r) }, r.note]; }),
       ['Summe', '', '', '', '', '', '', '', '', '', { eur: sorted.reduce((s, r) => s + (r.net || r.total - vatOf(r)), 0) }, { eur: sorted.reduce((s, r) => s + vatOf(r), 0) }, { eur: sorted.reduce((s, r) => s + r.total, 0) }, { eur: sorted.reduce((s, r) => s + amount(r), 0) }, '']]
   }, {
     name: 'Positionen', widths: [11, 26, 32, 8, 14, 7, 12, 9],
@@ -296,9 +315,12 @@ function NewReceipt({ close, back, next, prefs, file }: { close: () => void; bac
   const blank = (): Receipt => ({ bought_at: new Date().toISOString(), merchant: '', payment: '', card: '', total: 0, currency: 'EUR', category: 'Sonstiges', scope: 'private', photo: null, note: '', items: [], kind: 'bon', invoice_no: '', net: 0, taxes: [], items_net: false, grp: '', einv: {} });
   const fill = (r: ReadResult): Receipt => {
     const at = r.date ? new Date(`${r.date}T${/^\d\d:\d\d$/.test(r.time) ? r.time : '12:00'}:00`) : new Date();
-    const card = r.card.replace(/\D/g, '').slice(-4), by = cardScope(prefs, card);
-    if (by) toast(`Karte …${card}: ${SCOPE_LABEL[by]}`);
-    return { ...blank(), scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })), einv: r.kind === 'rechnung' ? { seller: r.seller, buyer: r.buyer, due: r.due_date || undefined, service: r.service_date || undefined, ref: r.buyer_ref || undefined } : {} };
+    const card = r.card.replace(/\D/g, '').slice(-4);
+    const byFirm = prefs.business ? matchFirm(prefs, r.buyer) : undefined;
+    const by = byFirm ? 'business' : cardScope(prefs, card);
+    const firm = byFirm ?? (by === 'business' ? cardFirm(prefs, card) ?? (prefs.firms.length === 1 ? prefs.firms[0].name : '') : '');
+    if (byFirm) toast(`Rechnung an ${byFirm}: als Firmenbeleg zugeordnet.`); else if (by) toast(`Karte …${card}: ${firm || SCOPE_LABEL[by]}`);
+    return { ...blank(), firm, scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })), einv: r.kind === 'rechnung' ? { seller: r.seller, buyer: r.buyer, due: r.due_date || undefined, service: r.service_date || undefined, ref: r.buyer_ref || undefined } : {} };
   };
   // PDF (z. B. Rechnung aus der Mail): direkt lesen lassen, kein Zuschneiden
   const pdf = async (f: File) => {
@@ -411,7 +433,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
     setBusy(true);
     try {
       await save({ ...rc, merchant: rc.merchant.trim(), grp: rc.grp.trim() }, photo instanceof HTMLCanvasElement ? await toBlob(photo) : photo ?? null);
-      if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope }] }).catch(() => {}); toast('Beleg gespeichert.'); saved(rc); }
+      if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope, ...(rc.scope === 'business' && rc.firm ? { firm: rc.firm } : {}) }] }).catch(() => {}); toast('Beleg gespeichert.'); saved(rc); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -434,8 +456,13 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
         {!ro && <div className={`visbig${biz ? ' three' : ''}`} role="group" aria-label="Privat, Familie oder Firma">
           <button type="button" className="private" aria-pressed={rc.scope === 'private'} onClick={() => setRc(r => ({ ...r, scope: 'private', items: r.scope === 'family' ? r.items.map(i => ({ ...i, family: false })) : r.items }))}><Icon name="lock" />Privat<small>nur ich</small></button>
           <button type="button" className="family" aria-pressed={rc.scope === 'family'} onClick={() => set({ scope: 'family' })}><Icon name="home" />Familie<small>Familienkasse</small></button>
-          {biz && <button type="button" className="business" aria-pressed={rc.scope === 'business'} onClick={() => setRc(r => ({ ...r, scope: 'business', items: r.items.map(i => ({ ...i, family: false })) }))}><Icon name="work" />Firma<small>{prefs.firm || 'nur ich'}</small></button>}
+          {biz && <button type="button" className="business" aria-pressed={rc.scope === 'business'} onClick={() => setRc(r => ({ ...r, scope: 'business', firm: r.firm || matchFirm(prefs, r.einv?.buyer) || (prefs.firms.length === 1 ? prefs.firms[0].name : ''), items: r.items.map(i => ({ ...i, family: false })) }))}><Icon name="work" />Firma<small>{rc.firm || (prefs.firms.length === 1 ? prefs.firms[0].name : 'nur ich')}</small></button>}
         </div>}
+        {rc.scope === 'business' && (prefs.firms.length > 1 || (rc.firm && !prefs.firms.some(f => f.name === rc.firm))) && <label className="field"><span>Firma</span>
+          <select value={rc.firm ?? ''} onChange={e => set({ firm: e.target.value })}>
+            <option value="">Bitte wählen …</option>
+            {[...new Set([...prefs.firms.map(f => f.name).filter(Boolean), ...(rc.firm ? [rc.firm] : [])])].map(n => <option key={n}>{n}</option>)}
+          </select></label>}
         {!ro && <div className="cash-kind" role="group" aria-label="Belegart">
           <button type="button" aria-pressed={!inv} onClick={() => setKind('bon')}><span className="k"><CatIcon c="bon" size={20} /> Kassenbon</span><small>Bruttopreise</small></button>
           <button type="button" aria-pressed={inv} onClick={() => setKind('rechnung')}><span className="k"><CatIcon c="rechnung" size={20} /> Rechnung</span><small>Netto · MwSt · Brutto</small></button>
@@ -447,7 +474,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
           {!inv && <label className="field"><span>Uhrzeit</span><input type="time" value={time} onChange={e => e.target.value && setWhen(date, e.target.value)} /></label>}
           <label className="field"><span>Bezahlt mit</span><input value={rc.payment} onChange={e => set({ payment: e.target.value })} maxLength={100} placeholder="Bar, EC-Karte …" /></label>
           <label className="field"><span>Karte (letzte 4)</span><input value={rc.card} inputMode="numeric" onChange={e => { const card = e.target.value.replace(/\D/g, '').slice(0, 4); const by = cardScope(prefs, card); set(by && !start.id ? { card, scope: by } : { card }); }} placeholder="1234" /></label>
-          {!ro && rc.card.length === 4 && known !== rc.scope && <label className="cash-v wide"><input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} /> Karte …{rc.card} immer als „{SCOPE_LABEL[rc.scope]}“ zuordnen</label>}
+          {!ro && rc.card.length === 4 && known !== rc.scope && <label className="cash-v wide"><input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} /> Karte …{rc.card} immer als „{rc.scope === 'business' && rc.firm ? rc.firm : SCOPE_LABEL[rc.scope]}“ zuordnen</label>}
           {inv && <label className="field"><span>Netto (€)</span><input inputMode="decimal" defaultValue={rc.net ? fmt(rc.net) : ''} onChange={e => set({ net: num(e.target.value) })} placeholder="0,00" /></label>}
           <label className="field"><span>{inv ? 'Brutto (€)' : 'Summe (€)'}</span><input inputMode="decimal" defaultValue={rc.total ? fmt(rc.total) : ''} onChange={e => set({ total: num(e.target.value) })} placeholder="0,00" /></label>
           <div className="field"><span>Kategorie</span><CatPick value={rc.category} disabled={ro} set={c => set({ category: c })} /></div>
@@ -509,10 +536,11 @@ function einvFull(rc: Receipt, prefs: Prefs): Receipt {
   // Käufer leer: eigene Rechnungsanschrift aus den Einstellungen
   // Steht auf der Rechnung die eigene Anschrift (gleiche PLZ und Straße oder gleicher Name), fehlende Käuferfelder daraus ergänzen
   const n = (v?: string) => (v ?? '').toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
-  const me = prefs.addr, eb = e.buyer;
+  const eb = e.buyer, own = rc.firm || matchFirm(prefs, eb);
+  const me = prefs.firms.find(f => f.name === own) ?? prefs.addr ?? (prefs.firms.length === 1 ? prefs.firms[0] : undefined);
   const same = !!me && !!eb?.name && ((!!n(me.name) && n(me.name) === n(eb.name)) || (!!n(me.zip) && n(me.zip) === n(eb.zip) && !!n(me.street) && n(me.street) === n(eb.street)));
   const fillB = (have: Party, add?: Party) => { const o = { ...have } as Record<string, string>; for (const [k, v] of Object.entries(add ?? {})) if (v && !o[k]) o[k] = v; return o as unknown as Party; };
-  const buyer: Party = !eb?.name ? { ...(me ?? {} as Party), ...(eb ?? {}), name: eb?.name || me?.name || prefs.firm } : same ? fillB(eb, me) : eb;
+  const buyer: Party = !eb?.name ? { ...(me ?? {} as Party), ...(eb ?? {}), name: eb?.name || me?.name || rc.firm || prefs.firm } : same ? fillB(eb, me) : eb;
   return { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer } };
 }
 

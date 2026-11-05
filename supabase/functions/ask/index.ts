@@ -66,7 +66,7 @@ ${evText || '(keine)'}
 Geburtstage:
 ${bdText || '(keine)'}
 
-Belege im Kassenbuch (Nummer, Datum, Händler, Betrag brutto, wer, Zuordnung, Kategorie, Rechnung, Zahlart, Gruppe, Positionen, Notiz):
+Belege im Kassenbuch (Nummer, Datum, Händler, Betrag brutto, wer, Zuordnung bzw. „Firma …“, Kategorie, Rechnung, Rechnungssteller „von …“, Rechnungsempfänger „an …“, Zahlart, Gruppe, Positionen, Notiz):
 ${rcText || '(keine)'}
 
 Regeln:
@@ -75,6 +75,7 @@ Regeln:
 - Wer etwas ändern, verschieben oder bearbeiten will, bekommt action „edit“ mit dem passenden Termin. Bei Geburtstagen (nicht Geburtstagsfeiern im Kalender) action „bdays“.
 - Wer einen neuen Termin eintragen will, bekommt action „new“ und new_text.
 - Fragen zu Ausgaben, Einkäufen, Rechnungen oder Belegen beantwortest du aus dem Kassenbuch: rechne Summen genau aus und nenne sie in Euro (z. B. „123,45 €“), die passenden Belege kommen in receipts. Fremde Belege zählen nur mit ihrem Familienanteil.
+- Fragen nach Rechnungen an eine Firma oder Person beantwortest du über „an …“ (Rechnungsempfänger) und „Firma …“ (zugeordnete Firma); Schreibweisen dürfen leicht abweichen.
 - Erfinde nichts. Findest du nichts Passendes, sag das freundlich und schlage eine andere Formulierung vor.
 - Datumsangaben in der Antwort deutsch, z. B. „Freitag, 6. November, 17 Uhr“.`,
         cache_control: { type: 'ephemeral' }

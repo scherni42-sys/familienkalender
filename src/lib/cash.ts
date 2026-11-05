@@ -9,14 +9,14 @@ export const CAT_ICON: Record<string, string> = { Lebensmittel: '🛒', Drogerie
 
 export interface Item { id?: string; name: string; qty: number; price: number; vat: number; category: string; family: boolean }
 export type Scope = 'private' | 'family' | 'business';
-export interface Prefs { business: boolean; firm: string; cards: { card: string; scope: Scope }[]; addr?: Party }
+export interface Prefs { business: boolean; firm: string; cards: { card: string; scope: Scope; firm?: string }[]; addr?: Party; firms: Party[] }
 export interface Party { name: string; street: string; zip: string; city: string; country: string; vat_id: string; tax_no: string; email: string; phone: string; contact: string; iban?: string; bic?: string }
 export interface EInv { seller?: Party; buyer?: Party; due?: string; service?: string; ref?: string }
 export interface Tax { rate: number; net: number; tax: number }
 export interface Receipt {
   id?: string; owner?: string; bought_at: string; merchant: string; payment: string; card: string;
   total: number; currency: string; category: string; scope: Scope; photo: string | null; note: string; items: Item[];
-  kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; grp: string; einv: EInv;
+  kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; grp: string; einv: EInv; firm?: string;
 }
 export interface ReadResult { found: boolean; seller?: Party; buyer?: Party; due_date?: string; service_date?: string; buyer_ref?: string; kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; box: { x0: number; y0: number; x1: number; y1: number }; merchant: string; date: string; time: string; payment: string; card: string; total: number; currency: string; category: string; items: { name: string; qty: number; price: number; vat: number; category: string }[] }
 
@@ -25,25 +25,47 @@ const sb = () => { if (!supabase) throw new Error('Keine Verbindung'); return su
 const missing = (m: string) => /receipt|cash_view|cash_prefs|schema cache|does not exist|find the table/i.test(m) ? 'Das Kassenbuch ist noch nicht eingerichtet (Migration 0022).' : m;
 
 let demo: Receipt[] = [];
-let demoPrefs: Prefs = { business: false, firm: '', cards: [] };
+let demoPrefs: Prefs = { business: false, firm: '', cards: [], firms: [] };
 
 // Eigene Einstellungen: Firma, Karten mit fester Zuordnung (privat, Familie, Firma)
 export async function getPrefs(): Promise<Prefs> {
   if (store.demo) return demoPrefs;
-  let r = await sb().from('cash_prefs').select('business, firm, cards, addr').eq('member', ctx().me).maybeSingle();
-  if (r.error && /addr/.test(r.error.message)) r = await sb().from('cash_prefs').select('business, firm, cards').eq('member', ctx().me).maybeSingle() as typeof r;
+  const r = await sb().from('cash_prefs').select('*').eq('member', ctx().me).maybeSingle();
   if (r.error) throw new Error(missing(r.error.message));
-  const d = r.data as Prefs | null;
-  return { business: !!d?.business, firm: d?.firm ?? '', cards: Array.isArray(d?.cards) ? d!.cards : [], addr: d?.addr && typeof d.addr === 'object' ? d.addr : undefined };
+  const d = r.data as (Prefs & { firms?: Party[] }) | null;
+  const addr = d?.addr && typeof d.addr === 'object' && Object.values(d.addr).some(Boolean) ? d.addr : undefined;
+  // Früher gab es nur eine Firma (Name + Rechnungsanschrift): daraus die erste Firma machen
+  const firms = Array.isArray(d?.firms) && d!.firms.length ? d!.firms : d?.firm || addr?.name ? [{ ...(addr ?? {} as Party), name: d?.firm || addr!.name }] : [];
+  return { business: !!d?.business, firm: d?.firm ?? '', cards: Array.isArray(d?.cards) ? d!.cards : [], addr, firms };
 }
 export async function setPrefs(p: Prefs) {
   if (store.demo) { demoPrefs = p; return; }
   const { fam, me } = ctx();
-  const { addr, ...rest } = p;
-  const r = await sb().from('cash_prefs').upsert({ member: me, family_id: fam, ...rest, ...(addr && Object.values(addr).some(Boolean) ? { addr } : {}) });
-  if (r.error) throw new Error(missing(/addr/.test(r.error.message) ? r.error.message : r.error.message.includes('cash_prefs') ? 'receipts' : r.error.message));
+  const firms = p.firms.filter(f => f.name?.trim());
+  const row = { member: me, family_id: fam, business: p.business, firm: firms[0]?.name ?? p.firm, cards: p.cards, ...(firms.length ? { firms, addr: firms[0] } : p.addr ? { addr: p.addr } : {}) };
+  const r = await sb().from('cash_prefs').upsert(row);
+  if (r.error) throw new Error(/firms/.test(r.error.message) ? 'Für mehrere Firmen fehlt noch ein Datenbank-Schritt (Migration 0025).' : missing(r.error.message.includes('cash_prefs') ? 'receipts' : r.error.message));
 }
 export const cardScope = (p: Prefs, card: string) => card ? p.cards.find(c => c.card === card)?.scope : undefined;
+export const cardFirm = (p: Prefs, card: string) => card ? p.cards.find(c => c.card === card && c.scope === 'business')?.firm : undefined;
+// Firma zum Rechnungsempfänger finden: gleiche Straße + PLZ oder möglichst viele gleiche Wörter im Namen (Rechtsform zählt nicht)
+const LEGAL = new Set(['gmbh', 'mbh', 'kg', 'co', 'ug', 'ag', 'ohg', 'gbr', 'ev', 'se', 'haftungsbeschrankt', 'und', 'der', 'die', 'das']);
+const words = (s?: string) => (s ?? '').toLowerCase().replace(/ä/g, 'a').replace(/ö/g, 'o').replace(/ü/g, 'u').replace(/ß/g, 'ss').split(/[^a-z0-9]+/).filter(w => w.length > 1 && !LEGAL.has(w));
+const flat = (s?: string) => (s ?? '').toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
+export function matchFirm(p: Prefs, b?: Partial<Party>): string | undefined {
+  if (!b?.name && !b?.street) return undefined;
+  let best: string | undefined, score = 0;
+  for (const f of p.firms) {
+    if (!f.name) continue;
+    const fw = words(f.name), bw = words(b.name);
+    // Wortanfänge zählen auch („Grundstücksges.“ ↔ „Grundstücksgesellschaft“)
+    const hit = fw.filter(w => bw.some(x => x === w || (x.length >= 5 && w.startsWith(x)) || (w.length >= 5 && x.startsWith(w)))).length;
+    let s = fw.length ? hit / fw.length : 0;
+    if (flat(f.zip) && flat(f.zip) === flat(b.zip) && flat(f.street) && flat(f.street) === flat(b.street)) s += 0.5;
+    if (s > score) { score = s; best = f.name; }
+  }
+  return score >= 0.6 ? best : undefined;
+}
 
 export async function canViewFamily(): Promise<boolean> {
   const s = store.get(); const me = s.members.find(m => m.id === s.me);
@@ -90,7 +112,7 @@ export async function groups(): Promise<string[]> {
 }
 
 function rows(data: unknown): Receipt[] {
-  return (data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), net: Number(x.net ?? 0), kind: x.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: x.invoice_no ?? '', items_net: !!x.items_net, grp: x.grp ?? '', einv: (x.einv && typeof x.einv === 'object' ? x.einv : {}) as EInv, taxes: Array.isArray(x.taxes) ? x.taxes.map(t => ({ rate: Number(t.rate), net: Number(t.net), tax: Number(t.tax) })) : [], items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price), vat: Number(i.vat ?? 0) })) }));
+  return (data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), net: Number(x.net ?? 0), kind: x.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: x.invoice_no ?? '', items_net: !!x.items_net, grp: x.grp ?? '', firm: (x as { firm?: string }).firm ?? '', einv: (x.einv && typeof x.einv === 'object' ? x.einv : {}) as EInv, taxes: Array.isArray(x.taxes) ? x.taxes.map(t => ({ rate: Number(t.rate), net: Number(t.net), tax: Number(t.tax) })) : [], items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price), vat: Number(i.vat ?? 0) })) }));
 }
 
 export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
@@ -108,9 +130,9 @@ export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
     const up = await sb().storage.from('receipts').upload(path, photo, { contentType: pdf ? 'application/pdf' : 'image/jpeg' });
     if (up.error) throw new Error(missing(up.error.message.includes('not found') ? 'receipts' : up.error.message));
   }
-  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net, ...(rc.grp ? { grp: rc.grp } : rc.id ? { grp: '' } : {}), ...(Object.keys(rc.einv ?? {}).length ? { einv: rc.einv } : {}) };
+  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net, ...(rc.grp ? { grp: rc.grp } : rc.id ? { grp: '' } : {}), ...(Object.keys(rc.einv ?? {}).length ? { einv: rc.einv } : {}), ...(rc.scope === 'business' && rc.firm ? { firm: rc.firm } : {}) };
   const res = rc.id ? await sb().from('receipts').update(row).eq('id', rc.id).select('id').single() : await sb().from('receipts').insert(row).select('id').single();
-  if (res.error) { if (photo && path) await sb().storage.from('receipts').remove([path]); throw new Error(missing(res.error.message)); }
+  if (res.error) { if (photo && path) await sb().storage.from('receipts').remove([path]); throw new Error(/'firm'|\bfirm\b/.test(res.error.message) ? 'Für die Firmen-Zuordnung fehlt noch ein Datenbank-Schritt (Migration 0025).' : missing(res.error.message)); }
   const id = (res.data as { id: string }).id;
   if (rc.id) await sb().from('receipt_items').delete().eq('receipt_id', id);
   if (rc.items.length) {
