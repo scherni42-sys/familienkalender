@@ -135,7 +135,7 @@
             android:theme="@android:style/Theme.DeviceDefault.Dialog.NoActionBar" />
         <receiver android:name=".UpdateReceiver" android:exported="false" />
         <activity
-            android:name=".ShareActivity"
+            android:name=".CashShareActivity"
             android:exported="true"
             android:label="FamTO Kassenbuch"
             android:excludeFromRecents="true"

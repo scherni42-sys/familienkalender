@@ -283,8 +283,8 @@ class AppActivity : Activity() {
         @JavascriptInterface fun appSettings() { runOnUiThread { micSettings() } }
         // Mit FamTO geteilte Datei abholen (einmalig, höchstens 10 Minuten alt): {name, mime, b64}
         @JavascriptInterface fun takeShared(): String {
-            val p = getSharedPreferences(ShareActivity.PREF, MODE_PRIVATE)
-            val f = ShareActivity.pending(this@AppActivity)
+            val p = getSharedPreferences(CashShareActivity.PREF, MODE_PRIVATE)
+            val f = CashShareActivity.pending(this@AppActivity)
             val fresh = System.currentTimeMillis() - p.getLong("at", 0) < 600_000
             if (!f.exists() || !fresh || f.length() > 8_000_000) { f.delete(); return "" }
             val out = org.json.JSONObject().put("name", p.getString("name", "beleg")).put("mime", p.getString("mime", "application/pdf"))
