@@ -8,15 +8,17 @@ import { native } from '../lib/native';
 import { eventDraft } from './DetailSheet';
 import { cvar, Icon, Sheet } from './ui';
 import { toast } from './toast';
+import { eur, type Receipt } from '../lib/cash';
+import { CatIcon } from './CashIcons';
 
 type Rec = { lang: string; interimResults: boolean; continuous: boolean; start(): void; stop(): void; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: ((e: { error: string }) => void) | null };
 const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition
   ?? (window as unknown as { webkitSpeechRecognition?: new () => Rec }).webkitSpeechRecognition;
 
-const IDEAS = ['Wann treffe ich Tom das nächste Mal?', 'Alle Termine mit Oma', 'Wer fährt diese Woche?', 'Wann hat Opa Geburtstag?'];
+const IDEAS = ['Wann treffe ich Tom das nächste Mal?', 'Alle Termine mit Oma', 'Wer fährt diese Woche?', 'Wann hat Opa Geburtstag?', 'Was habe ich diesen Monat getankt?'];
 
 // Zaubertaste: in eigenen Worten fragen oder etwas erledigen lassen
-export function AskSheet({ close, open, edit, toDraft, bdays }: { close: () => void; open: (id: string) => void; edit: (d: Draft) => void; toDraft: (d: Draft) => void; bdays: () => void }) {
+export function AskSheet({ close, open, edit, toDraft, bdays, receipt }: { close: () => void; open: (id: string) => void; edit: (d: Draft) => void; toDraft: (d: Draft) => void; bdays: () => void; receipt: (r: Receipt) => void }) {
   const snap = useSnapshot();
   const [q, setQ] = useState(''), [busy, setBusy] = useState(false), [rec, setRec] = useState(false);
   const [res, setRes] = useState<AskResult | null>(null), [err, setErr] = useState('');
@@ -73,7 +75,7 @@ export function AskSheet({ close, open, edit, toDraft, bdays }: { close: () => v
   return (
     <Sheet onClose={close} label="Claude fragen">
       <h2>✨ Frag Claude</h2>
-      <p className="note">Frag nach Terminen, Personen oder Geburtstagen, oder sag, was du ändern oder eintragen möchtest.</p>
+      <p className="note">Frag nach Terminen, Personen, Geburtstagen oder Belegen im Kassenbuch, oder sag, was du ändern oder eintragen möchtest.</p>
       <div className="ask-in">
         <textarea ref={input} rows={2} value={q} placeholder="z. B. Wann treffe ich Tom das nächste Mal?" onChange={e => setQ(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void ask(); } }} aria-label="Deine Frage an Claude" />
@@ -90,6 +92,12 @@ export function AskSheet({ close, open, edit, toDraft, bdays }: { close: () => v
             <span className="d">{shortDate(e.date)}<small>{e.all_day ? 'ganztägig' : hm(e.start_min)}</small></span>
             <span className="t"><b>{e.title}</b><small>{[e.persons.map(nm).join(', '), e.place].filter(Boolean).join(' · ')}</small></span>
             {res.action === 'edit' && <span className="ask-edit" role="button" tabIndex={0} onClick={x => { x.stopPropagation(); edit(eventDraft(e)); }}>Bearbeiten</span>}
+          </button>))}</div>}
+        {res.receipts.length > 0 && <div className="ask-list">{res.receipts.map(r => (
+          <button key={r.id} type="button" className="ask-ev" onClick={() => receipt(r)}>
+            <span className="d"><CatIcon c={r.category} size={22} /></span>
+            <span className="t"><b>{r.merchant || 'Beleg'}</b><small>{new Date(r.bought_at).toLocaleDateString('de-DE')}{r.grp ? ` · ${r.grp}` : ''}{r.scope === 'family' ? ' · Familie' : ''}</small></span>
+            <b className="ask-amt">{eur(r.total)}</b>
           </button>))}</div>}
         {res.birthdays.length > 0 && <div className="ask-list">{res.birthdays.map(b => (
           <button key={b.id} type="button" className="ask-ev" onClick={bdays}><span className="d">🎂</span><span className="t"><b>{b.name}</b><small>{bdLabel(b)}{b.year ? `, Jahrgang ${b.year}` : ''}</small></span></button>))}</div>}

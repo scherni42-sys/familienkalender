@@ -2,6 +2,7 @@ import type { Birthday, CalEvent, Member } from './types';
 import { parseLocal, type Draft } from './parse';
 import { supabase } from './supabase';
 import { addDays, fromIso, hm, nowMin, today, WDS } from './dates';
+import { list as cashList, familyPart, type Receipt } from './cash';
 
 // Foto verkleinern (längste Seite 1280 px, JPEG), damit es schnell hochlädt
 export async function shrinkPhoto(file: File): Promise<{ type: string; data: string }> {
@@ -92,7 +93,7 @@ export async function suggestPlaces(q: string, home: string, web = false): Promi
 }
 
 // Zaubertaste: Frage an Claude zu den eigenen Terminen (Edge Function „ask“)
-export type AskResult = { answer: string; events: CalEvent[]; birthdays: Birthday[]; action: 'none' | 'open' | 'edit' | 'new' | 'bdays'; target: CalEvent | null; newText: string | null; local?: boolean };
+export type AskResult = { answer: string; events: CalEvent[]; birthdays: Birthday[]; receipts: Receipt[]; action: 'none' | 'open' | 'edit' | 'new' | 'bdays'; target: CalEvent | null; newText: string | null; local?: boolean };
 export async function askClaude(q: string, me: string, members: Member[], events: CalEvent[], birthdays: Birthday[]): Promise<AskResult> {
   const t = today(), from = addDays(t, -365), to = addDays(t, 730);
   const evs = events.filter(e => e.end_date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date) || a.start_min - b.start_min).slice(0, 2500);
@@ -105,17 +106,27 @@ export async function askClaude(q: string, me: string, members: Member[], events
     [e.place, e.addr].filter(Boolean).join(', '), e.notes ? e.notes.replace(/\s+/g, ' ').slice(0, 80) : ''
   ].join(' | ');
   const bdLine = (b: Birthday) => `${b.name}${b.rel ? ` (${b.rel})` : ''}: ${b.day}.${b.month}.${b.year ? b.year : ''}`;
-  const pick = (r: { answer: string; events: number[]; birthdays: number[]; action: AskResult['action']; target: number | null; new_text: string | null }): AskResult => ({
+  // Kassenbuch: Belege der letzten zwei Jahre, die ich sehen darf (fehlt das Kassenbuch, einfach ohne)
+  const rcs: Receipt[] = supabase ? await cashList(addDays(t, -730), addDays(t, 1)).then(r => r.slice(0, 600)).catch(() => []) : [];
+  const eu = (n: number) => n.toFixed(2).replace('.', ',') + ' €';
+  const rcLine = (r: Receipt) => [
+    r.bought_at.slice(0, 10), r.merchant, eu(r.total), r.owner === me ? 'von mir' : `von ${nm(r.owner ?? null)}`,
+    r.scope === 'family' ? 'Familie' : r.scope === 'business' ? 'Firma' : r.owner !== me ? `Familienanteil ${eu(familyPart(r))}` : 'privat',
+    r.category, r.kind === 'rechnung' ? `Rechnung ${r.invoice_no}` : '', r.payment, r.grp ? `Gruppe ${r.grp}` : '',
+    r.items.slice(0, 25).map(i => `${i.name} ${eu(i.price)}`).join('; ').slice(0, 400), r.note.slice(0, 80)
+  ].filter(Boolean).join(' | ');
+  const pick = (r: { answer: string; events: number[]; birthdays: number[]; receipts?: number[]; action: AskResult['action']; target: number | null; new_text: string | null }): AskResult => ({
     answer: r.answer, action: r.action, newText: r.new_text,
+    receipts: [...new Set(r.receipts ?? [])].map(i => rcs[i]).filter(Boolean),
     events: [...new Set(r.events)].map(i => evs[i]).filter(Boolean),
     birthdays: r.birthdays.map(i => birthdays[i]).filter(Boolean),
     target: r.target != null ? evs[r.target] ?? null : null
   });
-  if (!supabase) return { ...askLocal(q, evs, birthdays, members), local: true };
+  if (!supabase) return { receipts: [], ...askLocal(q, evs, birthdays, members), local: true };
   const call = supabase.functions.invoke('ask', {
-    body: { q, today: t, now: hm(nowMin()), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), events: evs.map(line), birthdays: birthdays.map(bdLine) }
+    body: { q, today: t, now: hm(nowMin()), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), events: evs.map(line), birthdays: birthdays.map(bdLine), receipts: rcs.map(rcLine) }
   });
-  const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Claude antwortet gerade nicht. Bitte gleich noch einmal.')), 45000));
+  const timeout = new Promise<never>((_, rej) => setTimeout(() => rej(new Error('Claude antwortet gerade nicht. Bitte gleich noch einmal.')), 60000));
   const { data, error } = await Promise.race([call, timeout]);
   if (error || !data?.result) {
     const res = (error as { context?: Response } | null)?.context;
@@ -127,7 +138,7 @@ export async function askClaude(q: string, me: string, members: Member[], events
 }
 
 // Beispielfamilie ohne Server: einfache Stichwortsuche
-function askLocal(q: string, evs: CalEvent[], birthdays: Birthday[], members: Member[]): AskResult {
+function askLocal(q: string, evs: CalEvent[], birthdays: Birthday[], members: Member[]): Omit<AskResult, 'receipts'> {
   const stop = new Set(['ich', 'mich', 'mir', 'mein', 'meine', 'alle', 'allen', 'termine', 'termin', 'wann', 'das', 'die', 'der', 'den', 'dem', 'mit', 'und', 'oder', 'nächste', 'nächsten', 'mal', 'eine', 'einen', 'über', 'übersicht', 'möchte', 'gerne', 'wissen', 'bearbeiten', 'ändern', 'treffe', 'sehe', 'von', 'zum', 'zur', 'bitte', 'zeig', 'zeige', 'claude']);
   const words = q.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(w => w.length > 2 && !stop.has(w)).map(w => w.replace(/s$/, ''));
   const nm = (id: string | null) => members.find(m => m.id === id)?.name ?? '';

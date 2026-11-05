@@ -13,6 +13,7 @@ import { Board } from './Board';
 import { Settings } from './Settings';
 import { MicSheet } from './MicSheet';
 import { AskSheet } from './AskSheet';
+import type { Receipt } from '../lib/cash';
 import { Clip } from './Files';
 import { EventSheet } from './EventSheet';
 import { DetailSheet, BdaySheet, eventDraft } from './DetailSheet';
@@ -28,7 +29,7 @@ const savedFilter = (): Filter => { try { const v = localStorage.getItem('fk-fil
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
-export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board'; photo?: boolean } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays'; adding?: boolean; open?: string } | { kind: 'ask' } | { kind: 'cash'; share?: boolean } | null;
+export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board'; photo?: boolean } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays'; adding?: boolean; open?: string } | { kind: 'ask' } | { kind: 'cash'; share?: boolean; rc?: Receipt } | null;
 
 // Uhr, die jede Minute neu zeichnet (für „vorbei“, „los in X Min.“)
 export function useMinute() {
@@ -161,8 +162,8 @@ export function Shell() {
       {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} photoFirst={sheet.photo} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} day={sheet.day} add={newOn} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
-      {sheet?.kind === 'ask' && <AskSheet close={() => setSheet(null)} open={id => setSheet({ kind: 'detail', id })} edit={draft => setSheet({ kind: 'edit', draft, fresh: false })} toDraft={draft => setSheet({ kind: 'edit', draft, fresh: true })} bdays={() => setSheet({ kind: 'bdays' })} />}
-      {sheet?.kind === 'cash' && <CashSheet close={() => setSheet(null)} share={sheet.share} />}
+      {sheet?.kind === 'ask' && <AskSheet close={() => setSheet(null)} open={id => setSheet({ kind: 'detail', id })} edit={draft => setSheet({ kind: 'edit', draft, fresh: false })} toDraft={draft => setSheet({ kind: 'edit', draft, fresh: true })} bdays={() => setSheet({ kind: 'bdays' })} receipt={rc => setSheet({ kind: 'cash', rc })} />}
+      {sheet?.kind === 'cash' && <CashSheet close={() => setSheet(null)} share={sheet.share} rc={sheet.rc} />}
       {sheet?.kind === 'bdays' && <BdaySheet key={sheet.open ?? ''} adding={sheet.adding} open={sheet.open} close={() => setSheet(null)} />}
       <PushBanner now={now} />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
