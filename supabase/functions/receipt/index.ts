@@ -11,11 +11,16 @@ const CATS = ['Lebensmittel', 'Drogerie', 'Kraftstoff', 'Essen gehen', 'Haushalt
 
 const schema = {
   type: 'object', additionalProperties: false,
-  required: ['found', 'kind', 'box', 'merchant', 'invoice_no', 'net', 'taxes', 'items_net', 'date', 'time', 'payment', 'card', 'total', 'currency', 'category', 'items'],
+  required: ['found', 'kind', 'box', 'merchant', 'invoice_no', 'seller', 'buyer', 'due_date', 'service_date', 'buyer_ref', 'net', 'taxes', 'items_net', 'date', 'time', 'payment', 'card', 'total', 'currency', 'category', 'items'],
   properties: {
     found: { type: 'boolean', description: 'false, wenn auf dem Foto kein Kassenbon oder keine Rechnung zu sehen ist' },
     kind: { type: 'string', enum: ['bon', 'rechnung'], description: 'rechnung: Rechnung, die Netto, MwSt und Brutto ausdrücklich getrennt ausweist (Handwerker, Firma, Werkstatt, Online-Shop mit Rechnungsnummer, Netto-Positionen). bon: normaler Kassenbon für Endverbraucher mit Bruttopreisen, auch wenn unten eine kleine MwSt-Aufstellung steht.' },
     invoice_no: { type: 'string', description: 'Rechnungsnummer, sonst leer' },
+    seller: { type: 'object', additionalProperties: false, required: ['name', 'street', 'zip', 'city', 'country', 'vat_id', 'tax_no', 'email', 'phone', 'contact', 'iban', 'bic'], description: 'Rechnungssteller (Verkäufer), alles leer wenn nicht angegeben', properties: { name: { type: 'string' }, street: { type: 'string', description: 'Straße und Hausnummer' }, zip: { type: 'string' }, city: { type: 'string' }, country: { type: 'string', description: 'ISO-Ländercode, meist DE' }, vat_id: { type: 'string', description: 'USt-IdNr. wie DE123456789, sonst leer' }, tax_no: { type: 'string', description: 'Steuernummer, sonst leer' }, email: { type: 'string' }, phone: { type: 'string' }, contact: { type: 'string', description: 'Ansprechpartner/Bearbeiter, sonst leer' }, iban: { type: 'string', description: 'IBAN des Verkäufers ohne Leerzeichen, sonst leer' }, bic: { type: 'string' } } },
+    buyer: { type: 'object', additionalProperties: false, required: ['name', 'street', 'zip', 'city', 'country', 'vat_id', 'tax_no', 'email', 'phone', 'contact'], description: 'Rechnungsempfänger (Käufer), alles leer wenn nicht angegeben', properties: { name: { type: 'string' }, street: { type: 'string', description: 'Straße und Hausnummer' }, zip: { type: 'string' }, city: { type: 'string' }, country: { type: 'string', description: 'ISO-Ländercode, meist DE' }, vat_id: { type: 'string', description: 'USt-IdNr. wie DE123456789, sonst leer' }, tax_no: { type: 'string', description: 'Steuernummer, sonst leer' }, email: { type: 'string' }, phone: { type: 'string' }, contact: { type: 'string', description: 'Ansprechpartner/Bearbeiter, sonst leer' } } },
+    due_date: { type: 'string', description: 'Fälligkeitsdatum YYYY-MM-DD, sonst leer' },
+    service_date: { type: 'string', description: 'Liefer- bzw. Leistungsdatum YYYY-MM-DD, sonst leer' },
+    buyer_ref: { type: 'string', description: 'Leitweg-ID, Bestell- oder Kundennummer des Käufers, sonst leer' },
     net: { type: 'number', description: 'Nettosumme (ohne MwSt) wie gedruckt, 0 wenn nicht angegeben' },
     taxes: { type: 'array', description: 'MwSt-Aufstellung je Steuersatz wie gedruckt, leer wenn keine',
       items: { type: 'object', additionalProperties: false, required: ['rate', 'net', 'tax'],
@@ -60,6 +65,7 @@ Kategorien: Lebensmittel (Supermarkt, Bäcker, Getränke), Drogerie (dm, Rossman
 Haushalt (Baumarkt, Möbel, Putzmittel, Elektro), Kleidung, Freizeit (Kino, Sport, Ausflug, Bücher, Spiele), Gesundheit (Apotheke, Arzt), Kinder/Schule, sonst Sonstiges.
 Ohne lesbares Datum leer lassen, nicht raten.
 Unterscheide genau zwischen Netto und Brutto: total ist immer der Bruttobetrag. Bei Rechnungen mit Netto-Positionen übernimm die Nettopreise in die Zeilen, setze items_net und gib die MwSt-Aufstellung vollständig an.
+Bei Rechnungen lies Verkäufer und Käufer vollständig aus (Anschrift, USt-IdNr., Steuernummer, Kontakt, IBAN). Bei Kassenbons reicht der Name des Geschäfts, der Rest bleibt leer.
 Auf Kassenbons stehen Steuersätze oft als Buchstaben (A = 19 %, B = 7 %); ordne sie den Zeilen zu, wenn die Legende auf dem Bon steht.`,
       messages: [{ role: 'user', content: [doc, { type: 'text', text: image.type === 'application/pdf' ? 'Lies diese Rechnung (PDF) aus. box: 0, 0, 1, 1.' : 'Lies diesen Beleg aus.' }] }]
     });

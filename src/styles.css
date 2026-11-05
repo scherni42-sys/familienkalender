@@ -723,3 +723,10 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-find .ico { width: 18px; height: 18px; flex: none; }
 .cash-find input { flex: 1; min-width: 0; border: 0; background: none; color: var(--ink); font: inherit; font-size: 15px; outline: none; }
 .cash-find button { border: 0; background: none; color: var(--muted); font-size: 15px; padding: 4px; }
+.cash-einv { border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 8px; }
+.cash-einv[open] { border-color: var(--accent); }
+.cash-einv summary { font-weight: 700; cursor: pointer; }
+.cash-einv summary small { font-weight: 500; color: #c77700; }
+.cash-einv summary small.ok { color: var(--accent); }
+.cash-einv > .btn { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.cash-einv > .btn .ico { width: 18px; height: 18px; }

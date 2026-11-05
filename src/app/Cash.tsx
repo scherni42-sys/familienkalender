@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
 import { fail, toast } from './toast';
 import { native } from '../lib/native';
 import type { Cell, SheetData } from '../lib/xlsx';
+import { xCheck, xrechnung } from '../lib/xrechnung';
 
 const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -56,6 +57,10 @@ function CashPrefs({ close, back, prefs, keep }: { close: () => void; back: () =
       <h2>Kassenbuch einrichten</h2>
       <label className="cash-opt"><input type="checkbox" checked={p.business} onChange={e => setP({ ...p, business: e.target.checked })} /><span><b>Ich bin Unternehmer</b><small>Zeigt die Taste „Firma“. Firmenbelege sieht nur du, mit Netto und Vorsteuer.</small></span></label>
       {p.business && <label className="field"><span>Firmenname</span><input value={p.firm} onChange={e => setP({ ...p, firm: e.target.value })} maxLength={200} placeholder="z. B. Muster GmbH" /></label>}
+      <details className="cash-einv"><summary>Meine Rechnungsanschrift (für E-Rechnungen)</summary>
+        <p className="cash-check">Wird als Käufer eingesetzt, wenn auf der Rechnung keiner zu erkennen ist.</p>
+        <PartyFields p={p.addr ?? {}} set={a => setP(x => ({ ...x, addr: { ...x.addr, ...a } as Party }))} buyer />
+      </details>
       <div className="field"><span>Meine Karten</span></div>
       <p className="cash-check">Wird ein Beleg mit einer dieser Karten bezahlt, ordnet FamTO ihn gleich richtig zu.</p>
       <div className="cash-cards">{p.cards.map((c, i) => <div key={i} className="cash-card">
@@ -235,8 +240,11 @@ async function exportXlsx(title: string, shown: Receipt[], amount: (r: Receipt) 
       ...sorted.flatMap(r => r.items.map(i => [{ date: new Date(r.bought_at) }, r.merchant, i.name, i.qty, i.category, i.vat || null, { eur: i.price }, r.scope === 'family' || i.family ? 'ja' : ''] as Cell[]))]
   }];
   if (uml) sheets.push({ name: 'Kostenumlage', widths: [18, 14, 14, 14], rows: [['Person', 'Bezahlt', 'Anteil', 'Saldo'], ...uml.bal.map(b => [b.name, { eur: b.paid }, { eur: uml.share }, { eur: b.diff }] as Cell[]), [], ['Ausgleich'], ...uml.pay.map(p => [`${p.from} → ${p.to}`, { eur: p.eur }] as Cell[])] });
-  const data = xlsx(sheets);
-  const name = `${title.replace(/[^\wÄÖÜäöüß .-]+/g, ' ').trim()}.xlsx`, mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+  shareBytes(`${title.replace(/[^\wÄÖÜäöüß .-]+/g, ' ').trim()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xlsx(sheets));
+}
+
+// Datei teilen (App: Teilen-Menü) bzw. herunterladen (Browser)
+function shareBytes(name: string, mime: string, data: Uint8Array) {
   const n = native();
   if (n?.shareFile) { let bin = ''; for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode(...data.subarray(i, i + 0x8000)); n.shareFile(name, mime, btoa(bin)); return; }
   if (n) { toast('Für den Export bitte die App aktualisieren (Einstellungen → App-Update).'); return; }
@@ -250,12 +258,12 @@ function NewReceipt({ close, back, next, prefs, file }: { close: () => void; bac
   const cam = useRef<HTMLInputElement>(null), gal = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(''), [img, setImg] = useState<HTMLCanvasElement | null>(null), [rc, setRc] = useState<Receipt | null>(null);
   const [box, setBox] = useState({ x0: 0, y0: 0, x1: 1, y1: 1 });
-  const blank = (): Receipt => ({ bought_at: new Date().toISOString(), merchant: '', payment: '', card: '', total: 0, currency: 'EUR', category: 'Sonstiges', scope: 'private', photo: null, note: '', items: [], kind: 'bon', invoice_no: '', net: 0, taxes: [], items_net: false, grp: '' });
+  const blank = (): Receipt => ({ bought_at: new Date().toISOString(), merchant: '', payment: '', card: '', total: 0, currency: 'EUR', category: 'Sonstiges', scope: 'private', photo: null, note: '', items: [], kind: 'bon', invoice_no: '', net: 0, taxes: [], items_net: false, grp: '', einv: {} });
   const fill = (r: ReadResult): Receipt => {
     const at = r.date ? new Date(`${r.date}T${/^\d\d:\d\d$/.test(r.time) ? r.time : '12:00'}:00`) : new Date();
     const card = r.card.replace(/\D/g, '').slice(-4), by = cardScope(prefs, card);
     if (by) toast(`Karte …${card}: ${SCOPE_LABEL[by]}`);
-    return { ...blank(), scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })) };
+    return { ...blank(), scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })), einv: r.kind === 'rechnung' ? { seller: r.seller, buyer: r.buyer, due: r.due_date || undefined, service: r.service_date || undefined, ref: r.buyer_ref || undefined } : {} };
   };
   // PDF (z. B. Rechnung aus der Mail): direkt lesen lassen, kein Zuschneiden
   const pdf = async (f: File) => {
@@ -428,6 +436,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
         </div>)}</div>
         {!ro && <button type="button" className="btn sm" onClick={() => setRc(r => ({ ...r, items: [...r.items, { name: '', qty: 1, price: 0, vat: r.items.at(-1)?.vat ?? 0, category: r.category, family: false }] }))}>＋ Zeile</button>}
         <p className="cash-check">Positionen: {inv && rc.items_net ? `netto ${eur(itemNet)} · brutto ${eur(itemSum)}` : eur(itemSum)}{rc.items.length && Math.abs(itemSum - rc.total) > 0.05 ? ` · weicht von der Summe ${eur(rc.total)} ab` : ''}{famSum ? ` · Familie: ${eur(famSum)}` : ''}</p>
+        {inv && <EInvBox rc={rc} set={set} prefs={prefs} ro={ro} />}
         <label className="field"><span>Buchungsgruppe (optional)</span><input value={rc.grp} list="cash-grps" maxLength={100} placeholder="z. B. Urlaub Dänemark 2026" onChange={e => set({ grp: e.target.value })} onBlur={e => set({ grp: e.target.value.trim() })} />
           <datalist id="cash-grps">{grpList.map(g => <option key={g} value={g} />)}</datalist></label>
         <label className="field"><span>Notiz</span><textarea value={rc.note} onChange={e => set({ note: e.target.value })} maxLength={2000} rows={2} /></label>
@@ -439,4 +448,43 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
       </div>
     </Sheet>
   );
+}
+
+// Felder für Verkäufer bzw. Käufer
+function PartyFields({ p, set, buyer }: { p: Partial<Party>; set: (p: Partial<Party>) => void; buyer?: boolean }) {
+  const f = (k: keyof Party, label: string, wide = false, ph = '') => <label className={`field${wide ? ' wide' : ''}`}><span>{label}</span><input value={p[k] ?? ''} placeholder={ph} onChange={e => set({ [k]: e.target.value })} /></label>;
+  return <div className="row2">
+    {f('name', 'Name / Firma', true)}{f('street', 'Straße', true)}{f('zip', 'PLZ')}{f('city', 'Ort')}
+    {f('vat_id', 'USt-IdNr.', false, 'DE…')}{!buyer && f('tax_no', 'Steuernummer')}{f('email', 'E-Mail')}
+    {!buyer && f('phone', 'Telefon')}{!buyer && f('contact', 'Ansprechpartner')}{!buyer && f('iban', 'IBAN', true)}
+  </div>;
+}
+
+// E-Rechnung: Angaben prüfen und als XRechnung (XML) exportieren
+function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt>) => void; prefs: Prefs; ro: boolean }) {
+  const e = rc.einv ?? {};
+  const upd = (p: Partial<EInv>) => set({ einv: { ...e, ...p } });
+  // Käufer leer: eigene Rechnungsanschrift aus den Einstellungen
+  const full: Receipt = { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer: e.buyer?.name ? e.buyer : { ...(prefs.addr ?? {} as Party), ...(e.buyer ?? {}), name: e.buyer?.name || prefs.addr?.name || prefs.firm } } };
+  const chk = xCheck(full);
+  const go = () => {
+    const xml = xrechnung(full);
+    shareBytes(`XRechnung ${(rc.invoice_no || rc.merchant || 'Beleg').replace(/[^\wÄÖÜäöüß .-]+/g, ' ').trim()}.xml`, 'application/xml', new TextEncoder().encode(xml));
+  };
+  return <details className="cash-einv">
+    <summary>E-Rechnung (XRechnung){chk.missing.length ? <small> · {chk.missing.length} Angaben fehlen</small> : <small className="ok"> · vollständig</small>}</summary>
+    <b>Verkäufer</b>
+    <PartyFields p={full.einv.seller ?? {}} set={p => upd({ seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant, ...p } })} />
+    <b>Käufer</b>
+    <PartyFields p={full.einv.buyer ?? {}} buyer set={p => upd({ buyer: { ...(full.einv.buyer ?? {} as Party), ...p } })} />
+    <div className="row2">
+      <label className="field"><span>Fällig am</span><input type="date" value={e.due ?? ''} onChange={x => upd({ due: x.target.value || undefined })} /></label>
+      <label className="field"><span>Leistungsdatum</span><input type="date" value={e.service ?? ''} onChange={x => upd({ service: x.target.value || undefined })} /></label>
+      <label className="field wide"><span>Käuferreferenz (Leitweg-ID, Bestellnr.)</span><input value={e.ref ?? ''} onChange={x => upd({ ref: x.target.value || undefined })} /></label>
+    </div>
+    {chk.note && <p className="cash-warn">{chk.note}</p>}
+    {chk.missing.length > 0 && <p className="cash-warn">Für eine gültige XRechnung fehlt noch: {chk.missing.join(', ')}.</p>}
+    {!ro && <button type="button" className="btn sm" disabled={chk.missing.length > 0} onClick={go}><Icon name="share" /> Als XRechnung exportieren</button>}
+    <p className="cash-check">Hinweis: Eine E-Rechnung im rechtlichen Sinn stellt der Verkäufer aus. Diese Umwandlung ist für Buchhaltung und Steuerberater (z. B. DATEV, lexoffice) gedacht.</p>
+  </details>;
 }

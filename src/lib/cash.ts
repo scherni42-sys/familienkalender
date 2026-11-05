@@ -9,14 +9,16 @@ export const CAT_ICON: Record<string, string> = { Lebensmittel: '🛒', Drogerie
 
 export interface Item { id?: string; name: string; qty: number; price: number; vat: number; category: string; family: boolean }
 export type Scope = 'private' | 'family' | 'business';
-export interface Prefs { business: boolean; firm: string; cards: { card: string; scope: Scope }[] }
+export interface Prefs { business: boolean; firm: string; cards: { card: string; scope: Scope }[]; addr?: Party }
+export interface Party { name: string; street: string; zip: string; city: string; country: string; vat_id: string; tax_no: string; email: string; phone: string; contact: string; iban?: string; bic?: string }
+export interface EInv { seller?: Party; buyer?: Party; due?: string; service?: string; ref?: string }
 export interface Tax { rate: number; net: number; tax: number }
 export interface Receipt {
   id?: string; owner?: string; bought_at: string; merchant: string; payment: string; card: string;
   total: number; currency: string; category: string; scope: Scope; photo: string | null; note: string; items: Item[];
-  kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; grp: string;
+  kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; grp: string; einv: EInv;
 }
-export interface ReadResult { found: boolean; kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; box: { x0: number; y0: number; x1: number; y1: number }; merchant: string; date: string; time: string; payment: string; card: string; total: number; currency: string; category: string; items: { name: string; qty: number; price: number; vat: number; category: string }[] }
+export interface ReadResult { found: boolean; seller?: Party; buyer?: Party; due_date?: string; service_date?: string; buyer_ref?: string; kind: 'bon' | 'rechnung'; invoice_no: string; net: number; taxes: Tax[]; items_net: boolean; box: { x0: number; y0: number; x1: number; y1: number }; merchant: string; date: string; time: string; payment: string; card: string; total: number; currency: string; category: string; items: { name: string; qty: number; price: number; vat: number; category: string }[] }
 
 const ctx = () => { const s = store.get(); return { fam: s.family!.id, me: s.me! }; };
 const sb = () => { if (!supabase) throw new Error('Keine Verbindung'); return supabase; };
@@ -28,16 +30,18 @@ let demoPrefs: Prefs = { business: false, firm: '', cards: [] };
 // Eigene Einstellungen: Firma, Karten mit fester Zuordnung (privat, Familie, Firma)
 export async function getPrefs(): Promise<Prefs> {
   if (store.demo) return demoPrefs;
-  const r = await sb().from('cash_prefs').select('business, firm, cards').eq('member', ctx().me).maybeSingle();
+  let r = await sb().from('cash_prefs').select('business, firm, cards, addr').eq('member', ctx().me).maybeSingle();
+  if (r.error && /addr/.test(r.error.message)) r = await sb().from('cash_prefs').select('business, firm, cards').eq('member', ctx().me).maybeSingle() as typeof r;
   if (r.error) throw new Error(missing(r.error.message));
   const d = r.data as Prefs | null;
-  return { business: !!d?.business, firm: d?.firm ?? '', cards: Array.isArray(d?.cards) ? d!.cards : [] };
+  return { business: !!d?.business, firm: d?.firm ?? '', cards: Array.isArray(d?.cards) ? d!.cards : [], addr: d?.addr && typeof d.addr === 'object' ? d.addr : undefined };
 }
 export async function setPrefs(p: Prefs) {
   if (store.demo) { demoPrefs = p; return; }
   const { fam, me } = ctx();
-  const r = await sb().from('cash_prefs').upsert({ member: me, family_id: fam, ...p });
-  if (r.error) throw new Error(missing(r.error.message.includes('cash_prefs') ? 'receipts' : r.error.message));
+  const { addr, ...rest } = p;
+  const r = await sb().from('cash_prefs').upsert({ member: me, family_id: fam, ...rest, ...(addr && Object.values(addr).some(Boolean) ? { addr } : {}) });
+  if (r.error) throw new Error(missing(/addr/.test(r.error.message) ? r.error.message : r.error.message.includes('cash_prefs') ? 'receipts' : r.error.message));
 }
 export const cardScope = (p: Prefs, card: string) => card ? p.cards.find(c => c.card === card)?.scope : undefined;
 
@@ -86,7 +90,7 @@ export async function groups(): Promise<string[]> {
 }
 
 function rows(data: unknown): Receipt[] {
-  return (data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), net: Number(x.net ?? 0), kind: x.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: x.invoice_no ?? '', items_net: !!x.items_net, grp: x.grp ?? '', taxes: Array.isArray(x.taxes) ? x.taxes.map(t => ({ rate: Number(t.rate), net: Number(t.net), tax: Number(t.tax) })) : [], items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price), vat: Number(i.vat ?? 0) })) }));
+  return (data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), net: Number(x.net ?? 0), kind: x.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: x.invoice_no ?? '', items_net: !!x.items_net, grp: x.grp ?? '', einv: (x.einv && typeof x.einv === 'object' ? x.einv : {}) as EInv, taxes: Array.isArray(x.taxes) ? x.taxes.map(t => ({ rate: Number(t.rate), net: Number(t.net), tax: Number(t.tax) })) : [], items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price), vat: Number(i.vat ?? 0) })) }));
 }
 
 export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
@@ -104,7 +108,7 @@ export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
     const up = await sb().storage.from('receipts').upload(path, photo, { contentType: pdf ? 'application/pdf' : 'image/jpeg' });
     if (up.error) throw new Error(missing(up.error.message.includes('not found') ? 'receipts' : up.error.message));
   }
-  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net, ...(rc.grp ? { grp: rc.grp } : rc.id ? { grp: '' } : {}) };
+  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note, kind: rc.kind, invoice_no: rc.invoice_no, net: rc.net, taxes: rc.taxes, items_net: rc.items_net, ...(rc.grp ? { grp: rc.grp } : rc.id ? { grp: '' } : {}), ...(Object.keys(rc.einv ?? {}).length ? { einv: rc.einv } : {}) };
   const res = rc.id ? await sb().from('receipts').update(row).eq('id', rc.id).select('id').single() : await sb().from('receipts').insert(row).select('id').single();
   if (res.error) { if (photo && path) await sb().storage.from('receipts').remove([path]); throw new Error(missing(res.error.message)); }
   const id = (res.data as { id: string }).id;
