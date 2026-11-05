@@ -1,0 +1,125 @@
+// Kassenbuch: Kassenbons mit Foto und Positionen (privat oder Familie). In der Testversion nur im Speicher.
+import { store } from './store';
+import { supabase } from './supabase';
+import { today } from './dates';
+
+export const CATS = ['Lebensmittel', 'Drogerie', 'Kraftstoff', 'Essen gehen', 'Haushalt', 'Kleidung', 'Freizeit', 'Gesundheit', 'Kinder/Schule', 'Sonstiges'] as const;
+export const CAT_ICON: Record<string, string> = { Lebensmittel: '🛒', Drogerie: '🧴', Kraftstoff: '⛽', 'Essen gehen': '🍽️', Haushalt: '🏠', Kleidung: '👕', Freizeit: '🎟️', Gesundheit: '💊', 'Kinder/Schule': '🎒', Sonstiges: '📦' };
+
+export interface Item { id?: string; name: string; qty: number; price: number; category: string; family: boolean }
+export interface Receipt {
+  id?: string; owner?: string; bought_at: string; merchant: string; payment: string; card: string;
+  total: number; currency: string; category: string; scope: 'private' | 'family'; photo: string | null; note: string; items: Item[];
+}
+export interface ReadResult { found: boolean; box: { x0: number; y0: number; x1: number; y1: number }; merchant: string; date: string; time: string; payment: string; card: string; total: number; currency: string; category: string; items: { name: string; qty: number; price: number; category: string }[] }
+
+const ctx = () => { const s = store.get(); return { fam: s.family!.id, me: s.me! }; };
+const sb = () => { if (!supabase) throw new Error('Keine Verbindung'); return supabase; };
+const missing = (m: string) => /receipt|cash_view|schema cache|does not exist|find the table/i.test(m) ? 'Das Kassenbuch ist noch nicht eingerichtet (Migration 0022).' : m;
+
+let demo: Receipt[] = [];
+
+export async function canViewFamily(): Promise<boolean> {
+  const s = store.get(); const me = s.members.find(m => m.id === s.me);
+  if (!me) return false;
+  if (me.role === 'admin' || store.demo) return true;
+  const r = await sb().from('members').select('cash_view').eq('id', me.id).maybeSingle();
+  return !!(r.data as { cash_view?: boolean } | null)?.cash_view;
+}
+
+export async function viewers(): Promise<Record<string, boolean>> {
+  if (store.demo) return {};
+  const r = await sb().from('members').select('id, cash_view').eq('family_id', ctx().fam);
+  if (r.error) throw new Error(missing(r.error.message));
+  return Object.fromEntries((r.data as { id: string; cash_view: boolean }[]).map(x => [x.id, x.cash_view]));
+}
+export async function setViewer(id: string, on: boolean) {
+  const r = await sb().from('members').update({ cash_view: on }).eq('id', id);
+  if (r.error) throw new Error(missing(r.error.message));
+}
+
+// Alle sichtbaren Bons in einem Zeitraum (von/bis als YYYY-MM-DD, bis einschließlich)
+export async function list(from: string, to: string): Promise<Receipt[]> {
+  if (store.demo) return demo.filter(r => r.bought_at.slice(0, 10) >= from && r.bought_at.slice(0, 10) <= to).sort((a, b) => b.bought_at.localeCompare(a.bought_at));
+  const end = new Date(to + 'T00:00:00'); end.setDate(end.getDate() + 1);
+  const r = await sb().from('receipts').select('*, receipt_items(*)').eq('family_id', ctx().fam).gte('bought_at', new Date(from + 'T00:00:00').toISOString()).lt('bought_at', end.toISOString()).order('bought_at', { ascending: false });
+  if (r.error) throw new Error(missing(r.error.message));
+  return (r.data as (Receipt & { receipt_items: (Item & { pos: number })[] })[]).map(x => ({ ...x, total: Number(x.total), items: [...x.receipt_items].sort((a, b) => a.pos - b.pos).map(i => ({ ...i, qty: Number(i.qty), price: Number(i.price) })) }));
+}
+
+export async function save(rc: Receipt, photo?: Blob | null): Promise<string> {
+  if (store.demo) {
+    const id = rc.id ?? crypto.randomUUID();
+    const url = photo ? URL.createObjectURL(photo) : rc.photo;
+    demo = [...demo.filter(x => x.id !== id), { ...rc, id, owner: ctx().me, photo: url }];
+    return id;
+  }
+  const { fam, me } = ctx();
+  let path = rc.photo;
+  if (photo) {
+    path = `${fam}/${me}/${crypto.randomUUID()}.jpg`;
+    const up = await sb().storage.from('receipts').upload(path, photo, { contentType: 'image/jpeg' });
+    if (up.error) throw new Error(missing(up.error.message.includes('not found') ? 'receipts' : up.error.message));
+  }
+  const row = { family_id: fam, owner: me, bought_at: rc.bought_at, merchant: rc.merchant, payment: rc.payment, card: rc.card, total: rc.total, currency: rc.currency, category: rc.category, scope: rc.scope, photo: path, note: rc.note };
+  const res = rc.id ? await sb().from('receipts').update(row).eq('id', rc.id).select('id').single() : await sb().from('receipts').insert(row).select('id').single();
+  if (res.error) { if (photo && path) await sb().storage.from('receipts').remove([path]); throw new Error(missing(res.error.message)); }
+  const id = (res.data as { id: string }).id;
+  if (rc.id) await sb().from('receipt_items').delete().eq('receipt_id', id);
+  if (rc.items.length) {
+    const ir = await sb().from('receipt_items').insert(rc.items.map((i, pos) => ({ receipt_id: id, family_id: fam, owner: me, pos, name: i.name, qty: i.qty, price: i.price, category: i.category, family: rc.scope === 'family' ? true : i.family })));
+    if (ir.error) throw new Error(missing(ir.error.message));
+  }
+  // altes Foto aufräumen, wenn ersetzt
+  if (photo && rc.id && rc.photo && rc.photo !== path) await sb().storage.from('receipts').remove([rc.photo]);
+  return id;
+}
+
+export async function remove(rc: Receipt) {
+  if (store.demo) { demo = demo.filter(x => x.id !== rc.id); return; }
+  const r = await sb().from('receipts').delete().eq('id', rc.id!);
+  if (r.error) throw new Error(missing(r.error.message));
+  if (rc.photo) await sb().storage.from('receipts').remove([rc.photo]);
+}
+
+const urls = new Map<string, { url: string; until: number }>();
+export async function photoUrl(path: string): Promise<string> {
+  if (store.demo || path.startsWith('blob:') || path.startsWith('data:')) return path;
+  const hit = urls.get(path); if (hit && hit.until > Date.now()) return hit.url;
+  const r = await sb().storage.from('receipts').createSignedUrl(path, 3600);
+  if (r.error || !r.data) throw new Error('Foto nicht gefunden.');
+  urls.set(path, { url: r.data.signedUrl, until: Date.now() + 3_000_000 });
+  return r.data.signedUrl;
+}
+
+// Bon vorlesen lassen (Claude über die Edge Function „receipt“)
+export async function read(image: { type: string; data: string }): Promise<ReadResult> {
+  if (store.demo || !supabase) return { found: true, box: { x0: 0.08, y0: 0.04, x1: 0.92, y1: 0.96 }, merchant: 'Testmarkt', date: today(), time: '10:15', payment: 'EC-Karte', card: '1234', total: 7.47, currency: 'EUR', category: 'Lebensmittel',
+    items: [{ name: 'Bio Vollmilch', qty: 1, price: 1.49, category: 'Lebensmittel' }, { name: 'Brötchen', qty: 6, price: 2.4, category: 'Lebensmittel' }, { name: 'Zahnpasta', qty: 1, price: 3.58, category: 'Drogerie' }] };
+  const { data, error } = await supabase.functions.invoke('receipt', { body: { image, today: today() } });
+  if (error || !data?.receipt) throw new Error('Der Bon ließ sich nicht lesen. Du kannst ihn von Hand eintragen.');
+  return data.receipt as ReadResult;
+}
+
+// Foto für den Bon: längste Seite 1800 px, damit kleine Schrift lesbar bleibt
+export async function loadPhoto(file: File): Promise<HTMLCanvasElement> {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, 1800 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d')!.drawImage(bmp, 0, 0, c.width, c.height);
+  return c;
+}
+export const toB64 = (c: HTMLCanvasElement, q = 0.85) => ({ type: 'image/jpeg', data: c.toDataURL('image/jpeg', q).split(',')[1] });
+export function crop(c: HTMLCanvasElement, b: { x0: number; y0: number; x1: number; y1: number }): HTMLCanvasElement {
+  const x = Math.max(0, Math.min(b.x0, b.x1)) * c.width, y = Math.max(0, Math.min(b.y0, b.y1)) * c.height;
+  const w = Math.max(20, (Math.min(1, Math.max(b.x0, b.x1)) * c.width) - x), h = Math.max(20, (Math.min(1, Math.max(b.y0, b.y1)) * c.height) - y);
+  const o = document.createElement('canvas'); o.width = Math.round(w); o.height = Math.round(h);
+  o.getContext('2d')!.drawImage(c, x, y, w, h, 0, 0, o.width, o.height);
+  return o;
+}
+export const toBlob = (c: HTMLCanvasElement) => new Promise<Blob>((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error('Foto')), 'image/jpeg', 0.82));
+
+export const eur = (n: number) => n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+// Betrag, der als Familienausgabe zählt: ganzer Familienbon, sonst die Familienzeilen
+export const familyPart = (r: Receipt) => r.scope === 'family' ? r.total : r.items.filter(i => i.family).reduce((s, i) => s + i.price, 0);

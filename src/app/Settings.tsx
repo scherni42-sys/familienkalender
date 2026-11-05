@@ -1,5 +1,5 @@
 declare const __BUILD__: string;
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import type { Birthday, Role, Settings as S } from '../lib/types';
 import { BGS, ROLE, SWATCHES, upcoming, bdLabel } from '../lib/model';
@@ -12,6 +12,7 @@ import { AvatarCrop } from './AvatarCrop';
 import { native } from '../lib/native';
 import { alarmOn, getAlarm, renameAlarm, setAlarm, setTone, toggleAlarm, useAlarm, useTones } from '../lib/bdalarm';
 import { ask } from './ask';
+import { setViewer as setCashViewer, viewers as cashViewers } from '../lib/cash';
 
 type Sub = 'family' | 'basic' | 'colors' | 'bg' | 'bdays' | 'displays' | null;
 const MENU: [Exclude<Sub, null>, string, IconName][] = [
@@ -128,6 +129,9 @@ function Family() {
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [name, setName] = useState(''), [role, setRole] = useState<Role>('member');
   const admins = snap.members.filter(m => m.role === 'admin').length;
+  // Kassenbuch: wer darf die Familienkasse einsehen (Admins immer)
+  const [cv, setCv] = useState<Record<string, boolean> | null>(null);
+  useEffect(() => { if (isAdmin && !store.demo) void cashViewers().then(setCv).catch(() => setCv(null)); }, [isAdmin]);
   const invite = async (id: string) => { try { const c = await store.createInvite(id); setCodes({ ...codes, [id]: c }); } catch (e) { fail(e); } };
   return <>
     {!isAdmin && <div className="ai"><Icon name="lock" /><div>Mitglieder hinzufügen und entfernen kann nur der Admin.</div></div>}
@@ -142,6 +146,7 @@ function Family() {
         {isAdmin && m.id !== snap.me && <div className="acts">
           {m.role !== 'child' && !m.linked && <button type="button" className="small-btn" onClick={() => void invite(m.id)}>Einladungscode</button>}
           {m.role !== 'child' && m.linked && <button type="button" className="small-btn" onClick={() => void invite(m.id)}>Neues Handy verbinden</button>}
+          {cv && m.role !== 'admin' && m.role !== 'guest' && <label className="small-btn cash-v"><input type="checkbox" checked={!!cv[m.id]} onChange={e => { const on = e.target.checked; setCashViewer(m.id, on).then(() => { setCv({ ...cv, [m.id]: on }); toast(on ? `${m.name} sieht jetzt die Familienkasse.` : `${m.name} sieht die Familienkasse nicht mehr.`); }, fail); }} /> Familienkasse</label>}
           <button type="button" className="small-btn danger" onClick={() => void ask(`${m.name} aus der Familie entfernen?`, 'Entfernen').then(y => { if (y) store.removeMember(m.id).then(() => toast(`${m.name} entfernt.`), fail); })}>Entfernen</button>
           {codes[m.id] && <div style={{ width: '100%' }}><div className="codebox">{codes[m.id]}</div><span className="note">{m.name} öffnet die App, tippt „Ich habe einen Einladungscode“ und gibt den Code ein. Gültig 7 Tage.</span></div>}
         </div>}

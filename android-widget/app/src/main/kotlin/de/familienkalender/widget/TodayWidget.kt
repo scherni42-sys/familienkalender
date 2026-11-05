@@ -129,6 +129,7 @@ class TodayWidget : AppWidgetProvider() {
             v.setViewVisibility(R.id.q_bdays, if (big) View.INVISIBLE else View.VISIBLE)
             v.setViewVisibility(R.id.weeklabel, if (big) View.INVISIBLE else View.VISIBLE)
             v.setViewVisibility(R.id.ask, if (big) View.INVISIBLE else View.VISIBLE)
+            v.setViewVisibility(R.id.cash, if (big) View.INVISIBLE else View.VISIBLE)
             if (big) { v.setViewVisibility(R.id.weekprev, View.INVISIBLE); v.setViewVisibility(R.id.weeknext, View.INVISIBLE); v.setViewVisibility(R.id.weekyear, View.GONE) }
             val add = when {
                 chat -> Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "chat:new")
@@ -249,6 +250,9 @@ class TodayWidget : AppWidgetProvider() {
             // Zaubertaste: App mit „Frag Claude“ öffnen
             val ask = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "ask").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.ask, PendingIntent.getActivity(ctx, 29, ask, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            // Kassenbuch: App mit dem Kassenbuch öffnen
+            val cash = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "cash").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            v.setOnClickPendingIntent(R.id.cash, PendingIntent.getActivity(ctx, 31, cash, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             // Zahnrad: App direkt in den Einstellungen öffnen
             val gear = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "settings").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.settings, PendingIntent.getActivity(ctx, 28, gear, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
