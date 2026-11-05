@@ -10,7 +10,7 @@ const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'Augu
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const num = (s: string) => { const n = Number(s.replace(/\./g, '').replace(',', '.')); return Number.isFinite(n) ? n : 0; };
-const fmt = (n: number) => n.toFixed(2).replace('.', ',');
+const fmt = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
 
 type View = { kind: 'list' } | { kind: 'new' } | { kind: 'prefs' } | { kind: 'edit'; rc: Receipt; photo?: HTMLCanvasElement | null };
 

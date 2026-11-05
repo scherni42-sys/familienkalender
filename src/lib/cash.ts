@@ -141,7 +141,7 @@ export function crop(c: HTMLCanvasElement, b: { x0: number; y0: number; x1: numb
 }
 export const toBlob = (c: HTMLCanvasElement) => new Promise<Blob>((ok, no) => c.toBlob(b => b ? ok(b) : no(new Error('Foto')), 'image/jpeg', 0.82));
 
-export const eur = (n: number) => n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+export const eur = (n: number) => n.toLocaleString('de-DE', { style: 'currency', currency: 'EUR', useGrouping: true });
 // Betrag, der als Familienausgabe zählt: ganzer Familienbon, sonst die Familienzeilen
 // Bruttobetrag einer Zeile: bei Netto-Rechnungen mit MwSt aufgeschlagen
 export const gross = (r: Receipt, i: Item) => r.items_net ? Math.round(i.price * (100 + (i.vat || 0))) / 100 : i.price;
