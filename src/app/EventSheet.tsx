@@ -192,7 +192,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       {aHits && aHits.length > 0 && <div className="place-hits">
         {aHits.map((h, i) => <button key={i} type="button" onClick={() => pickAddr(h)}><Icon name="place" /><span>{h.name && <b>{h.name}</b>}<small>{h.addr}</small></span></button>)}
       </div>}
-      {(d.addr.replace(/^,\s*/, '').trim() || d.place.trim()) && !isOnline(d) && <button type="button" className="btn sm nav-btn" style={{ justifySelf: 'start' }} disabled={busy} onClick={() => navGo(d.addr.replace(/^,\s*/, '').trim() || d.place.trim())}><Icon name="car" /> Speichern und Navigation starten</button>}
+      {(d.addr.replace(/^,\s*/, '').trim() || d.place.trim()) && !isOnline(d) && <button type="button" className="btn sm nav-btn" style={{ justifySelf: 'start', alignSelf: 'flex-start' }} disabled={busy} onClick={() => navGo(d.addr.replace(/^,\s*/, '').trim() || d.place.trim())}><Icon name="car" /> Speichern und Navigation starten</button>}
       {d.driver && s.showTravel && !d.all_day && (
         <div className="row2">
           <label className="field"><span>Fahrzeit (Min.)</span><input type="number" inputMode="numeric" min={0} max={240} value={d.travel_min ?? ''} onChange={e => set({ travel_min: e.target.value ? Math.max(0, Math.min(240, Number(e.target.value))) : null })} placeholder="z. B. 15" /></label>
