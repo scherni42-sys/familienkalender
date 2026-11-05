@@ -313,10 +313,15 @@ function NewReceipt({ close, back, next, prefs, file }: { close: () => void; bac
   const [busy, setBusy] = useState(''), [img, setImg] = useState<HTMLCanvasElement | null>(null), [rc, setRc] = useState<Receipt | null>(null);
   const [box, setBox] = useState({ x0: 0, y0: 0, x1: 1, y1: 1 });
   const blank = (): Receipt => ({ bought_at: new Date().toISOString(), merchant: '', payment: '', card: '', total: 0, currency: 'EUR', category: 'Sonstiges', scope: 'private', photo: null, note: '', items: [], kind: 'bon', invoice_no: '', net: 0, taxes: [], items_net: false, grp: '', einv: {} });
-  const fill = (r: ReadResult): Receipt => {
+  // Einstellungen frisch laden: beim Teilen startet das Einlesen, bevor die Einstellungen da sind
+  const fresh = useRef<Promise<Prefs> | null>(null);
+  const prefsNow = () => (fresh.current ??= getPrefs().catch(() => prefs));
+  const fill = (r: ReadResult, prefs: Prefs): Receipt => {
     const at = r.date ? new Date(`${r.date}T${/^\d\d:\d\d$/.test(r.time) ? r.time : '12:00'}:00`) : new Date();
     const card = r.card.replace(/\D/g, '').slice(-4);
-    const byFirm = prefs.business ? matchFirm(prefs, r.buyer) : undefined;
+    // Rechnung an eine eigene Firma, sonst an eine Firma mit Rechtsform (neue Firma vorschlagen)
+    const legal = /\b(gmbh|mbh|ag|kg|ug|ohg|gbr|e\.\s?k|e\.\s?v|se)\b/i.test(r.buyer?.name ?? '');
+    const byFirm = prefs.business ? matchFirm(prefs, r.buyer) ?? (legal ? r.buyer!.name.trim() : undefined) : undefined;
     const by = byFirm ? 'business' : cardScope(prefs, card);
     const firm = byFirm ?? (by === 'business' ? cardFirm(prefs, card) ?? (prefs.firms.length === 1 ? prefs.firms[0].name : '') : '');
     if (byFirm) toast(`Rechnung an ${byFirm}: als Firmenbeleg zugeordnet.`); else if (by) toast(`Karte …${card}: ${firm || SCOPE_LABEL[by]}`);
@@ -332,7 +337,7 @@ function NewReceipt({ close, back, next, prefs, file }: { close: () => void; bac
       for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000));
       const r = await read({ type: 'application/pdf', data: btoa(bin) });
       if (!r.found) toast('In der PDF ist keine Rechnung zu erkennen. Du kannst trotzdem alles eintragen.');
-      rc = fill(r);
+      rc = fill(r, await prefsNow());
     } catch (e) { fail(e); }
     finally { setBusy(''); }
     next(rc, f);
@@ -348,7 +353,7 @@ function NewReceipt({ close, back, next, prefs, file }: { close: () => void; bac
       try {
         const r = await read(toB64(c));
         if (!r.found) toast('Auf dem Foto ist kein Bon zu erkennen. Du kannst trotzdem alles eintragen.');
-        setRc(fill(r));
+        setRc(fill(r, await prefsNow()));
         if (r.found && r.box && r.box.x1 - r.box.x0 > 0.1 && r.box.y1 - r.box.y0 > 0.1) setBox({ x0: Math.max(0, r.box.x0 - 0.01), y0: Math.max(0, r.box.y0 - 0.01), x1: Math.min(1, r.box.x1 + 0.01), y1: Math.min(1, r.box.y1 + 0.01) });
       } catch (e) { fail(e); setRc(blank()); }
     } catch { toast('Das Foto ließ sich nicht öffnen.'); }
