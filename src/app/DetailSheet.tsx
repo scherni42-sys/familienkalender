@@ -153,14 +153,15 @@ export function DetailSheet({ id, day, add, close, edit }: { id: string; day?: s
 export function BdaySheet({ close, adding, open: first }: { close: () => void; adding?: boolean; open?: string }) {
   const snap = useSnapshot();
   const s = snap.family!.settings;
-  const [sel, setSel] = useState<string | null>(first ?? null);
+  const [sel, setSel] = useState<string | null>(first ?? null), [add, setAdd] = useState(!!adding);
+  const guest = snap.members.find(m => m.id === snap.me)?.role === 'guest';
   const b = sel ? upcoming(snap.birthdays).find(x => x.id === sel) : undefined;
   if (b) return <BdayDetail b={b} back={() => setSel(null)} close={close} />;
   return (
     <Sheet onClose={close} label="Nächste Geburtstage">
       <h2>Nächste Geburtstage</h2>
       <p>Erinnerung {s.bdLead} Tage vorher. Ändern kann das der Admin unter Einstellungen. Antippen zeigt Details, Dokumente und Wecker.</p>
-      {adding && snap.members.find(m => m.id === snap.me)?.role !== 'guest' && <BdayForm focus />}
+      {!guest && (add ? <BdayForm focus /> : <button type="button" className="btn" onClick={() => setAdd(true)}>＋ Neuer Geburtstag</button>)}
       <div>{upcoming(snap.birthdays).map(x => <button type="button" key={x.id} className={`bdrow tap${x.days <= s.bdLead ? ' soon' : ''}`} onClick={() => setSel(x.id)}><div><b>{x.owner ? <><Icon name="lock" /> </> : ''}{x.name}{x.files?.length ? <> <Icon name="clip" /></> : null}</b><small>{x.rel ? `${x.rel} · ` : ''}{bdLabel(x)}{x.age ? ` · wird ${x.age}` : ''}</small></div><span className="dd">{inDays(x.days)}</span></button>)}</div>
       <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Schließen</button></div>
     </Sheet>
