@@ -10,7 +10,7 @@ const iban0 = (e: { seller?: Party }) => e.seller?.iban?.replace(/\s+/g, '') ?? 
 const eur = (tag: string, n: number) => `<${tag} currencyID="EUR">${a(n)}</${tag}>`;
 
 export interface XLine { name: string; qty: number; net: number; rate: number }
-export interface XCheck { missing: string[]; lines: XLine[]; note: string }
+export interface XCheck { missing: string[]; keys: string[]; lines: XLine[]; note: string }
 
 // Netto-Zeilen bilden: aus den Positionen, sonst eine Zeile je Steuersatz aus der MwSt-Aufstellung
 export function xLines(rc: Receipt): { lines: XLine[]; note: string } {
@@ -32,22 +32,22 @@ export function xLines(rc: Receipt): { lines: XLine[]; note: string } {
 export function xCheck(rc: Receipt): XCheck {
   const e = rc.einv ?? {}, s = e.seller, b = e.buyer;
   const { lines, note } = xLines(rc);
-  const miss: string[] = [];
+  const miss: string[] = [], keys: string[] = [];
   if (!rc.invoice_no.trim()) miss.push('Rechnungsnummer');
-  if (!s?.name && !rc.merchant) miss.push('Verkäufer: Name');
-  if (!s?.street) miss.push('Verkäufer: Straße');
-  if (!s?.zip) miss.push('Verkäufer: PLZ');
-  if (!s?.city) miss.push('Verkäufer: Ort');
-  if (!s?.vat_id && !s?.tax_no) miss.push('Verkäufer: USt-IdNr. oder Steuernummer');
-  if (!s?.email) miss.push('Verkäufer: E-Mail');
-  if (!s?.phone) miss.push('Verkäufer: Telefon');
-  if (!b?.name) miss.push('Käufer: Name');
-  if (!b?.email) miss.push('Käufer: E-Mail');
-  if (!b?.zip) miss.push('Käufer: PLZ');
-  if (!b?.city) miss.push('Käufer: Ort');
+  if (!s?.name && !rc.merchant) { miss.push('Verkäufer: Name'); keys.push('seller.name'); }
+  if (!s?.street) { miss.push('Verkäufer: Straße'); keys.push('seller.street'); }
+  if (!s?.zip) { miss.push('Verkäufer: PLZ'); keys.push('seller.zip'); }
+  if (!s?.city) { miss.push('Verkäufer: Ort'); keys.push('seller.city'); }
+  if (!s?.vat_id && !s?.tax_no) { miss.push('Verkäufer: USt-IdNr. oder Steuernummer'); keys.push('seller.vat_id'); keys.push('seller.tax_no'); }
+  if (!s?.email) { miss.push('Verkäufer: E-Mail'); keys.push('seller.email'); }
+  if (!s?.phone) { miss.push('Verkäufer: Telefon'); keys.push('seller.phone'); }
+  if (!b?.name) { miss.push('Käufer: Name'); keys.push('buyer.name'); }
+  if (!b?.email) { miss.push('Käufer: E-Mail'); keys.push('buyer.email'); }
+  if (!b?.zip) { miss.push('Käufer: PLZ'); keys.push('buyer.zip'); }
+  if (!b?.city) { miss.push('Käufer: Ort'); keys.push('buyer.city'); }
   if (!lines.length) miss.push('Positionen oder MwSt-Aufstellung');
   if (lines.some(l => !l.rate && rc.taxes.some(t => t.rate))) miss.push('MwSt-Satz bei jeder Position');
-  return { missing: miss, lines, note };
+  return { missing: miss, keys, lines, note };
 }
 
 const party = (p: Party | undefined, fallbackName: string, seller: boolean) => {

@@ -730,3 +730,7 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-einv summary small.ok { color: var(--accent); }
 .cash-einv > .btn { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
 .cash-einv > .btn .ico { width: 18px; height: 18px; }
+
+/* E-Rechnung: fehlende Pflichtfelder blassrot umranden */
+.field.need input { border-color: rgba(229, 83, 75, .65); box-shadow: 0 0 0 1px rgba(229, 83, 75, .25); }
+.field.need > span::after { content: ' *'; color: #e5534b; }

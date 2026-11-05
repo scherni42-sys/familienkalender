@@ -451,8 +451,8 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
 }
 
 // Felder für Verkäufer bzw. Käufer
-function PartyFields({ p, set, buyer }: { p: Partial<Party>; set: (p: Partial<Party>) => void; buyer?: boolean }) {
-  const f = (k: keyof Party, label: string, wide = false, ph = '') => <label className={`field${wide ? ' wide' : ''}`}><span>{label}</span><input value={p[k] ?? ''} placeholder={ph} onChange={e => set({ [k]: e.target.value })} /></label>;
+function PartyFields({ p, set, buyer, miss = [] }: { p: Partial<Party>; set: (p: Partial<Party>) => void; buyer?: boolean; miss?: string[] }) {
+  const f = (k: keyof Party, label: string, wide = false, ph = '') => <label className={`field${wide ? ' wide' : ''}${miss.includes(k) ? ' need' : ''}`}><span>{label}</span><input value={p[k] ?? ''} placeholder={ph} onChange={e => set({ [k]: e.target.value })} /></label>;
   return <div className="row2">
     {f('name', 'Name / Firma', true)}{f('street', 'Straße', true)}{f('zip', 'PLZ')}{f('city', 'Ort')}
     {f('vat_id', 'USt-IdNr.', false, 'DE…')}{!buyer && f('tax_no', 'Steuernummer')}{f('email', 'E-Mail')}
@@ -493,16 +493,16 @@ function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt
     <summary>E-Rechnung (XRechnung){chk.missing.length ? <small> · {chk.missing.length} Angaben fehlen</small> : <small className="ok"> · vollständig</small>}</summary>
     {!ro && rc.photo && !rc.photo.startsWith('blob:') && <button type="button" className="btn sm ghost" disabled={busy} onClick={() => void again()}>{busy ? 'Wird gelesen …' : 'Angaben aus der Rechnung neu auslesen'}</button>}
     <b>Verkäufer</b>
-    <PartyFields p={full.einv.seller ?? {}} set={p => upd({ seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant, ...p } })} />
+    <PartyFields p={full.einv.seller ?? {}} miss={chk.keys.filter(k => k.startsWith('seller.')).map(k => k.slice(7))} set={p => upd({ seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant, ...p } })} />
     <b>Käufer</b>
-    <PartyFields p={full.einv.buyer ?? {}} buyer set={p => upd({ buyer: { ...(full.einv.buyer ?? {} as Party), ...p } })} />
+    <PartyFields p={full.einv.buyer ?? {}} buyer miss={chk.keys.filter(k => k.startsWith('buyer.')).map(k => k.slice(6))} set={p => upd({ buyer: { ...(full.einv.buyer ?? {} as Party), ...p } })} />
     <div className="row2">
       <label className="field"><span>Fällig am</span><input type="date" value={e.due ?? ''} onChange={x => upd({ due: x.target.value || undefined })} /></label>
       <label className="field"><span>Leistungsdatum</span><input type="date" value={e.service ?? ''} onChange={x => upd({ service: x.target.value || undefined })} /></label>
       <label className="field wide"><span>Käuferreferenz (Leitweg-ID, Bestellnr.)</span><input value={e.ref ?? ''} onChange={x => upd({ ref: x.target.value || undefined })} /></label>
     </div>
     {chk.note && <p className="cash-warn">{chk.note}</p>}
-    {chk.missing.length > 0 && <p className="cash-warn">Für eine gültige XRechnung fehlt noch: {chk.missing.join(', ')}.</p>}
+    {chk.missing.some(m => !/^(Verkäufer|Käufer):/.test(m)) && <p className="cash-warn">Außerdem fehlt: {chk.missing.filter(m => !/^(Verkäufer|Käufer):/.test(m)).join(', ')}.</p>}
     {!ro && <button type="button" className="btn sm" disabled={chk.missing.length > 0} onClick={go}><Icon name="share" /> Als XRechnung exportieren</button>}
     <p className="cash-check">Hinweis: Eine E-Rechnung im rechtlichen Sinn stellt der Verkäufer aus. Diese Umwandlung ist für Buchhaltung und Steuerberater (z. B. DATEV, lexoffice) gedacht.</p>
   </details>;
