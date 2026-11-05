@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
@@ -467,12 +467,25 @@ function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt
   // Käufer leer: eigene Rechnungsanschrift aus den Einstellungen
   const full: Receipt = { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer: e.buyer?.name ? e.buyer : { ...(prefs.addr ?? {} as Party), ...(e.buyer ?? {}), name: e.buyer?.name || prefs.addr?.name || prefs.firm } } };
   const chk = xCheck(full);
+  const [busy, setBusy] = useState(false);
+  // Leere Felder aus dem gespeicherten Beleg nachtragen, Eingetragenes bleibt
+  const merge = <T extends object>(have: T | undefined, got: T | undefined): T => { const o = { ...(got ?? {}) } as Record<string, unknown>; for (const [k, v] of Object.entries(have ?? {})) if (v) o[k] = v; return o as T; };
+  const again = async () => {
+    if (!rc.photo) return;
+    setBusy(true);
+    try {
+      const r = await reread(rc.photo);
+      set({ invoice_no: rc.invoice_no || r.invoice_no || '', einv: { ...e, seller: merge(e.seller, r.seller), buyer: merge(e.buyer, r.buyer), due: e.due || r.due_date || undefined, service: e.service || r.service_date || undefined, ref: e.ref || r.buyer_ref || undefined } });
+      toast('Angaben aus der Rechnung übernommen. Bitte prüfen und speichern.');
+    } catch (x) { fail(x); } finally { setBusy(false); }
+  };
   const go = () => {
     const xml = xrechnung(full);
     shareBytes(`XRechnung ${(rc.invoice_no || rc.merchant || 'Beleg').replace(/[^\wÄÖÜäöüß .-]+/g, ' ').trim()}.xml`, 'application/xml', new TextEncoder().encode(xml));
   };
   return <details className="cash-einv">
     <summary>E-Rechnung (XRechnung){chk.missing.length ? <small> · {chk.missing.length} Angaben fehlen</small> : <small className="ok"> · vollständig</small>}</summary>
+    {!ro && rc.photo && !rc.photo.startsWith('blob:') && <button type="button" className="btn sm ghost" disabled={busy} onClick={() => void again()}>{busy ? 'Wird gelesen …' : 'Angaben aus der Rechnung neu auslesen'}</button>}
     <b>Verkäufer</b>
     <PartyFields p={full.einv.seller ?? {}} set={p => upd({ seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant, ...p } })} />
     <b>Käufer</b>

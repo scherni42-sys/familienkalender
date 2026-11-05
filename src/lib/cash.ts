@@ -167,6 +167,14 @@ export async function read(image: { type: string; data: string }): Promise<ReadR
   return data.receipt as ReadResult;
 }
 
+// Gespeicherten Beleg (Foto oder PDF) noch einmal auslesen, z. B. für die E-Rechnung
+export async function reread(path: string): Promise<ReadResult> {
+  const blob = await (await fetch(await photoUrl(path))).blob();
+  const b = new Uint8Array(await blob.arrayBuffer()); let bin = '';
+  for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return read({ type: path.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg', data: btoa(bin) });
+}
+
 // Foto für den Bon: längste Seite 1800 px, damit kleine Schrift lesbar bleibt
 export async function loadPhoto(file: File): Promise<HTMLCanvasElement> {
   const bmp = await createImageBitmap(file);
