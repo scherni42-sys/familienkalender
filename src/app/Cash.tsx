@@ -130,6 +130,22 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
   const maxMon = Math.max(1, ...byMon);
   const label = find ? `Suche ${q.trim()}` : per.mode === 'month' ? `${MON[first.getMonth()]} ${first.getFullYear()}` : per.mode === 'year' ? String(year) : per.mode === 'range' ? `${dmy(per.from)} – ${dmy(per.to)}` : per.grp;
   const who = (id?: string) => snap.members.find(m => m.id === id)?.name ?? '';
+  const [zipBusy, setZipBusy] = useState('');
+  const zip = async () => {
+    const withPhoto = shown.filter(r => r.photo);
+    if (!withPhoto.length) { toast('In dieser Auswahl gibt es keine Belege mit Foto oder PDF.'); return; }
+    try {
+      const files: Record<string, Uint8Array> = {}; let bad = 0;
+      for (let i = 0; i < withPhoto.length; i++) {
+        setZipBusy(`PDF/A ${i + 1} von ${withPhoto.length} …`);
+        try { const f = await archivePdf(withPhoto[i], prefs, who(withPhoto[i].owner)); let n = f.name, k = 2; while (files[n]) n = f.name.replace(/\.pdf$/, ` (${k++}).pdf`); files[n] = f.data; }
+        catch { bad++; }
+      }
+      const { zipSync } = await import('fflate');
+      shareBytes(`Belege ${label}.zip`.replace(/[^\wÄÖÜäöüß .,()-]+/g, ' '), 'application/zip', zipSync(Object.fromEntries(Object.entries(files).map(([n, d]) => [n, [d, { level: 0 }]]))));
+      if (bad) toast(`${bad} Beleg(e) ließen sich nicht laden und fehlen im ZIP.`);
+    } catch (e) { fail(e); } finally { setZipBusy(''); }
+  };
   const exp = async () => {
     try {
       await exportXlsx(`Kassenbuch ${label}${grpMode ? '' : ` ${tab === 'mine' ? 'Meine' : tab === 'family' ? 'Familie' : 'Firma'}`}`, shown, amount, who, grpMode ? umlage(shown, amount, umlSel, who) : null);
@@ -177,7 +193,10 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
         {cats.length > 0 && <div className="cash-cats">{cats.map(([c, v]) => <div key={c} className="cash-cat">
           <span><CatIcon c={c} size={18} /> {c}</span><i style={{ width: `${Math.max(3, v / max * 100)}%` }} /><b>{eur(v)}</b></div>)}</div>}
         {!shown.length && !(grpMode && !grps.length) && <p>{find ? 'Nichts gefunden.' : per.mode !== 'month' ? 'Keine Belege in dieser Auswahl.' : tab === 'mine' ? 'In diesem Monat noch keine Belege. Mit „＋ Beleg“ fotografierst du einen Kassenbon.' : biz ? 'In diesem Monat keine Firmenbelege.' : 'In diesem Monat keine Familienausgaben.'}</p>}
-        {shown.length > 0 && <button type="button" className="btn sm ghost cash-xl" onClick={() => void exp()}><Icon name="share" /> Excel-Export</button>}
+        {shown.length > 0 && <div className="cash-exp">
+          <button type="button" className="btn sm ghost cash-xl" onClick={() => void exp()}><Icon name="share" /> Excel-Export</button>
+          <button type="button" className="btn sm ghost cash-xl" disabled={zipBusy !== ''} onClick={() => void zip()}><Icon name="share" /> {zipBusy || 'Belege als PDF/A (ZIP)'}</button>
+        </div>}
         <div className="cash-list">{shown.map(r => {
           const m = snap.members.find(x => x.id === r.owner);
           const d = new Date(r.bought_at);
@@ -254,6 +273,19 @@ function shareBytes(name: string, mime: string, data: Uint8Array) {
   const url = URL.createObjectURL(new Blob([data as Uint8Array<ArrayBuffer>], { type: mime }));
   const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// Beleg als Datei fürs Archiv: Foto → PDF/A-3b (bei vollständiger Rechnung mit XRechnung im Anhang), PDF bleibt Original
+const fileBase = (r: Receipt) => `${r.bought_at.slice(0, 10)} ${(r.merchant || 'Beleg').replace(/[^\wÄÖÜäöüß&.,() -]+/g, ' ').trim().slice(0, 60)} ${fmt(r.total)}`;
+async function archivePdf(r: Receipt, prefs: Prefs, author: string): Promise<{ name: string; data: Uint8Array; xml: boolean }> {
+  if (!r.photo) throw new Error('Zu diesem Beleg gibt es kein Foto.');
+  const data = new Uint8Array(await (await fetch(await photoUrl(r.photo))).arrayBuffer());
+  if (r.photo.endsWith('.pdf')) return { name: `${fileBase(r)} (Original).pdf`, data, xml: false };
+  const { pdfa } = await import('../lib/pdfa');
+  const full = einvFull(r, prefs), ok = r.kind === 'rechnung' && !xCheck(full).missing.length;
+  const out = pdfa(data, { title: `${r.kind === 'rechnung' ? 'Rechnung' : 'Kassenbon'} ${r.merchant || ''} ${r.bought_at.slice(0, 10)}`.replace(/\s+/g, ' ').trim(), author, subject: `Betrag ${fmt(r.total)} €${r.invoice_no ? `, Rechnungsnr. ${r.invoice_no}` : ''}`,
+    attach: ok ? { name: 'xrechnung.xml', data: new TextEncoder().encode(xrechnung(full)), desc: 'XRechnung 3.0 (UBL) zu dieser Rechnung' } : undefined });
+  return { name: `${fileBase(r)}.pdf`, data: out, xml: ok };
 }
 
 // Neuer Bon: Foto aufnehmen oder wählen, auslesen lassen, zuschneiden
@@ -382,6 +414,12 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
       if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope }] }).catch(() => {}); toast('Beleg gespeichert.'); saved(rc); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const savePdf = async () => {
+    setPdfBusy(true);
+    try { const f = await archivePdf(rc, prefs, snap.members.find(m => m.id === rc.owner)?.name ?? ''); shareBytes(f.name, 'application/pdf', f.data); if (f.xml) toast('PDF/A mit eingebetteter XRechnung erstellt.'); }
+    catch (e) { fail(e); } finally { setPdfBusy(false); }
+  };
   const del = async () => { if (!(await ask('Diesen Beleg mit Foto löschen?', 'Löschen'))) return; try { await remove(rc); toast('Beleg gelöscht.'); done(); } catch (e) { fail(e); } };
   const ro = !mine;
   return (
@@ -390,6 +428,7 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
       {isPdf && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
       {url && <button type="button" className="cash-photo" onClick={() => setBig(true)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /><span className="cash-photo-tip">Antippen zum Vergrößern</span></button>}
       {big && url && <ZoomView src={url} close={() => setBig(false)} />}
+      {start.id && rc.photo && !rc.photo.endsWith('.pdf') && <button type="button" className="btn sm ghost cash-xl" disabled={pdfBusy} onClick={() => void savePdf()}><Icon name="share" /> {pdfBusy ? 'PDF/A wird erstellt …' : 'Als PDF/A speichern'}</button>}
       {ro && <p>Von {snap.members.find(m => m.id === rc.owner)?.name ?? 'jemandem'}. Nur der Besitzer kann den Beleg ändern.</p>}
       <fieldset disabled={ro} className="cash-form">
         {!ro && <div className={`visbig${biz ? ' three' : ''}`} role="group" aria-label="Privat, Familie oder Firma">
@@ -464,10 +503,9 @@ function PartyFields({ p, set, buyer, miss = [] }: { p: Partial<Party>; set: (p:
   </div>;
 }
 
-// E-Rechnung: Angaben prüfen und als XRechnung (XML) exportieren
-function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt>) => void; prefs: Prefs; ro: boolean }) {
+// E-Rechnungsdaten vervollständigen: Verkäufername aus dem Händler, Käufer aus der eigenen Rechnungsanschrift
+function einvFull(rc: Receipt, prefs: Prefs): Receipt {
   const e = rc.einv ?? {};
-  const upd = (p: Partial<EInv>) => set({ einv: { ...e, ...p } });
   // Käufer leer: eigene Rechnungsanschrift aus den Einstellungen
   // Steht auf der Rechnung die eigene Anschrift (gleiche PLZ und Straße oder gleicher Name), fehlende Käuferfelder daraus ergänzen
   const n = (v?: string) => (v ?? '').toLowerCase().replace(/[^a-z0-9äöüß]/g, '');
@@ -475,7 +513,14 @@ function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt
   const same = !!me && !!eb?.name && ((!!n(me.name) && n(me.name) === n(eb.name)) || (!!n(me.zip) && n(me.zip) === n(eb.zip) && !!n(me.street) && n(me.street) === n(eb.street)));
   const fillB = (have: Party, add?: Party) => { const o = { ...have } as Record<string, string>; for (const [k, v] of Object.entries(add ?? {})) if (v && !o[k]) o[k] = v; return o as unknown as Party; };
   const buyer: Party = !eb?.name ? { ...(me ?? {} as Party), ...(eb ?? {}), name: eb?.name || me?.name || prefs.firm } : same ? fillB(eb, me) : eb;
-  const full: Receipt = { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer } };
+  return { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer } };
+}
+
+// E-Rechnung: Angaben prüfen und als XRechnung (XML) exportieren
+function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt>) => void; prefs: Prefs; ro: boolean }) {
+  const e = rc.einv ?? {};
+  const upd = (p: Partial<EInv>) => set({ einv: { ...e, ...p } });
+  const full = einvFull(rc, prefs);
   const chk = xCheck(full);
   const [busy, setBusy] = useState(false);
   // Leere Felder aus dem gespeicherten Beleg nachtragen, Eingetragenes bleibt

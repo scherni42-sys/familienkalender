@@ -745,3 +745,5 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-top h2 { margin: 0; font-family: var(--font-display); font-size: 21px; font-weight: 700; }
 .cash-tabs { display: flex; justify-content: center; gap: 10px; }
 .cash-tabs .kw-p { min-width: 0; width: 96px; flex: 0 1 96px; height: 32px; padding: 0 8px; font-size: 14px; border-width: 1.5px; }
+
+.cash-exp { display: flex; flex-wrap: wrap; gap: 8px; }
