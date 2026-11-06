@@ -214,7 +214,7 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
         {!shown.length && !(grpMode && !grps.length) && <p>{find ? 'Nichts gefunden.' : per.mode !== 'month' ? 'Keine Belege in dieser Auswahl.' : tab === 'mine' ? 'In diesem Monat noch keine Belege. Mit „＋ Beleg“ fotografierst du einen Kassenbon.' : biz ? 'In diesem Monat keine Firmenbelege.' : 'In diesem Monat keine Familienausgaben.'}</p>}
         {shown.length > 0 && <div className="cash-exp">
           <button type="button" className="btn sm ghost cash-xl" onClick={() => void exp()}><Icon name="share" /> Excel-Export</button>
-          <button type="button" className="btn sm ghost cash-xl" disabled={zipBusy !== ''} onClick={() => void zip()}><Icon name="share" /> {zipBusy || 'Belege als PDF/A (ZIP)'}</button>
+          <button type="button" className="btn sm ghost cash-xl" disabled={zipBusy !== ''} onClick={() => void zip()}><Icon name="share" /> {zipBusy || 'PDF/A-Export'}</button>
         </div>}
         <div className="cash-list">{shown.map(r => {
           const m = snap.members.find(x => x.id === r.owner);
@@ -465,7 +465,10 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
       {isPdf && !url && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
       {url && <button type="button" className="cash-photo" onClick={() => setBig(true)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /><span className="cash-photo-tip">Antippen zum Vergrößern</span></button>}
       {big && url && <ZoomView src={url} close={() => setBig(false)} />}
-      {start.id && rc.photo && !rc.photo.endsWith('.pdf') && <button type="button" className="btn sm ghost cash-xl" disabled={pdfBusy} onClick={() => void savePdf()}><Icon name="share" /> {pdfBusy ? 'PDF/A wird erstellt …' : 'Als PDF/A speichern'}</button>}
+      {start.id && <div className="cash-exp">
+        {rc.photo && <button type="button" className="btn sm ghost cash-xl" disabled={pdfBusy} onClick={() => void savePdf()}><Icon name="share" /> {pdfBusy ? 'Wird erstellt …' : rc.photo.endsWith('.pdf') ? 'PDF-Export' : 'PDF/A-Export'}</button>}
+        <button type="button" className="btn sm ghost cash-xl" onClick={() => void exportXlsx(fileBase(rc), [rc], r => r.total, id => snap.members.find(m => m.id === id)?.name ?? '', null).catch(fail)}><Icon name="share" /> Excel-Export</button>
+      </div>}
       {ro && <p>Von {snap.members.find(m => m.id === rc.owner)?.name ?? 'jemandem'}. Nur der Besitzer kann den Beleg ändern.</p>}
       <fieldset disabled={ro} className="cash-form">
         {!ro && <div className={`visbig${biz ? ' three' : ''}`} role="group" aria-label="Privat, Familie oder Firma">
