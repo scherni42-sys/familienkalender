@@ -325,7 +325,7 @@ function NewReceipt({ close, back, next, prefs, file }: { close: () => void; bac
     const by = byFirm ? 'business' : cardScope(prefs, card);
     const firm = byFirm ?? (by === 'business' ? cardFirm(prefs, card) ?? (prefs.firms.length === 1 ? prefs.firms[0].name : '') : '');
     if (byFirm) toast(`Rechnung an ${byFirm}: als Firmenbeleg zugeordnet.`); else if (by) toast(`Karte …${card}: ${firm || SCOPE_LABEL[by]}`);
-    return { ...blank(), firm, scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })), einv: r.kind === 'rechnung' ? { seller: r.seller, buyer: r.buyer, due: r.due_date || undefined, service: r.service_date || undefined, ref: r.buyer_ref || undefined } : {} };
+    return { ...blank(), firm, scope: by ?? 'private', bought_at: (isNaN(at.getTime()) ? new Date() : at).toISOString(), merchant: r.merchant, payment: r.payment, card, total: r.total || r.items.reduce((s, i) => s + i.price, 0), kind: r.kind === 'rechnung' ? 'rechnung' : 'bon', invoice_no: r.invoice_no ?? '', net: r.net || 0, taxes: r.taxes ?? [], items_net: !!r.items_net, currency: r.currency || 'EUR', category: (CATS as readonly string[]).includes(r.category) ? r.category : 'Sonstiges', items: r.items.map(i => ({ ...i, vat: i.vat || 0, family: false })), einv: r.kind === 'rechnung' ? { seller: r.seller, buyer: r.buyer, due: r.due_date || undefined, service: r.service_date || undefined, ref: r.buyer_ref || undefined } : r.seller?.name || r.seller?.street ? { seller: r.seller } : {} };
   };
   // PDF (z. B. Rechnung aus der Mail): direkt lesen lassen, kein Zuschneiden
   const pdf = async (f: File) => {
@@ -482,7 +482,8 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
           <button type="button" aria-pressed={!inv} onClick={() => setKind('bon')}><span className="k"><CatIcon c="bon" size={20} /> Kassenbon</span><small>Bruttopreise</small></button>
           <button type="button" aria-pressed={inv} onClick={() => setKind('rechnung')}><span className="k"><CatIcon c="rechnung" size={20} /> Rechnung</span><small>Netto · MwSt · Brutto</small></button>
         </div>}
-        <label className="field"><span>{inv ? 'Rechnungssteller' : 'Händler'}</span><input value={rc.merchant} onChange={e => set({ merchant: e.target.value })} maxLength={200} placeholder="z. B. REWE" /></label>
+        <label className="field"><span>{inv ? 'Rechnungssteller (kurz)' : 'Händler'}</span><input value={rc.merchant} onChange={e => set({ merchant: e.target.value })} maxLength={200} placeholder="z. B. REWE" /></label>
+        <SellerBox rc={rc} set={set} prefs={prefs} ro={ro} inv={inv} />
         <div className="row2">
           <label className="field"><span>Datum</span><input type="date" value={date} onChange={e => e.target.value && setWhen(e.target.value, time)} /></label>
           {inv && <label className="field"><span>Rechnungsnr.</span><input value={rc.invoice_no} onChange={e => set({ invoice_no: e.target.value })} maxLength={60} /></label>}
@@ -560,12 +561,13 @@ function einvFull(rc: Receipt, prefs: Prefs): Receipt {
   return { ...rc, einv: { ...e, seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant }, buyer } };
 }
 
-// E-Rechnung: Angaben prüfen und als XRechnung (XML) exportieren
-function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt>) => void; prefs: Prefs; ro: boolean }) {
+// Aussteller des Belegs: Kurzname oben, Firmierung und Anschrift aufklappbar (für Rechnungen auch die Pflichtangaben der E-Rechnung)
+function SellerBox({ rc, set, prefs, ro, inv }: { rc: Receipt; set: (p: Partial<Receipt>) => void; prefs: Prefs; ro: boolean; inv: boolean }) {
   const e = rc.einv ?? {};
-  const upd = (p: Partial<EInv>) => set({ einv: { ...e, ...p } });
-  const full = einvFull(rc, prefs);
-  const chk = xCheck(full);
+  const s = e.seller ?? {} as Party;
+  const miss = inv ? xCheck(einvFull(rc, prefs)).keys.filter(k => k.startsWith('seller.')).map(k => k.slice(7)) : [];
+  // Ältere Belege wurden ohne Anschrift gelesen: einmal nachlesen lassen
+  const old = !s.street && !s.vat_id && !s.tax_no && !s.zip;
   const [busy, setBusy] = useState(false);
   // Leere Felder aus dem gespeicherten Beleg nachtragen, Eingetragenes bleibt
   const merge = <T extends object>(have: T | undefined, got: T | undefined): T => { const o = { ...(got ?? {}) } as Record<string, unknown>; for (const [k, v] of Object.entries(have ?? {})) if (v) o[k] = v; return o as T; };
@@ -574,19 +576,33 @@ function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt
     setBusy(true);
     try {
       const r = await reread(rc.photo);
-      set({ invoice_no: rc.invoice_no || r.invoice_no || '', einv: { ...e, seller: merge(e.seller, r.seller), buyer: merge(e.buyer, r.buyer), due: e.due || r.due_date || undefined, service: e.service || r.service_date || undefined, ref: e.ref || r.buyer_ref || undefined } });
+      set({ invoice_no: rc.invoice_no || r.invoice_no || '', einv: { ...e, seller: merge(e.seller && e.seller.name === rc.merchant ? { ...e.seller, name: '' } : e.seller, r.seller), buyer: merge(e.buyer, r.buyer), due: e.due || r.due_date || undefined, service: e.service || r.service_date || undefined, ref: e.ref || r.buyer_ref || undefined } });
       toast('Angaben aus der Rechnung übernommen. Bitte prüfen und speichern.');
     } catch (x) { fail(x); } finally { setBusy(false); }
   };
+  // Ältere Belege ohne Anschrift: beim ersten Aufklappen automatisch nachlesen (einmal)
+  const [tried, setTried] = useState(false);
+  const canRead = !ro && old && !!rc.photo && !rc.photo.startsWith('blob:');
+  const onToggle = (ev: React.SyntheticEvent<HTMLDetailsElement>) => { if (ev.currentTarget.open && canRead && !tried && !busy) { setTried(true); void again(); } };
+  return <details className="cash-einv cash-seller" onToggle={onToggle}>
+    <summary>Aussteller: {s.name || rc.merchant || '–'}{busy ? <small> · wird gelesen …</small> : miss.length ? <small> · {miss.length} Angaben fehlen</small> : s.street ? <small className="ok"> · {[s.street, [s.zip, s.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</small> : null}</summary>
+    <PartyFields p={{ ...s, name: s.name || rc.merchant }} miss={miss} set={p => set({ einv: { ...e, seller: { ...s, name: s.name || rc.merchant, ...p } } })} />
+  </details>;
+}
+
+// E-Rechnung: Angaben prüfen und als XRechnung (XML) exportieren
+function EInvBox({ rc, set, prefs, ro }: { rc: Receipt; set: (p: Partial<Receipt>) => void; prefs: Prefs; ro: boolean }) {
+  const e = rc.einv ?? {};
+  const upd = (p: Partial<EInv>) => set({ einv: { ...e, ...p } });
+  const full = einvFull(rc, prefs);
+  const chk = xCheck(full);
   const go = () => {
     const xml = xrechnung(full);
     shareBytes(`XRechnung ${(rc.invoice_no || rc.merchant || 'Beleg').replace(/[^\wÄÖÜäöüß .-]+/g, ' ').trim()}.xml`, 'application/xml', new TextEncoder().encode(xml));
   };
   return <details className="cash-einv">
     <summary>E-Rechnung (XRechnung){chk.missing.length ? <small> · {chk.missing.length} Angaben fehlen</small> : <small className="ok"> · vollständig</small>}</summary>
-    {!ro && rc.photo && !rc.photo.startsWith('blob:') && <button type="button" className="btn sm ghost" disabled={busy} onClick={() => void again()}>{busy ? 'Wird gelesen …' : 'Angaben aus der Rechnung neu auslesen'}</button>}
-    <b>Verkäufer</b>
-    <PartyFields p={full.einv.seller ?? {}} miss={chk.keys.filter(k => k.startsWith('seller.')).map(k => k.slice(7))} set={p => upd({ seller: { ...(e.seller ?? {} as Party), name: e.seller?.name || rc.merchant, ...p } })} />
+    {chk.keys.some(k => k.startsWith('seller.')) && <p className="cash-warn">Beim Aussteller (oben) fehlen noch Angaben, die Felder sind rot markiert.</p>}
     <b>Käufer</b>
     <PartyFields p={full.einv.buyer ?? {}} buyer miss={chk.keys.filter(k => k.startsWith('buyer.')).map(k => k.slice(6))} set={p => upd({ buyer: { ...(full.einv.buyer ?? {} as Party), ...p } })} />
     <div className="row2">
