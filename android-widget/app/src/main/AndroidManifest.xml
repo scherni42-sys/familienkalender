@@ -31,6 +31,16 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="content" android:host="com.android.calendar" />
         </intent>
+        <!-- Termin an Outlook oder eine andere Kalender-App geben (Knopf „An Outlook senden“) -->
+        <intent>
+            <action android:name="android.intent.action.INSERT" />
+            <data android:mimeType="vnd.android.cursor.dir/event" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:mimeType="text/calendar" />
+        </intent>
+        <package android:name="com.microsoft.office.outlook" />
     </queries>
 
     <application

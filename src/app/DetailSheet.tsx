@@ -11,6 +11,7 @@ import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
 import { useEffect, useState, type ReactNode } from 'react';
 import { BdayForm } from './Settings';
+import { sendToOutlook } from '../lib/outlook';
 import { AttachButton, FileList } from './Files';
 
 // Links in Notizen anklickbar machen (z. B. Teams-Besprechung)
@@ -138,6 +139,7 @@ export function DetailSheet({ id, close, edit }: { id: string; day?: string; add
         </Row> : null}
         {hasEvAlarm() && !e.all_day && <Row k="Wecker"><select aria-label="Wecker auf diesem Handy" value={lead} onChange={x => { const v = Number(x.target.value); setLead(v); setEvAlarm({ id: e.id, lead: v, date: e.date, start: e.start_min, title: e.title }); toast(v ? `Wecker gestellt: ${LEADS.find(l => l[0] === v)?.[1]}.` : 'Wecker aus.'); }}>
           <option value={0}>aus</option>{LEADS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Row>}
+        {!e.ext_id && <Row k="Outlook"><button type="button" className="btn sm" onClick={() => { const m = sendToOutlook(e); if (m) toast(m); }}><Icon name="today" /> An Outlook senden</button></Row>}
         <Row k="Sichtbar">{visLabel(e.vis)}{e.discreet ? ' · diskret' : ''}</Row>
         <Row k="Angelegt von">{nameOf(snap.members, e.owner)}</Row>
       </div>
