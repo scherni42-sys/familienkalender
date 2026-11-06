@@ -145,34 +145,17 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
   const byMon = per.mode === 'year' ? MS.map((_, m) => shown.filter(r => new Date(r.bought_at).getMonth() === m).reduce((s, r) => s + amount(r), 0)) : [];
   const maxMon = Math.max(1, ...byMon);
   const label = find ? `Suche ${q.trim()}` : per.mode === 'month' ? `${MON[first.getMonth()]} ${first.getFullYear()}` : per.mode === 'year' ? String(year) : per.mode === 'range' ? `${dmy(per.from)} – ${dmy(per.to)}` : per.grp;
-  const who = (id?: string) => snap.members.find(m => m.id === id)?.name ?? '';
-  const [zipBusy, setZipBusy] = useState('');
-  const zip = async () => {
-    const withPhoto = shown.filter(r => r.photo);
-    if (!withPhoto.length) { toast('In dieser Auswahl gibt es keine Belege mit Foto oder PDF.'); return; }
-    try {
-      const files: Record<string, Uint8Array> = {}; let bad = 0;
-      for (let i = 0; i < withPhoto.length; i++) {
-        setZipBusy(`PDF/A ${i + 1} von ${withPhoto.length} …`);
-        try { const f = await archivePdf(withPhoto[i], prefs, who(withPhoto[i].owner)); let n = f.name, k = 2; while (files[n]) n = f.name.replace(/\.pdf$/, ` (${k++}).pdf`); files[n] = f.data; }
-        catch { bad++; }
-      }
-      const { zipSync } = await import('fflate');
-      shareBytes(`Belege ${label}.zip`.replace(/[^\wÄÖÜäöüß .,()-]+/g, ' '), 'application/zip', zipSync(Object.fromEntries(Object.entries(files).map(([n, d]) => [n, [d, { level: 0 }]]))));
-      if (bad) toast(`${bad} Beleg(e) ließen sich nicht laden und fehlen im ZIP.`);
-    } catch (e) { fail(e); } finally { setZipBusy(''); }
-  };
-  const exp = async () => {
-    try {
-      await exportXlsx(`Kassenbuch ${label}${grpMode ? '' : ` ${tab === 'mine' ? 'Privat' : tab === 'family' ? 'Familie' : 'Firma'}`}`, shown, amount, who, grpMode ? umlage(shown, amount, umlSel, who) : null);
-    } catch (e) { fail(e); }
-  };
+  const [expo, setExpo] = useState(false);
   const setMode = (mode: Mode) => setPer(p => ({ ...p, mode, from: p.from || ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to: p.to || ymd(now), grp: p.grp || grps[0] || '' }));
+  if (expo) return <ExportSheet close={() => setExpo(false)} prefs={prefs} fam={fam} grps={grps} start={{ area: grpMode ? 'group' : tab, per, firm: firmSel, uml: umlSel }} />;
   return (
     <Sheet onClose={close} label="Kassenbuch">
       <div className="cash-top">
         <h2>Kassenbuch</h2>
-        <button type="button" className="head-i" aria-label="Kassenbuch einrichten" onClick={settings}><Icon name="gear" /></button>
+        <span className="cash-topbtns">
+          <button type="button" className="head-i cash-expbtn" aria-label="Exportieren" title="Exportieren" onClick={() => setExpo(true)}><Icon name="share" /></button>
+          <button type="button" className="head-i" aria-label="Kassenbuch einrichten" onClick={settings}><Icon name="gear" /></button>
+        </span>
       </div>
       {per.mode !== 'group' && !find && (fam || prefs.business) && <div className="cash-tabs">
         <button type="button" className={`kw-p${tab === 'mine' ? ' on' : ''}`} onClick={() => setTab('mine')}>Privat</button>
@@ -212,10 +195,6 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
         {cats.length > 0 && <div className="cash-cats">{cats.map(([c, v]) => <div key={c} className="cash-cat">
           <span><CatIcon c={c} size={18} /> {c}</span><i style={{ width: `${Math.max(3, v / max * 100)}%` }} /><b>{eur(v)}</b></div>)}</div>}
         {!shown.length && !(grpMode && !grps.length) && <p>{find ? 'Nichts gefunden.' : per.mode !== 'month' ? 'Keine Belege in dieser Auswahl.' : tab === 'mine' ? 'In diesem Monat noch keine Belege. Mit „＋ Beleg“ fotografierst du einen Kassenbon.' : biz ? 'In diesem Monat keine Firmenbelege.' : 'In diesem Monat keine Familienausgaben.'}</p>}
-        {shown.length > 0 && <div className="cash-exp">
-          <button type="button" className="btn sm ghost cash-xl" onClick={() => void exp()}><Icon name="share" /> Excel-Export</button>
-          <button type="button" className="btn sm ghost cash-xl" disabled={zipBusy !== ''} onClick={() => void zip()}><Icon name="share" /> {zipBusy || 'PDF/A-Export'}</button>
-        </div>}
         <div className="cash-list">{shown.map(r => {
           const m = snap.members.find(x => x.id === r.owner);
           const d = new Date(r.bought_at);
@@ -228,6 +207,106 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
         })}</div>
       </>}
       <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Schließen</button>{snap.members.find(m => m.id === me)?.role !== 'guest' && <button type="button" className="btn" onClick={add}>＋ Beleg</button>}</div>
+    </Sheet>
+  );
+}
+
+// Export: ein Fenster für alles – Bereich, Zeitraum oder einzelne Belege, Format
+type Area = Tab | 'group';
+type EMode = 'month' | 'year' | 'range' | 'pick';
+function ExportSheet({ close, prefs, fam, grps, start }: { close: () => void; prefs: Prefs; fam: boolean; grps: string[]; start: { area: Area; per: Period; firm: string; uml: string[] } }) {
+  const snap = useSnapshot();
+  const me = snap.me!;
+  const now = new Date();
+  const who = (id?: string) => snap.members.find(m => m.id === id)?.name ?? '';
+  const [area, setArea] = useState<Area>(start.area);
+  const [firm, setFirm] = useState(start.firm);
+  const [grp, setGrp] = useState(start.per.grp || grps[0] || '');
+  const sm = new Date(now.getFullYear(), now.getMonth() + start.per.off, 1);
+  const [mode, setMode] = useState<EMode>(start.per.mode === 'year' ? 'year' : start.per.mode === 'range' ? 'range' : 'month');
+  const [mon, setMon] = useState(`${sm.getFullYear()}-${pad(sm.getMonth() + 1)}`);
+  const [year, setYear] = useState(now.getFullYear() + start.per.yoff);
+  const [from, setFrom] = useState(start.per.from || ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
+  const [to, setTo] = useState(start.per.to || ymd(now));
+  const [xl, setXl] = useState(true), [pa, setPa] = useState(false);
+  const [pick, setPick] = useState<string[]>([]), [pq, setPq] = useState('');
+  const [rows, setRows] = useState<Receipt[] | null>(null);
+  const [busy, setBusy] = useState('');
+  const range: [string, string] | null = area === 'group' ? null : mode === 'month' ? [`${mon}-01`, ymd(new Date(+mon.slice(0, 4), +mon.slice(5, 7), 0))] : mode === 'year' ? [`${year}-01-01`, `${year}-12-31`] : mode === 'range' ? (from && to && from <= to ? [from, to] : null) : ['2000-01-01', ymd(new Date(Date.now() + 86400000))];
+  const key = area === 'group' ? `g:${grp}` : range ? range.join('|') : '';
+  useEffect(() => {
+    let live = true; setRows(null);
+    (area === 'group' ? (grp ? listGroup(grp) : Promise.resolve([])) : range ? list(range[0], range[1]) : Promise.resolve([])).then(r => { if (live) setRows(r); }, () => { if (live) setRows([]); });
+    return () => { live = false; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const firmNames = [...new Set(prefs.firms.map(f => f.name).filter(Boolean))];
+  const inArea = (r: Receipt) => area === 'group' ? r.owner === me || familyPart(r) !== 0 : area === 'mine' ? r.owner === me && r.scope !== 'business' : area === 'business' ? r.owner === me && r.scope === 'business' && (!firm || r.firm === firm) : familyPart(r) !== 0;
+  const amount = (r: Receipt) => area === 'group' ? (r.owner === me || r.scope === 'family' ? r.total : familyPart(r)) : area === 'family' ? familyPart(r) : r.total;
+  const avail = (rows ?? []).filter(inArea).sort((a, b) => b.bought_at.localeCompare(a.bought_at));
+  const sel = area !== 'group' && mode === 'pick' ? avail.filter(r => pick.includes(r.id!)) : avail;
+  const words = pq.toLowerCase().split(/\s+/).filter(Boolean);
+  const listed = avail.filter(r => words.every(w => [r.merchant, r.note, r.invoice_no, fmt(r.total), r.bought_at.slice(0, 10)].join(' ').toLowerCase().includes(w))).slice(0, 200);
+  const AN: Record<Area, string> = { mine: 'Privat', family: 'Familie', business: 'Firma', group: 'Gruppe' };
+  const title = `Kassenbuch ${area === 'group' ? grp : `${area === 'business' && firm ? firm : AN[area]} ${mode === 'month' ? `${MON[+mon.slice(5, 7) - 1]} ${mon.slice(0, 4)}` : mode === 'year' ? year : mode === 'range' ? `${dmy(from)} – ${dmy(to)}` : sel.length === 1 ? fileBase(sel[0]) : `${sel.length} Belege`}`}`;
+  const go = async () => {
+    if (!sel.length) return;
+    try {
+      const sheet = xl ? await xlsxBytes(title, sel, amount, who, area === 'group' ? umlage(sel, amount, start.uml.length && grp === start.per.grp ? start.uml : [...new Set([me, ...sel.map(r => r.owner!)])], who) : null) : null;
+      const clean = (n: string) => n.replace(/[^\wÄÖÜäöüß &.,()–-]+/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!pa) { shareBytes(`${clean(title)}.xlsx`, XLSX_MIME, sheet!); return; }
+      const withPhoto = sel.filter(r => r.photo);
+      const files: Record<string, Uint8Array> = {}; let bad = 0;
+      for (let i = 0; i < withPhoto.length; i++) {
+        setBusy(`Beleg ${i + 1} von ${withPhoto.length} …`);
+        try { const f = await archivePdf(withPhoto[i], prefs, who(withPhoto[i].owner)); let n = f.name, k = 2; while (files[n]) n = f.name.replace(/\.pdf$/, ` (${k++}).pdf`); files[n] = f.data; }
+        catch { bad++; }
+      }
+      // Ein einzelner Beleg ohne Tabelle: direkt als PDF, sonst alles in ein ZIP
+      const names = Object.keys(files);
+      if (!sheet && names.length === 1) shareBytes(names[0], 'application/pdf', files[names[0]]);
+      else {
+        if (sheet) files[`${clean(title)}.xlsx`] = sheet;
+        if (!Object.keys(files).length) { toast('In dieser Auswahl gibt es keine Belege mit Foto oder PDF.'); return; }
+        const { zipSync } = await import('fflate');
+        shareBytes(`${clean(title)}.zip`, 'application/zip', zipSync(Object.fromEntries(Object.entries(files).map(([n, d]) => [n, [d, { level: 0 }]]))));
+      }
+      if (bad) toast(`${bad} Beleg(e) ließen sich nicht laden und fehlen.`);
+    } catch (e) { fail(e); } finally { setBusy(''); }
+  };
+  const areas = ([['mine', 'Privat'], ...(fam ? [['family', 'Familie']] : []), ...(prefs.business ? [['business', 'Firma']] : []), ...(grps.length ? [['group', 'Gruppe']] : [])] as [Area, string][]);
+  const years = Array.from({ length: 10 }, (_, i) => now.getFullYear() - i);
+  return (
+    <Sheet onClose={close} label="Exportieren">
+      <h2>Exportieren</h2>
+      <div className="field"><span>Was?</span></div>
+      <div className="cash-modes" role="group" aria-label="Bereich">{areas.map(([a, t]) => <button key={a} type="button" aria-pressed={area === a} onClick={() => { setArea(a); setPick([]); }}>{t}</button>)}</div>
+      {area === 'business' && firmNames.length > 1 && <select className="cash-firmsel" value={firm} onChange={e => { setFirm(e.target.value); setPick([]); }} aria-label="Firma"><option value="">Alle Firmen</option>{firmNames.map(n => <option key={n}>{n}</option>)}</select>}
+      {area === 'group' ? <label className="field"><span>Buchungsgruppe</span><select value={grp} onChange={e => setGrp(e.target.value)}>{grps.map(g => <option key={g}>{g}</option>)}</select></label> : <>
+        <div className="field"><span>Welcher Zeitraum?</span></div>
+        <div className="cash-modes" role="group" aria-label="Zeitraum">
+          {([['month', 'Monat'], ['year', 'Jahr'], ['range', 'Von – bis'], ['pick', 'Einzeln']] as [EMode, string][]).map(([m, t]) => <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)}>{t}</button>)}
+        </div>
+        {mode === 'month' && <label className="field"><span>Monat</span><input type="month" value={mon} onChange={e => e.target.value && setMon(e.target.value)} /></label>}
+        {mode === 'year' && <label className="field"><span>Jahr</span><select value={year} onChange={e => setYear(+e.target.value)}>{years.map(y => <option key={y}>{y}</option>)}</select></label>}
+        {mode === 'range' && <div className="row2">
+          <label className="field"><span>Von</span><input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+          <label className="field"><span>Bis</span><input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
+        </div>}
+        {mode === 'pick' && <>
+          <label className="cash-find"><Icon name="search" /><input type="text" value={pq} onChange={e => setPq(e.target.value)} placeholder="Händler, Datum, Betrag …" aria-label="Belege filtern" /></label>
+          {rows === null ? <p>Lädt …</p> : <div className="cash-pick">{listed.map(r => { const on = pick.includes(r.id!); return <label key={r.id} className={on ? 'on' : ''}>
+            <input type="checkbox" checked={on} onChange={e => setPick(p => e.target.checked ? [...p, r.id!] : p.filter(x => x !== r.id))} />
+            <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{dmy(r.bought_at.slice(0, 10))}{r.firm && area === 'business' ? ` · ${r.firm}` : ''}</small></span><b className="cash-amt">{eur(amount(r))}</b></label>; })}
+            {!listed.length && <p>Keine Belege.</p>}</div>}
+        </>}
+      </>}
+      <div className="field"><span>Als was?</span></div>
+      <div className="cash-fmt">
+        <label className={xl ? 'on' : ''}><input type="checkbox" checked={xl} onChange={e => { setXl(e.target.checked); if (!e.target.checked) setPa(true); }} /><span><b>Excel-Tabelle</b><small>Liste mit Beträgen, Positionen und MwSt</small></span></label>
+        <label className={pa ? 'on' : ''}><input type="checkbox" checked={pa} onChange={e => { setPa(e.target.checked); if (!e.target.checked) setXl(true); }} /><span><b>Belege als PDF/A</b><small>Fotos fürs Archiv, PDF-Rechnungen im Original{xl ? '; zusammen mit der Tabelle als ZIP' : ''}</small></span></label>
+      </div>
+      <p className="cash-check">{rows === null ? 'Lädt …' : `${sel.length} ${sel.length === 1 ? 'Beleg' : 'Belege'} · ${eur(sel.reduce((s, r) => s + amount(r), 0))}`}</p>
+      <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Zurück</button><button type="button" className="btn" disabled={!sel.length || busy !== ''} onClick={() => void go()}>{busy || 'Exportieren'}</button></div>
     </Sheet>
   );
 }
@@ -265,7 +344,8 @@ function Umlage({ shown, amount, onSel }: { shown: Receipt[]; amount: (r: Receip
 }
 
 // Excel-Datei bauen und teilen (App) bzw. herunterladen (Browser)
-async function exportXlsx(title: string, shown: Receipt[], amount: (r: Receipt) => number, who: (id?: string) => string, uml: ReturnType<typeof umlage> | null) {
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+async function xlsxBytes(_title: string, shown: Receipt[], amount: (r: Receipt) => number, who: (id?: string) => string, uml: ReturnType<typeof umlage> | null): Promise<Uint8Array> {
   const { xlsx } = await import('../lib/xlsx');
   const SC: Record<string, string> = { private: 'Privat', family: 'Familie', business: 'Firma' };
   const sorted = [...shown].sort((a, b) => a.bought_at.localeCompare(b.bought_at));
@@ -281,7 +361,7 @@ async function exportXlsx(title: string, shown: Receipt[], amount: (r: Receipt) 
       ...sorted.flatMap(r => r.items.map(i => [{ date: new Date(r.bought_at) }, r.merchant, i.name, i.qty, i.category, i.vat || null, { eur: i.price }, r.scope === 'family' || i.family ? 'ja' : ''] as Cell[]))]
   }];
   if (uml) sheets.push({ name: 'Kostenumlage', widths: [18, 14, 14, 14], rows: [['Person', 'Bezahlt', 'Anteil', 'Saldo'], ...uml.bal.map(b => [b.name, { eur: b.paid }, { eur: uml.share }, { eur: b.diff }] as Cell[]), [], ['Ausgleich'], ...uml.pay.map(p => [`${p.from} → ${p.to}`, { eur: p.eur }] as Cell[])] });
-  shareBytes(`${title.replace(/[^\wÄÖÜäöüß .-]+/g, ' ').trim()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xlsx(sheets));
+  return xlsx(sheets);
 }
 
 // Datei teilen (App: Teilen-Menü) bzw. herunterladen (Browser)
@@ -451,12 +531,6 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
       if (remember && rc.card.length === 4) await keep({ ...prefs, cards: [...prefs.cards.filter(c => c.card !== rc.card), { card: rc.card, scope: rc.scope, ...(rc.scope === 'business' && rc.firm ? { firm: rc.firm } : {}) }] }).catch(() => {}); toast('Beleg gespeichert.'); saved(rc); }
     catch (e) { fail(e); } finally { setBusy(false); }
   };
-  const [pdfBusy, setPdfBusy] = useState(false);
-  const savePdf = async () => {
-    setPdfBusy(true);
-    try { const f = await archivePdf(rc, prefs, snap.members.find(m => m.id === rc.owner)?.name ?? ''); shareBytes(f.name, 'application/pdf', f.data); if (f.xml) toast('PDF/A mit eingebetteter XRechnung erstellt.'); }
-    catch (e) { fail(e); } finally { setPdfBusy(false); }
-  };
   const del = async () => { if (!(await ask('Diesen Beleg mit Foto löschen?', 'Löschen'))) return; try { await remove(rc); toast('Beleg gelöscht.'); done(); } catch (e) { fail(e); } };
   const ro = !mine;
   return (
@@ -465,10 +539,6 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
       {isPdf && !url && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
       {url && <button type="button" className="cash-photo" onClick={() => setBig(true)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /><span className="cash-photo-tip">Antippen zum Vergrößern</span></button>}
       {big && url && <ZoomView src={url} close={() => setBig(false)} />}
-      {start.id && <div className="cash-exp">
-        {rc.photo && <button type="button" className="btn sm ghost cash-xl" disabled={pdfBusy} onClick={() => void savePdf()}><Icon name="share" /> {pdfBusy ? 'Wird erstellt …' : rc.photo.endsWith('.pdf') ? 'PDF-Export' : 'PDF/A-Export'}</button>}
-        <button type="button" className="btn sm ghost cash-xl" onClick={() => void exportXlsx(fileBase(rc), [rc], r => r.total, id => snap.members.find(m => m.id === id)?.name ?? '', null).catch(fail)}><Icon name="share" /> Excel-Export</button>
-      </div>}
       {ro && <p>Von {snap.members.find(m => m.id === rc.owner)?.name ?? 'jemandem'}. Nur der Besitzer kann den Beleg ändern.</p>}
       <fieldset disabled={ro} className="cash-form">
         {!ro && <div className={`visbig${biz ? ' three' : ''}`} role="group" aria-label="Privat, Familie oder Firma">
