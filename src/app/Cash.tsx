@@ -164,7 +164,7 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
   };
   const exp = async () => {
     try {
-      await exportXlsx(`Kassenbuch ${label}${grpMode ? '' : ` ${tab === 'mine' ? 'Meine' : tab === 'family' ? 'Familie' : 'Firma'}`}`, shown, amount, who, grpMode ? umlage(shown, amount, umlSel, who) : null);
+      await exportXlsx(`Kassenbuch ${label}${grpMode ? '' : ` ${tab === 'mine' ? 'Privat' : tab === 'family' ? 'Familie' : 'Firma'}`}`, shown, amount, who, grpMode ? umlage(shown, amount, umlSel, who) : null);
     } catch (e) { fail(e); }
   };
   const setMode = (mode: Mode) => setPer(p => ({ ...p, mode, from: p.from || ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to: p.to || ymd(now), grp: p.grp || grps[0] || '' }));
@@ -175,7 +175,7 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
         <button type="button" className="head-i" aria-label="Kassenbuch einrichten" onClick={settings}><Icon name="gear" /></button>
       </div>
       {per.mode !== 'group' && !find && (fam || prefs.business) && <div className="cash-tabs">
-        <button type="button" className={`kw-p${tab === 'mine' ? ' on' : ''}`} onClick={() => setTab('mine')}>Meine</button>
+        <button type="button" className={`kw-p${tab === 'mine' ? ' on' : ''}`} onClick={() => setTab('mine')}>Privat</button>
         {fam && <button type="button" className={`kw-p${tab === 'family' ? ' on' : ''}`} onClick={() => setTab('family')}>Familie</button>}
         {prefs.business && <button type="button" className={`kw-p${tab === 'business' ? ' on' : ''}`} onClick={() => setTab('business')}>Firma</button>}
       </div>}
@@ -204,7 +204,7 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
       {grpMode && !find && (grps.length ? <label className="field"><span>Buchungsgruppe</span><select value={per.grp} onChange={e => setPer(p => ({ ...p, grp: e.target.value }))}>{grps.map(g => <option key={g} value={g}>{g}</option>)}</select></label>
         : <p>Noch keine Buchungsgruppen. Trag beim Beleg unter „Buchungsgruppe“ z. B. „Urlaub Dänemark 2026“ ein, dann siehst du hier alle Ausgaben dazu und wer wem wie viel schuldet.</p>)}
       {err && !find ? <p className="cash-err">{err}</p> : (find ? all === null : rows === null) ? <p>Lädt …</p> : <>
-        <div className="cash-sum"><span>{find ? `${shown.length} Treffer` : grpMode ? 'Gesamt' : tab === 'mine' ? 'Meine Ausgaben' : biz ? (firmSel || (firmNames.length === 1 ? firmNames[0] : 'Firmen')) + ' brutto' : 'Familienausgaben'}</span><b>{eur(sum)}</b></div>
+        <div className="cash-sum"><span>{find ? `${shown.length} Treffer` : grpMode ? 'Gesamt' : tab === 'mine' ? 'Private Ausgaben' : biz ? (firmSel || (firmNames.length === 1 ? firmNames[0] : 'Firmen')) + ' brutto' : 'Familienausgaben'}</span><b>{eur(sum)}</b></div>
         {biz && <div className="cash-net"><span>Netto <b>{eur(sum - tax)}</b></span><span>Vorsteuer <b>{eur(tax)}</b></span></div>}
         {grpMode && shown.length > 0 && <Umlage key={per.grp} shown={shown} amount={amount} onSel={setUmlSel} />}
         {!find && per.mode === 'year' && sum > 0 && <div className="cash-cats">{byMon.map((v, m) => <div key={m} className="cash-cat mon">
