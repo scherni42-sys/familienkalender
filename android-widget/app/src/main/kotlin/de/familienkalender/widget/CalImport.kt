@@ -26,7 +26,8 @@ object CalImport {
     private const val SEND_ANYWAY_MS = 6 * 3600_000L     // ohne Änderung trotzdem alle 6 Stunden abgleichen
     private val BDAY = Regex("geburtstag", RegexOption.IGNORE_CASE)
 
-    data class Cal(val id: Long, val name: String, val account: String, val type: String)
+    // synced: Termine liegen auf dem Handy (SYNC_EVENTS). Geteilte/abonnierte Kalender sind oft nur gelistet, aber nicht synchronisiert.
+    data class Cal(val id: Long, val name: String, val account: String, val type: String, val synced: Boolean = true, val visible: Boolean = true)
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     fun enabled(ctx: Context) = prefs(ctx).getBoolean("calimport", false)
@@ -52,14 +53,49 @@ object CalImport {
         if (!allowed(ctx)) return emptyList()
         val out = ArrayList<Cal>()
         ctx.contentResolver.query(Calendars.CONTENT_URI,
-            arrayOf(Calendars._ID, Calendars.CALENDAR_DISPLAY_NAME, Calendars.ACCOUNT_NAME, Calendars.ACCOUNT_TYPE), null, null,
+            arrayOf(Calendars._ID, Calendars.CALENDAR_DISPLAY_NAME, Calendars.ACCOUNT_NAME, Calendars.ACCOUNT_TYPE,
+                Calendars.SYNC_EVENTS, Calendars.VISIBLE), null, null,
             "${Calendars.ACCOUNT_NAME}, ${Calendars.CALENDAR_DISPLAY_NAME}")?.use { c ->
             while (c.moveToNext()) {
                 if (c.getString(2) == OWN_ACCOUNT && c.getString(3) == CalendarContract.ACCOUNT_TYPE_LOCAL) continue
-                out += Cal(c.getLong(0), c.getString(1) ?: "Kalender", c.getString(2) ?: "", c.getString(3) ?: "")
+                out += Cal(c.getLong(0), c.getString(1) ?: "Kalender", c.getString(2) ?: "", c.getString(3) ?: "",
+                    c.isNull(4) || c.getInt(4) != 0, c.isNull(5) || c.getInt(5) != 0)
             }
         }
         return out
+    }
+
+    // Wie viele Termine je Kalender im Übernahme-Zeitraum auf dem Handy liegen (zur Anzeige in den Einstellungen)
+    fun counts(ctx: Context): Map<Long, Int> {
+        if (!allowed(ctx)) return emptyMap()
+        val zone = ZoneId.systemDefault()
+        val begin = LocalDate.now().minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = LocalDate.now().plusDays(366).atStartOfDay(zone).toInstant().toEpochMilli()
+        val uri = Instances.CONTENT_URI.buildUpon().also { ContentUris.appendId(it, begin); ContentUris.appendId(it, end) }.build()
+        val out = HashMap<Long, Int>()
+        try {
+            ctx.contentResolver.query(uri, arrayOf(Instances.CALENDAR_ID), null, null, null)?.use { c ->
+                while (c.moveToNext()) out[c.getLong(0)] = (out[c.getLong(0)] ?: 0) + 1
+            }
+        } catch (e: Exception) { }
+        return out
+    }
+
+    // Kalender, der nur gelistet ist, auf dem Handy synchronisieren lassen (darf jede App mit Schreibrecht)
+    fun enableSync(ctx: Context, cal: Cal): Boolean {
+        if (ctx.checkSelfPermission(Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED) return false
+        return try {
+            val v = android.content.ContentValues().apply { put(Calendars.SYNC_EVENTS, 1) }
+            ctx.contentResolver.update(ContentUris.withAppendedId(Calendars.CONTENT_URI, cal.id), v, null, null)
+            if (cal.account.isNotBlank() && cal.type.isNotBlank() && cal.type != CalendarContract.ACCOUNT_TYPE_LOCAL) {
+                val extras = android.os.Bundle().apply {
+                    putBoolean(android.content.ContentResolver.SYNC_EXTRAS_MANUAL, true)
+                    putBoolean(android.content.ContentResolver.SYNC_EXTRAS_EXPEDITED, true)
+                }
+                android.content.ContentResolver.requestSync(android.accounts.Account(cal.account, cal.type), CalendarContract.AUTHORITY, extras)
+            }
+            true
+        } catch (e: Exception) { false }
     }
 
     // Aus dem Hintergrund (Widget-Aktualisierung) aufrufen; liest und sendet nur bei Bedarf
