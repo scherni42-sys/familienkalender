@@ -228,7 +228,7 @@ function ExportSheet({ close, prefs, fam, grps, start }: { close: () => void; pr
   const [year, setYear] = useState(now.getFullYear() + start.per.yoff);
   const [from, setFrom] = useState(start.per.from || ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
   const [to, setTo] = useState(start.per.to || ymd(now));
-  const [xl, setXl] = useState(true), [pa, setPa] = useState(false);
+  const [xl, setXl] = useState(true), [pa, setPa] = useState(false), [xr, setXr] = useState(false);
   const [pick, setPick] = useState<string[]>([]), [pq, setPq] = useState('');
   const [rows, setRows] = useState<Receipt[] | null>(null);
   const [busy, setBusy] = useState('');
@@ -248,29 +248,31 @@ function ExportSheet({ close, prefs, fam, grps, start }: { close: () => void; pr
   const listed = avail.filter(r => words.every(w => [r.merchant, r.note, r.invoice_no, fmt(r.total), r.bought_at.slice(0, 10)].join(' ').toLowerCase().includes(w))).slice(0, 200);
   const AN: Record<Area, string> = { mine: 'Privat', family: 'Familie', business: 'Firma', group: 'Gruppe' };
   const title = `Kassenbuch ${area === 'group' ? grp : `${area === 'business' && firm ? firm : AN[area]} ${mode === 'month' ? `${MON[+mon.slice(5, 7) - 1]} ${mon.slice(0, 4)}` : mode === 'year' ? year : mode === 'range' ? `${dmy(from)} – ${dmy(to)}` : sel.length === 1 ? fileBase(sel[0]) : `${sel.length} Belege`}`}`;
+  // E-Rechnung nur für Rechnungen, deren Pflichtangaben vollständig sind
+  const xOk = (r: Receipt) => r.kind === 'rechnung' && !xCheck(einvFull(r, prefs)).missing.length;
+  const invs = sel.filter(r => r.kind === 'rechnung'), xrs = invs.filter(xOk);
   const go = async () => {
     if (!sel.length) return;
     try {
-      const sheet = xl ? await xlsxBytes(title, sel, amount, who, area === 'group' ? umlage(sel, amount, start.uml.length && grp === start.per.grp ? start.uml : [...new Set([me, ...sel.map(r => r.owner!)])], who) : null) : null;
       const clean = (n: string) => n.replace(/[^\wÄÖÜäöüß &.,()–-]+/g, ' ').replace(/\s+/g, ' ').trim();
-      if (!pa) { shareBytes(`${clean(title)}.xlsx`, XLSX_MIME, sheet!); return; }
-      const withPhoto = sel.filter(r => r.photo);
       const files: Record<string, Uint8Array> = {}; let bad = 0;
-      for (let i = 0; i < withPhoto.length; i++) {
-        setBusy(`Beleg ${i + 1} von ${withPhoto.length} …`);
-        try { const f = await archivePdf(withPhoto[i], prefs, who(withPhoto[i].owner)); let n = f.name, k = 2; while (files[n]) n = f.name.replace(/\.pdf$/, ` (${k++}).pdf`); files[n] = f.data; }
-        catch { bad++; }
+      const put = (n: string, d: Uint8Array) => { let m = n, k = 2; while (files[m]) m = n.replace(/(\.\w+)$/, ` (${k++})$1`); files[m] = d; };
+      if (xl) put(`${clean(title)}.xlsx`, await xlsxBytes(title, sel, amount, who, area === 'group' ? umlage(sel, amount, start.uml.length && grp === start.per.grp ? start.uml : [...new Set([me, ...sel.map(r => r.owner!)])], who) : null));
+      if (pa) {
+        const withPhoto = sel.filter(r => r.photo);
+        for (let i = 0; i < withPhoto.length; i++) {
+          setBusy(`Beleg ${i + 1} von ${withPhoto.length} …`);
+          try { const f = await archivePdf(withPhoto[i], prefs, who(withPhoto[i].owner)); put(f.name, f.data); } catch { bad++; }
+        }
       }
-      // Ein einzelner Beleg ohne Tabelle: direkt als PDF, sonst alles in ein ZIP
+      if (xr) for (const r of xrs) put(`XRechnung ${clean(fileBase(r))}.xml`, new TextEncoder().encode(xrechnung(einvFull(r, prefs))));
       const names = Object.keys(files);
-      if (!sheet && names.length === 1) shareBytes(names[0], 'application/pdf', files[names[0]]);
-      else {
-        if (sheet) files[`${clean(title)}.xlsx`] = sheet;
-        if (!Object.keys(files).length) { toast('In dieser Auswahl gibt es keine Belege mit Foto oder PDF.'); return; }
-        const { zipSync } = await import('fflate');
-        shareBytes(`${clean(title)}.zip`, 'application/zip', zipSync(Object.fromEntries(Object.entries(files).map(([n, d]) => [n, [d, { level: 0 }]]))));
-      }
+      if (!names.length) { toast(xr && !pa && !xl ? 'In dieser Auswahl ist keine vollständige Rechnung für eine E-Rechnung.' : 'In dieser Auswahl gibt es keine Belege mit Foto oder PDF.'); return; }
+      const mime = (n: string) => n.endsWith('.xlsx') ? XLSX_MIME : n.endsWith('.xml') ? 'application/xml' : 'application/pdf';
+      if (names.length === 1) shareBytes(names[0], mime(names[0]), files[names[0]]);
+      else { const { zipSync } = await import('fflate'); shareBytes(`${clean(title)}.zip`, 'application/zip', zipSync(Object.fromEntries(Object.entries(files).map(([n, d]) => [n, [d, { level: 0 }]])))); }
       if (bad) toast(`${bad} Beleg(e) ließen sich nicht laden und fehlen.`);
+      else if (xr && xrs.length < invs.length) toast(`${invs.length - xrs.length} Rechnung(en) ohne vollständige Angaben, dafür keine E-Rechnung.`);
     } catch (e) { fail(e); } finally { setBusy(''); }
   };
   const areas = ([['mine', 'Privat'], ...(fam ? [['family', 'Familie']] : []), ...(prefs.business ? [['business', 'Firma']] : []), ...(grps.length ? [['group', 'Gruppe']] : [])] as [Area, string][]);
@@ -302,11 +304,12 @@ function ExportSheet({ close, prefs, fam, grps, start }: { close: () => void; pr
       </>}
       <div className="field"><span>Als was?</span></div>
       <div className="cash-fmt">
-        <label className={xl ? 'on' : ''}><input type="checkbox" checked={xl} onChange={e => { setXl(e.target.checked); if (!e.target.checked) setPa(true); }} /><span><b>Excel-Tabelle</b><small>Liste mit Beträgen, Positionen und MwSt</small></span></label>
-        <label className={pa ? 'on' : ''}><input type="checkbox" checked={pa} onChange={e => { setPa(e.target.checked); if (!e.target.checked) setXl(true); }} /><span><b>Belege als PDF/A</b><small>Fotos fürs Archiv, PDF-Rechnungen im Original{xl ? '; zusammen mit der Tabelle als ZIP' : ''}</small></span></label>
+        <label className={xl ? 'on' : ''}><input type="checkbox" checked={xl} onChange={e => setXl(e.target.checked)} /><span><b>Excel-Tabelle</b><small>Liste mit Beträgen, Positionen und MwSt</small></span></label>
+        <label className={pa ? 'on' : ''}><input type="checkbox" checked={pa} onChange={e => setPa(e.target.checked)} /><span><b>Belege als PDF/A</b><small>Fotos fürs Archiv, PDF-Rechnungen im Original</small></span></label>
+        <label className={xr ? 'on' : ''}><input type="checkbox" checked={xr} onChange={e => setXr(e.target.checked)} /><span><b>E-Rechnung (XRechnung)</b><small>{rows === null ? 'für vollständige Rechnungen' : invs.length ? `${xrs.length} von ${invs.length} ${invs.length === 1 ? 'Rechnung' : 'Rechnungen'} vollständig` : 'keine Rechnungen in der Auswahl'}</small></span></label>
       </div>
-      <p className="cash-check">{rows === null ? 'Lädt …' : `${sel.length} ${sel.length === 1 ? 'Beleg' : 'Belege'} · ${eur(sel.reduce((s, r) => s + amount(r), 0))}`}</p>
-      <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Zurück</button><button type="button" className="btn" disabled={!sel.length || busy !== ''} onClick={() => void go()}>{busy || 'Exportieren'}</button></div>
+      <p className="cash-check">{(xl ? 1 : 0) + (pa ? 1 : 0) + (xr ? 1 : 0) > 1 ? 'Mehrere Dateien kommen zusammen als ZIP. ' : ''}{rows === null ? 'Lädt …' : `${sel.length} ${sel.length === 1 ? 'Beleg' : 'Belege'} · ${eur(sel.reduce((s, r) => s + amount(r), 0))}`}</p>
+      <div className="btn-row"><button type="button" className="btn ghost" onClick={close}>Zurück</button><button type="button" className="btn" disabled={!sel.length || busy !== '' || !(xl || pa || xr)} onClick={() => void go()}>{busy || 'Exportieren'}</button></div>
     </Sheet>
   );
 }
