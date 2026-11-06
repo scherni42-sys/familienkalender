@@ -84,8 +84,11 @@ export function DetailSheet({ id, close, edit }: { id: string; day?: string; add
     if (!iDrive && !takeOver) return;
     const set = (min: number) => store.setEta(e.id, new Date(Date.now() + min * 60000).toISOString(), takeOver ? snap.me : undefined).catch(() => {});
     if (here) { void set(here.minutes); return; }
-    // Sofort eine vorläufige Ankunftszeit mit der Fahrzeit von zu Hause, danach genauer vom Standort
-    if (e.travel_min) void set(e.travel_min);
+    // Sofort eine vorläufige Ankunftszeit, danach genauer vom Standort. Die genaue Rechnung kommt oft erst zurück,
+    // wenn man aus Google Maps zurückkehrt (die Seite pausiert); ohne die vorläufige Zeit sähe die Familie bis dahin nicht, wer fährt.
+    // Vorläufig: Fahrzeit von zu Hause, sonst der Terminbeginn (heute), sonst eine Viertelstunde
+    const toStart = e.date === today() ? (e.driver === snap.me || takeOver ? target(e) : e.end_min) - nowMin() : 0;
+    void set(e.travel_min || Math.min(180, Math.max(5, toStart > 0 ? toStart : 15)));
     navigator.geolocation?.getCurrentPosition(
       p => travelTime(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)}`, e.addr || e.place).then(r => set(r.minutes), () => {}),
       () => {}, { enableHighAccuracy: false, timeout: 15000, maximumAge: 120000 });
