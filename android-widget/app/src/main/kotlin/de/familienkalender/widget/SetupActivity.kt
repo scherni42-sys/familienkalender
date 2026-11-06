@@ -175,6 +175,11 @@ class SetupActivity : Activity() {
         if (code == 2 && res.isNotEmpty() && res.all { it == PackageManager.PERMISSION_GRANTED })
             thread { Feed.load(this).first?.let { CalSync.sync(this, it) } }
         if (code == 3) showCalendars()
+        if (code == 6) {
+            val list = pendingSync.toList(); pendingSync.clear()
+            if (res.isNotEmpty() && res.all { it == PackageManager.PERMISSION_GRANTED }) list.forEach { triedSync -= it.id; turnOnSync(it) }
+            showCalendars()
+        }
         if (code == 4 && Geo.hasFine(this) && !Geo.hasBackground(this)) askBackground()
         if (code == 4 || code == 5) { Geo.register(this); showGeo() }
     }
@@ -206,20 +211,53 @@ class SetupActivity : Activity() {
         val sel = CalImport.selected(this).toMutableSet()
         CalImport.suggestWork(this, cals)
         val work = CalImport.work(this).toMutableSet()
+        val counts = CalImport.counts(this)
+        val dp = resources.displayMetrics.density
         for (c in cals) {
-            val row = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.HORIZONTAL }
+            // Zeile: [Haken] Name / Konto · Anzahl Termine   [Haken beruflich] – alles mittig auf einer Linie
+            val row = android.widget.LinearLayout(this).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(0, (4 * dp).toInt(), 0, (4 * dp).toInt())
+            }
             val cb = CheckBox(this)
-            cb.text = if (c.account.isNotBlank() && c.account != c.name) "${c.name}  (${c.account})" else c.name
             cb.isChecked = c.id in sel
-            cb.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            val label = android.widget.LinearLayout(this).apply { orientation = android.widget.LinearLayout.VERTICAL }
+            label.layoutParams = android.widget.LinearLayout.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            val name = TextView(this).apply {
+                text = c.name
+                textSize = 15f
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            val n = counts[c.id] ?: 0
+            val info = when {
+                !c.synced -> "wird auf dem Handy nicht synchronisiert" + if (cb.isChecked) " – wird eingeschaltet …" else ""
+                n == 0 && !c.visible -> "im Handy-Kalender ausgeblendet, keine Termine"
+                n == 0 -> "keine Termine in den nächsten 12 Monaten"
+                n == 1 -> "1 Termin"
+                else -> "$n Termine"
+            }
+            val sub = TextView(this).apply {
+                text = if (c.account.isNotBlank() && c.account != c.name) "${c.account} · $info" else info
+                textSize = 12f
+                alpha = 0.7f
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.MIDDLE
+            }
+            label.addView(name); label.addView(sub)
+            label.setOnClickListener { cb.toggle() }
             val wb = CheckBox(this)
             wb.text = "beruflich"
             wb.isChecked = c.id in work
             wb.isEnabled = cb.isChecked
+            wb.layoutParams = android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = (8 * dp).toInt() }
             cb.setOnCheckedChangeListener { _, on ->
                 if (on) sel += c.id else sel -= c.id
                 wb.isEnabled = on
                 CalImport.setSelected(this, sel)
+                if (on && !c.synced) turnOnSync(c)
                 syncNow()
             }
             wb.setOnCheckedChangeListener { _, on ->
@@ -227,14 +265,34 @@ class SetupActivity : Activity() {
                 CalImport.setWork(this, work)
                 syncNow()
             }
-            row.addView(cb); row.addView(wb)
+            row.addView(cb); row.addView(label); row.addView(wb)
             box.addView(row)
+            // Schon angehakt, aber nicht synchronisiert (z. B. geteilter Kalender): jetzt einschalten
+            if (cb.isChecked && !c.synced) turnOnSync(c)
         }
         status.text = when {
             cals.isEmpty() -> "Keine Kalender auf dem Handy gefunden."
             sel.isEmpty() -> "Bitte ankreuzen, welche Kalender übernommen werden sollen."
             else -> CalImport.lastResult(this).ifEmpty { "Wird übernommen …" }
         }
+    }
+
+    // Geteilte Kalender (z. B. company@…) stehen oft nur in der Liste, ihre Termine liegen aber nicht auf dem Handy.
+    // Synchronisierung einschalten und nach kurzer Zeit neu übernehmen.
+    private val pendingSync = ArrayList<CalImport.Cal>()
+    private val triedSync = HashSet<Long>()
+    private fun turnOnSync(c: CalImport.Cal) {
+        if (!triedSync.add(c.id)) return
+        if (checkSelfPermission(Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+            pendingSync += c
+            requestPermissions(arrayOf(Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR), 6)
+            return
+        }
+        if (!CalImport.enableSync(this, c)) {
+            findViewById<TextView>(R.id.impstatus).text = "„${c.name}“ wird auf dem Handy nicht synchronisiert. Bitte im Samsung-Kalender unter Kalender verwalten die Synchronisierung einschalten."
+            return
+        }
+        findViewById<android.view.View>(R.id.impcals).postDelayed({ if (!isFinishing) { syncNow(); showCalendars() } }, 20_000)
     }
 
     private fun syncNow() {
