@@ -273,6 +273,31 @@ class AppActivity : Activity() {
             if (cal != null) i.setClassName(cal.activityInfo.packageName, cal.activityInfo.name)
             return try { runOnUiThread { startActivity(if (cal != null) i else Intent.createChooser(i, "Termin öffnen mit")) }; true } catch (e: Exception) { false }
         }
+        // Termin aus FamTO an Outlook geben: Outlook öffnet den fertigen Termin, man tippt nur noch auf Speichern.
+        // Kann Outlook das nicht, als .ics-Datei an Outlook; ohne Outlook die Kalender-App wählen lassen.
+        @JavascriptInterface fun toOutlook(json: String): Boolean {
+            val o = try { org.json.JSONObject(json) } catch (e: Exception) { return false }
+            val ins = Intent(Intent.ACTION_INSERT).setData(android.provider.CalendarContract.Events.CONTENT_URI)
+                .putExtra(android.provider.CalendarContract.Events.TITLE, o.optString("title"))
+                .putExtra(android.provider.CalendarContract.EXTRA_EVENT_BEGIN_TIME, o.optLong("begin"))
+                .putExtra(android.provider.CalendarContract.EXTRA_EVENT_END_TIME, o.optLong("end"))
+                .putExtra(android.provider.CalendarContract.EXTRA_EVENT_ALL_DAY, o.optBoolean("all_day"))
+                .putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION, o.optString("place"))
+                .putExtra(android.provider.CalendarContract.Events.DESCRIPTION, o.optString("notes"))
+            val pm = packageManager
+            val outlook = { i: Intent -> pm.queryIntentActivities(i, android.content.pm.PackageManager.MATCH_ALL).firstOrNull { it.activityInfo.packageName.contains("outlook", true) } }
+            outlook(ins)?.let { ins.setClassName(it.activityInfo.packageName, it.activityInfo.name); return start(ins) }
+            val ics = o.optString("ics")
+            if (ics.isNotEmpty()) {
+                val dir = java.io.File(cacheDir, "export").apply { mkdirs() }
+                val f = java.io.File(dir, "termin.ics").apply { writeText(ics) }
+                val u = androidx.core.content.FileProvider.getUriForFile(this@AppActivity, "$packageName.files", f)
+                val view = Intent(Intent.ACTION_VIEW).setDataAndType(u, "text/calendar").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                outlook(view)?.let { view.setClassName(it.activityInfo.packageName, it.activityInfo.name); return start(view) }
+            }
+            return start(Intent.createChooser(ins, "Termin übernehmen mit"))
+        }
+        private fun start(i: Intent): Boolean = try { runOnUiThread { try { startActivity(i) } catch (e: Exception) { } }; true } catch (e: Exception) { false }
         // Web-App hat etwas gespeichert (Termin, Fahrer, Ankunftszeit): Widget sofort neu laden, nicht erst beim nächsten Takt
         // Mikrofon für Sprachnachrichten: "ok", wenn erlaubt; sonst fragt Android, bei Ablehnung gleich die App-Einstellungen
         @JavascriptInterface fun askMic(): String {

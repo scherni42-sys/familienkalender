@@ -24,6 +24,7 @@ object CalImport {
     private const val OWN_ACCOUNT = "Familienkalender"
     private const val READ_EVERY_MS = 10 * 60_000L       // Handy-Kalender höchstens alle 10 Minuten lesen
     private const val SEND_ANYWAY_MS = 6 * 3600_000L     // ohne Änderung trotzdem alle 6 Stunden abgleichen
+    private const val FROM_FAMTO = "Aus FamTO übertragen"   // gleiches Kennzeichen wie in src/lib/outlook.ts
     private val BDAY = Regex("geburtstag", RegexOption.IGNORE_CASE)
 
     data class Cal(val id: Long, val name: String, val account: String, val type: String)
@@ -107,6 +108,8 @@ object CalImport {
                 // Abgesagte Besprechungen (Outlook lässt sie mit „Abgesagt:“ stehen) nicht übernehmen
                 if (Regex("(?i)^(abgesagt|canceled|cancelled)\\s*:").containsMatchIn(title)) continue
                 val desc = notes(c.getString(5) ?: "")
+                // Mit „An Outlook senden“ aus FamTO übertragen: steht schon in FamTO, nicht doppelt übernehmen
+                if (desc.contains(FROM_FAMTO)) continue
                 val allDay = c.getInt(6) == 1
                 if (allDay) {
                     val d = Instant.ofEpochMilli(b).atZone(ZoneOffset.UTC).toLocalDate()
