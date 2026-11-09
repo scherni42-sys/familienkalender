@@ -9,7 +9,7 @@ Die Domain ist famto.net, die Server-Adresse 128.140.71.8.
 Die Domain famto.net ist bereits überall eingetragen. Für eine andere Domain einmal ersetzen:
 
 ```sh
-grep -rl "famto.net" --exclude-dir=node_modules . | xargs sed -i "s/famto\.example/famto.net/g"
+grep -rl "famto.net" --exclude-dir=node_modules . | xargs sed -i "s/famto\.net/ANDERE-DOMAIN.de/g"
 ```
 
 ## 2. Server vorbereiten
