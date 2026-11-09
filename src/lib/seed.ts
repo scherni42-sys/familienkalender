@@ -11,7 +11,7 @@ export function seed(): Snapshot {
     vis: 'family' as const, trip: 'hin' as const, driver2: null, place: '', addr: '', travel_min: null, notes: '', bring: [], discreet: false, ...o
   });
   return {
-    family: { id: 'demo', name: 'Familie Beispiel', settings: { ...DEFAULT_SETTINGS, home: 'Beispielweg 7, 24105 Kiel' } },
+    family: { id: 'demo', name: 'Familie Beispiel', settings: { ...DEFAULT_SETTINGS, home: 'Beispielweg 7, 24105 Kiel' }, plan: 'pro', tester: true },
     me: 'jan',
     members: [
       { id: 'jan', name: 'Jan', role: 'admin', color: '#2f5bcc', adult: true, linked: true, app_bg: null },

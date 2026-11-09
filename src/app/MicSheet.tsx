@@ -121,7 +121,7 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
       const parsed = await parseSpoken(typed, snap.me!, snap.members.filter(x => x.role !== 'guest'), img);
       // Kein Termin auf dem Foto: anbieten, es ans Board zu hängen
       if (parsed.source !== 'ai' || parsed.found === false) {
-        const why = parsed.source !== 'ai' ? `Das Foto konnte nicht gelesen werden${parsed.why ? ` (${parsed.why})` : ''}.` : 'Auf dem Foto steht kein Termin.';
+        const why = parsed.why === 'pro' ? 'Termine von Fotos lesen gibt es in FamTO Pro.' : parsed.source !== 'ai' ? `Das Foto konnte nicht gelesen werden${parsed.why ? ` (${parsed.why})` : ''}.` : 'Auf dem Foto steht kein Termin.';
         if (await ask(`${why}\n\nSoll das Foto stattdessen ans Board?`, 'Ans Board')) { await store.postMessage(typed || '📷 Foto', img); toast('Foto hängt jetzt am Board.'); posted(); }
         return;
       }

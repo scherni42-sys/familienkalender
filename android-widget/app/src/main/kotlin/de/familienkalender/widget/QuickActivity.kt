@@ -148,6 +148,7 @@ class QuickActivity : Activity() {
         // Claude erkennt den Termin (dieselbe Funktion wie in der App)
         val body = JSONObject().put("text", v).put("today", LocalDate.now().toString()).put("me", me).put("members", members).put("widget_token", c.token)
         val (code, res) = http("${c.url}/functions/v1/parse-event", c.key, body)
+        if (code == 402) return null to "Die schnelle Eingabe mit Claude gibt es in FamTO Pro. „In App“ öffnet die Eingabe dort."
         val ev = try { JSONObject(res).optJSONObject("event") } catch (e: Exception) { null }
             ?: return null to "Claude konnte das nicht lesen ($code). „In App“ öffnet die Eingabe dort."
         val allDay = ev.optBoolean("all_day")

@@ -3,6 +3,7 @@ import { parseLocal, type Draft } from './parse';
 import { supabase } from './supabase';
 import { addDays, fromIso, hm, nowMin, today, WDS } from './dates';
 import { list as cashList, familyPart, type Receipt } from './cash';
+import { isPro, PRO_ONLY } from './store';
 
 // Foto verkleinern (längste Seite 1280 px, JPEG), damit es schnell hochlädt
 export async function shrinkPhoto(file: File): Promise<{ type: string; data: string }> {
@@ -28,6 +29,8 @@ export async function squarePhoto(file: File): Promise<{ type: string; data: str
 export async function parseSpoken(text: string, me: string, members: Pick<Member, 'id' | 'name' | 'role'>[], image?: { type: string; data: string }, display?: string): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean }> {
   const local = parseLocal(text, me, members);
   if (!supabase) return { ...local, source: 'local' };
+  // FamTO ohne Pro: nur die einfache Erkennung auf dem Handy
+  if (!isPro()) return { ...local, source: 'local', why: 'pro' };
   try {
     const call = supabase.functions.invoke('parse-event', {
       body: { text, today: today(), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), image, ...(display ? { display_token: display } : {}) }
@@ -65,6 +68,7 @@ export async function parseSpoken(text: string, me: string, members: Pick<Member
     // Grund mitgeben, damit die Bestätigung zeigt, warum die KI nicht geholfen hat
     let why = err instanceof Error ? err.message : String(err);
     const res = (err as { context?: Response }).context;
+    if (res?.status === 402) return { ...local, source: 'local', why: 'pro' };
     if (res && typeof res.json === 'function') {
       try { const b = await res.json(); why = `${res.status}: ${b?.error ?? b?.message ?? why}`; } catch { why = `HTTP ${res.status}`; }
     }
@@ -87,8 +91,9 @@ export async function travelTime(from: string, to: string): Promise<{ minutes: n
 export type PlaceHit = { name: string; addr: string };
 export async function suggestPlaces(q: string, home: string, web = false): Promise<PlaceHit[]> {
   if (!supabase) return web ? [{ name: q, addr: 'Holstenstraße 1, 24103 Kiel' }] : /sport/i.test(q) ? [{ name: 'Sportplatz Nord', addr: 'Projensdorfer Str. 300, 24106 Kiel' }, { name: 'Sportplatz Süd', addr: 'Hamburger Chaussee 20, 24113 Kiel' }] : [];
+  if (web && !isPro()) throw new Error(`Die Internetsuche macht die KI. ${PRO_ONLY}`);
   const { data, error } = await supabase.functions.invoke('travel-time', { body: web ? { web: q, home } : { suggest: q, home } });
-  if (error) throw new Error('Suche gerade nicht möglich');
+  if (error) throw new Error((error as { context?: Response }).context?.status === 402 ? PRO_ONLY : 'Suche gerade nicht möglich');
   return data?.hits ?? [];
 }
 
@@ -125,6 +130,8 @@ export async function askClaude(q: string, me: string, members: Member[], events
     target: r.target != null ? evs[r.target] ?? null : null
   });
   if (!supabase) return { receipts: [], ...askLocal(q, evs, birthdays, members), local: true };
+  // FamTO ohne Pro: Stichwortsuche auf dem Handy statt Claude
+  if (!isPro()) return { receipts: [], ...askLocal(q, evs, birthdays, members, true), local: true };
   const call = supabase.functions.invoke('ask', {
     body: { q, today: t, now: hm(nowMin()), me, members: members.map(m => ({ id: m.id, name: m.name, role: m.role })), events: evs.map(line), birthdays: birthdays.map(bdLine), receipts: rcs.map(rcLine) }
   });
@@ -140,7 +147,7 @@ export async function askClaude(q: string, me: string, members: Member[], events
 }
 
 // Beispielfamilie ohne Server: einfache Stichwortsuche
-function askLocal(q: string, evs: CalEvent[], birthdays: Birthday[], members: Member[]): Omit<AskResult, 'receipts'> {
+function askLocal(q: string, evs: CalEvent[], birthdays: Birthday[], members: Member[], basis = false): Omit<AskResult, 'receipts'> {
   const stop = new Set(['ich', 'mich', 'mir', 'mein', 'meine', 'alle', 'allen', 'termine', 'termin', 'wann', 'das', 'die', 'der', 'den', 'dem', 'mit', 'und', 'oder', 'nächste', 'nächsten', 'mal', 'eine', 'einen', 'über', 'übersicht', 'möchte', 'gerne', 'wissen', 'bearbeiten', 'ändern', 'treffe', 'sehe', 'von', 'zum', 'zur', 'bitte', 'zeig', 'zeige', 'claude']);
   const words = q.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, ' ').split(/\s+/).filter(w => w.length > 2 && !stop.has(w)).map(w => w.replace(/s$/, ''));
   const nm = (id: string | null) => members.find(m => m.id === id)?.name ?? '';
@@ -151,6 +158,6 @@ function askLocal(q: string, evs: CalEvent[], birthdays: Birthday[], members: Me
   const bds = words.length ? birthdays.filter(b => words.some(w => b.name.toLowerCase().includes(w))) : [];
   const edit = /bearbeit|änder|verschieb/i.test(q);
   if (bds.length && !hits.length) return { answer: `${bds[0].name} hat am ${bds[0].day}.${bds[0].month}. Geburtstag.`, events: [], birthdays: bds, action: edit ? 'bdays' : 'none', target: null, newText: null };
-  if (!future.length) return { answer: 'Dazu habe ich nichts gefunden. (In der Beispielfamilie suche ich nur nach Stichwörtern; mit eurer Familie antwortet Claude.)', events: [], birthdays: [], action: 'none', target: null, newText: null };
+  if (!future.length) return { answer: basis ? 'Dazu habe ich nichts gefunden. Ich suche nach Stichwörtern wie Namen oder Terminen. Mit FamTO Pro beantwortet Claude jede Frage.' : 'Dazu habe ich nichts gefunden. (In der Beispielfamilie suche ich nur nach Stichwörtern; mit eurer Familie antwortet Claude.)', events: [], birthdays: [], action: 'none', target: null, newText: null };
   return { answer: future.length === 1 ? 'Das habe ich gefunden:' : `Ich habe ${future.length} Termine gefunden.`, events: future.slice(0, 30), birthdays: [], action: edit ? 'edit' : 'none', target: edit ? future[0] : null, newText: null };
 }

@@ -79,6 +79,7 @@ class ShareActivity : Activity() {
         if (uri != null) body.put("image", imageJson(uri) ?: return "Das Bild ließ sich nicht öffnen.")
         val (code, res) = http("${c.url}/functions/v1/parse-event", c.key, body)
         event = try { JSONObject(res).optJSONObject("event") } catch (e: Exception) { null }
+        if (event == null && code == 402) return "Termine aus geteilten Texten und Bildern erkennt Claude in FamTO Pro."
         return if (event == null) "Claude hat darin keinen Termin gefunden ($code)." else null
     }
 

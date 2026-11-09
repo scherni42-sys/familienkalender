@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { Birthday, CalEvent, ChatMsg, ChatOut, FileRef, DisplayFeed, Member, Message, NewEvent, Role, Settings, Snapshot } from './types';
+import type { Birthday, CalEvent, ChatMsg, ChatOut, FileRef, DisplayFeed, Member, Message, NewEvent, Plan, Role, Settings, Snapshot } from './types';
 import { DEFAULT_SETTINGS } from './types';
 import { supabase } from './supabase';
 import { seed } from './seed';
@@ -52,6 +52,8 @@ export interface Store {
   widgetToken(): Promise<string>;
   removeDisplay(id: string): Promise<void>;
   setDisplayTouch(id: string, touch: boolean): Promise<void>;
+  // Nur zum Testen: Tarif selbst umschalten (Familien mit Test-Umschalter)
+  setTestPlan(plan: Plan): Promise<void>;
   displayFeed(token: string): Promise<DisplayFeed | null>;
   // Eingabe am Display: Person tippt ihren Avatar an, Display-Code erlaubt das Speichern
   displayPost(token: string, member: string, text: string): Promise<void>;
@@ -101,7 +103,7 @@ class LocalStore extends Base implements Store {
   }
   async createFamily(familyName: string, myName: string, color: string) {
     const me = uid();
-    this.save({ ...EMPTY, family: { id: uid(), name: familyName, settings: { ...DEFAULT_SETTINGS } }, me,
+    this.save({ ...EMPTY, family: { id: uid(), name: familyName, settings: { ...DEFAULT_SETTINGS }, plan: 'pro', tester: true }, me,
       members: [{ id: me, name: myName, role: 'admin', color, adult: true, linked: true, app_bg: null }],
       displays: [{ id: uid(), name: 'Flur', token: 'demo' }] });
   }
@@ -183,6 +185,7 @@ class LocalStore extends Base implements Store {
   async addDisplay(name: string) { this.patch(s => ({ displays: [...s.displays, { id: uid(), name, token: 'demo' }] })); }
   async removeDisplay(id: string) { this.patch(s => ({ displays: s.displays.filter(d => d.id !== id) })); }
   async setDisplayTouch(id: string, touch: boolean) { this.patch(s => ({ displays: s.displays.map(d => d.id === id ? { ...d, touch } : d) })); }
+  async setTestPlan(plan: Plan) { this.patch(s => ({ family: s.family && { ...s.family, plan } })); }
   async displayFeed(): Promise<DisplayFeed | null> {
     const s = this.snap;
     if (!s.family) return null;
@@ -242,7 +245,7 @@ class SupabaseStore extends Base implements Store {
     if (!mine?.length) { this.emit(EMPTY); return; }
     const fam = mine[0].family_id as string, me = mine[0].id as string;
     this.familyId = fam;
-    const [f, mem, ev, busy, msg, rep, bd, disp] = await Promise.all([
+    const [f, mem, ev, busy, msg, rep, bd, disp, plan] = await Promise.all([
       this.sb.from('families').select('id, name, settings').eq('id', fam).single(),
       this.sb.from('members').select('id, name, role, color, adult, user_id, app_bg, avatar').eq('family_id', fam).eq('active', true).order('created_at'),
       this.sb.from('events').select('*').eq('family_id', fam).gte('end_date', addDays(today(), -92)),
@@ -250,12 +253,14 @@ class SupabaseStore extends Base implements Store {
       this.sb.from('messages').select('*').eq('family_id', fam).order('created_at'),
       this.sb.from('replies').select('*').eq('family_id', fam).order('created_at'),
       this.sb.from('birthdays').select('*').eq('family_id', fam),
-      this.sb.from('displays').select('*').eq('family_id', fam)
+      this.sb.from('displays').select('*').eq('family_id', fam),
+      // Tarif: ohne Eintrag (oder ohne Tabelle) gilt Basis
+      this.sb.from('family_plans').select('plan, tester').eq('family_id', fam).maybeSingle()
     ]);
     const family = this.ok(f) as { id: string; name: string; settings: Partial<Settings> };
     const replies = (this.ok(rep) ?? []) as { id: string; message_id: string; from_member: string; text: string; created_at: string }[];
     this.emit({
-      family: { id: family.id, name: family.name, settings: { ...DEFAULT_SETTINGS, ...family.settings } },
+      family: { id: family.id, name: family.name, settings: { ...DEFAULT_SETTINGS, ...family.settings }, plan: plan.data?.plan === 'pro' ? 'pro' : 'basis', tester: !!plan.data?.tester },
       me,
       members: ((this.ok(mem) ?? []) as (Member & { user_id: string | null })[]).map(({ user_id, ...m }) => ({ ...m, linked: !!user_id, app_bg: m.id === me ? m.app_bg : null })),
       events: (this.ok(ev) ?? []) as CalEvent[],
@@ -480,6 +485,7 @@ class SupabaseStore extends Base implements Store {
   async addDisplay(name: string) { this.ok(await this.sb.from('displays').insert({ family_id: this.familyId, name })); await this.refresh(); }
   async removeDisplay(id: string) { this.ok(await this.sb.from('displays').delete().eq('id', id)); await this.refresh(); }
   async setDisplayTouch(id: string, touch: boolean) { this.ok(await this.sb.from('displays').update({ touch }).eq('id', id)); await this.refresh(); }
+  async setTestPlan(plan: Plan) { this.ok(await this.sb.rpc('set_test_plan', { fam: this.familyId, p_plan: plan })); await this.refresh(); }
   async displayFeed(token: string) {
     const { data, error } = await this.sb.rpc('display_feed', { p_token: token });
     if (error || !data) return null;
@@ -494,6 +500,10 @@ class SupabaseStore extends Base implements Store {
 }
 
 export const store: Store = supabase && !demoLink ? new SupabaseStore() : new LocalStore();
+
+// FamTO Pro: KI-Funktionen. Ohne geladene Familie (z. B. am Display) entscheidet der Server.
+export const isPro = () => store.get().family?.plan !== 'basis';
+export const PRO_ONLY = 'Das gibt es in FamTO Pro.';
 
 export function useSnapshot() {
   return useSyncExternalStore(store.subscribe, store.get);

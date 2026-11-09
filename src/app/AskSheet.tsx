@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useSnapshot } from '../lib/store';
+import { isPro, useSnapshot } from '../lib/store';
 import { askClaude, parseSpoken, type AskResult } from '../lib/ai';
 import type { Draft } from '../lib/parse';
 import { hm, shortDate } from '../lib/dates';
@@ -121,8 +121,13 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt }: { close
   const nm = (id: string | null) => snap.members.find(m => m.id === id)?.name ?? '';
   return (
     <Sheet onClose={close} label="Claude fragen">
-      <h2>✨ Frag Claude</h2>
-      <p className="note">Frag nach Terminen, Personen, Geburtstagen oder Belegen im Kassenbuch, oder sag, was du ändern oder eintragen möchtest.</p>
+      {isPro() ? <>
+        <h2>✨ Frag Claude</h2>
+        <p className="note">Frag nach Terminen, Personen, Geburtstagen oder Belegen im Kassenbuch, oder sag, was du ändern oder eintragen möchtest.</p>
+      </> : <>
+        <h2>🔎 Suchen <span className="pro-tag">Claude: Pro</span></h2>
+        <p className="note">Such nach Namen, Terminen oder Orten. Mit FamTO Pro beantwortet Claude jede Frage und trägt auch Termine für dich ein.</p>
+      </>}
       <div className="ask-in">
         <textarea ref={input} rows={3} value={q} placeholder="z. B. Wann treffe ich Tom das nächste Mal?" onChange={e => { setQ(e.target.value); if (!want.current) base.current = e.target.value; }}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} aria-label="Deine Frage an Claude" />
@@ -133,7 +138,7 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt }: { close
       </div>
       {!res && !busy && !err && !rec && !q.trim() && <div className="ask-ideas">{IDEAS.map(i => <button key={i} type="button" onClick={() => { setQ(i); void ask(i); }}>{i}</button>)}</div>}
       {rec && !busy && <p className="note">Sprich ruhig mit Pausen. Mikrofon antippen zum Beenden, „Fragen“ schickt ab.</p>}
-      {busy && <p className="note ask-busy">Claude sieht im Kalender nach …</p>}
+      {busy && <p className="note ask-busy">{isPro() ? 'Claude sieht im Kalender nach …' : 'Suche …'}</p>}
       {err && <p className="note">{err}</p>}
       {res && <div className="ask-res">
         <p>{res.answer}</p>

@@ -46,6 +46,7 @@ export function Settings() {
       {MENU.map(([k, l, ic]) => <button key={k} type="button" className="menu-item" onClick={() => setSub(k)}><span className="mi-ic"><Icon name={ic} /></span><span><b>{l}</b><small>{info[k]}</small></span><span className="chev">›</span></button>)}
       {(native()?.appUpdate?.() ?? 0) > 0 && <button type="button" className="menu-item upd" onClick={() => native()!.installUpdate?.()}><span className="mi-ic"><Icon name="spark" /></span><span><b>Neue Version {native()!.appUpdate!()} installieren</b><small>Ein Tipp: lädt und installiert die Android-App</small></span><span className="chev">›</span></button>}
       {native() && <button type="button" className="menu-item" onClick={() => native()!.setup()}><span className="mi-ic"><Icon name="gear" /></span><span><b>{native()!.platform === 'ios' ? 'Widget' : 'Widget & Handy-Kalender'}</b><small>{native()!.platform === 'ios' ? 'So legst du das FamTO-Widget auf den Startbildschirm' : 'Widget einrichten, Abgleich, Home-Modus, neue Version'}</small></span><span className="chev">›</span></button>}
+      <PlanRow isAdmin={isAdmin} />
       {me.role !== 'guest' && <MicStartRow />}
       {me.role !== 'guest' && <ToneRow kind="ev" />}
       <button type="button" className="small-btn danger" style={{ justifySelf: 'start' }} onClick={() => void ask(store.demo ? 'Alle Demo-Daten löschen?' : 'Auf diesem Handy abmelden? Zum Zurückkommen brauchst du einen neuen Einladungscode vom Admin.').then(y => { if (y) void store.reset(); })}>{store.demo ? 'Demo zurücksetzen' : 'Abmelden'}</button>
@@ -281,6 +282,19 @@ export function ToneRow({ kind }: { kind: 'bd' | 'ev' }) {
 }
 
 // Nur für dieses Handy: App öffnet direkt die Spracheingabe (praktisch mit der Samsung-Seitentaste)
+// Tarif: FamTO (ohne KI) oder FamTO Pro. Der Umschalter ist nur zum Testen da und fällt weg, sobald es eine Bezahlung gibt.
+function PlanRow({ isAdmin }: { isAdmin: boolean }) {
+  const f = useSnapshot().family!;
+  const pro = f.plan !== 'basis';
+  const [busy, setBusy] = useState(false);
+  const flip = (on: boolean) => { setBusy(true); store.setTestPlan(on ? 'pro' : 'basis').then(() => toast(on ? 'FamTO Pro ist an: Claude hilft wieder mit.' : 'Jetzt läuft FamTO ohne KI, so wie in der Basisversion.'), fail).finally(() => setBusy(false)); };
+  return <>
+    <label className="setrow"><span><Icon name="spark" /> Tarif: <b>{pro ? 'FamTO Pro' : 'FamTO'}</b>{f.tester && <span className="pro-tag">Test</span>}</span>
+      {f.tester && isAdmin && <input type="checkbox" className="sw" checked={pro} disabled={busy} aria-label="FamTO Pro zum Testen ein- oder ausschalten" onChange={e => flip(e.target.checked)} />}</label>
+    <span className="note">{pro ? 'Mit KI: Termine aus Sprache und Fotos, Claude fragen, Belege auslesen, Internetsuche für Orte.' : 'Alles Wichtige ohne KI. Mit FamTO Pro erkennt Claude Termine aus Sprache und Fotos, beantwortet Fragen und liest Belege aus.'}</span>
+  </>;
+}
+
 function MicStartRow() {
   const [on, setOn] = useState(micStart());
   return <>

@@ -1,5 +1,5 @@
 // Kassenbuch: Kassenbons mit Foto und Positionen (privat oder Familie). In der Testversion nur im Speicher.
-import { store } from './store';
+import { isPro, store } from './store';
 import { supabase } from './supabase';
 import { today } from './dates';
 import { native } from './native';
@@ -184,7 +184,9 @@ export function takeShared(): File | null {
 export async function read(image: { type: string; data: string }): Promise<ReadResult> {
   if (store.demo || !supabase) return { found: true, kind: 'bon', invoice_no: '', net: 6.65, taxes: [{ rate: 7, net: 3.64, tax: 0.25 }, { rate: 19, net: 3.01, tax: 0.57 }], items_net: false, box: { x0: 0.08, y0: 0.04, x1: 0.92, y1: 0.96 }, merchant: 'Testmarkt', date: today(), time: '10:15', payment: 'EC-Karte', card: '1234', total: 7.47, currency: 'EUR', category: 'Lebensmittel',
     items: [{ name: 'Bio Vollmilch', qty: 1, price: 1.49, vat: 7, category: 'Lebensmittel' }, { name: 'Brötchen', qty: 6, price: 2.4, vat: 7, category: 'Lebensmittel' }, { name: 'Zahnpasta', qty: 1, price: 3.58, vat: 19, category: 'Drogerie' }] };
+  if (!isPro()) throw new Error('Belege automatisch auslesen gibt es in FamTO Pro. Trag den Beleg einfach von Hand ein.');
   const { data, error } = await supabase.functions.invoke('receipt', { body: { image, today: today() } });
+  if ((error as { context?: Response } | null)?.context?.status === 402) throw new Error('Belege automatisch auslesen gibt es in FamTO Pro. Trag den Beleg einfach von Hand ein.');
   if (error || !data?.receipt) throw new Error('Der Bon ließ sich nicht lesen. Du kannst ihn von Hand eintragen.');
   return data.receipt as ReadResult;
 }

@@ -142,6 +142,12 @@ Deno.serve(async req => {
 
     if (body.suggest && GKEY) { const g = await gSearch(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined); if (g) { console.log('google places ok', g.length); return json({ hits: g, src: 'google' }); } }
     if (body.suggest) return json({ hits: await suggest(String(body.suggest).slice(0, 120), body.home ? String(body.home).slice(0, 200) : undefined) });
+    if (body.web) {
+      // Internetsuche macht die KI, also nur in FamTO Pro
+      const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: auth } } });
+      const { data: pro } = await sb.rpc('ai_allowed', body.widget_token ? { p_widget: String(body.widget_token) } : {});
+      if (pro !== true) return json({ error: 'Die KI-Funktionen gibt es in FamTO Pro.', pro: true }, 402);
+    }
     if (body.web) return json({ hits: await webFind(String(body.web).slice(0, 160), body.home ? String(body.home).slice(0, 200) : undefined) });
     // Adresse zu einem Ortsnamen suchen, z. B. „Mediamarkt Kiel Citti-Park“
     if (body.find) {

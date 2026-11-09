@@ -155,6 +155,9 @@ Deno.serve(async req => {
     const { data: mem } = await admin.from('members').select('family_id').eq('id', owner).single();
     if (!mem) throw new Error('Besitzer des Postfachs unbekannt');
     const fam = mem.family_id as string;
+    // Rechnungen aus E-Mails liest die KI, also nur in FamTO Pro
+    const { data: plan } = await admin.rpc('plan_of', { fam });
+    if (plan !== 'pro') return cron ? json({ ok: true, idle: true, basis: true }) : json({ error: 'Die KI-Funktionen gibt es in FamTO Pro.', pro: true }, 402);
     const { data: prefs } = await admin.from('cash_prefs').select('*').eq('member', owner).maybeSingle();
     const firms: Party[] = Array.isArray(prefs?.firms) ? prefs.firms : prefs?.firm ? [{ name: prefs.firm }] : [];
     const business = !!prefs?.business;

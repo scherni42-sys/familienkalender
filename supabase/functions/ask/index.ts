@@ -38,6 +38,8 @@ Deno.serve(async req => {
     const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
     const { data: mine } = u.user ? await sb.from('members').select('id').eq('user_id', u.user.id).eq('active', true).limit(1) : { data: null };
     if (!mine?.length) return json({ error: 'Nicht angemeldet' }, 401);
+    const { data: pro } = await sb.rpc('ai_allowed', {});
+    if (pro !== true) return json({ error: 'Die KI-Funktionen gibt es in FamTO Pro.', pro: true }, 402);
     if (typeof q !== 'string' || !q.trim() || q.length > 500) throw new Error('Keine Frage');
     if (!Array.isArray(events) || events.length > 2500) throw new Error('Zu viele Termine');
     if (!Array.isArray(receipts) || receipts.length > 600) throw new Error('Zu viele Belege');

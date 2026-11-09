@@ -58,6 +58,10 @@ Deno.serve(async req => {
       ok = !!mine?.length;
     }
     if (!ok) return new Response(JSON.stringify({ error: 'Nicht angemeldet' }), { status: 401, headers: { ...cors, 'Content-Type': 'application/json' } });
+    // KI nur in FamTO Pro; die App nutzt dann die einfache Erkennung auf dem Handy
+    const pro = await createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } })
+      .rpc('ai_allowed', display_token ? { p_display: display_token } : widget_token ? { p_widget: widget_token } : {});
+    if (pro.data !== true) return new Response(JSON.stringify({ error: 'Die KI-Funktionen gibt es in FamTO Pro.', pro: true }), { status: 402, headers: { ...cors, 'Content-Type': 'application/json' } });
     // Foto: verkleinertes JPEG als Base64 vom Handy
     const img = image && typeof image.data === 'string' && image.data.length < 4_000_000 && /^image\/(jpeg|png|webp)$/.test(image.type) ? image : null;
     if (typeof text !== 'string' || text.length > 500 || (!text.trim() && !img)) throw new Error('Kein Text');

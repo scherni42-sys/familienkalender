@@ -100,8 +100,11 @@ export const DEFAULT_SETTINGS: Settings = {
   home: '', buffer: 5, remind: 10, ahead: 6, boardMode: 'dynamic', wbg: '', chatDays: 7
 };
 
+export type Plan = 'basis' | 'pro';
+
 export interface Snapshot {
-  family: { id: string; name: string; settings: Settings } | null;
+  // plan: FamTO (basis, ohne KI) oder FamTO Pro; tester: Familie darf zum Ausprobieren selbst umschalten
+  family: { id: string; name: string; settings: Settings; plan?: Plan; tester?: boolean } | null;
   me: string | null;
   members: Member[];
   events: CalEvent[];

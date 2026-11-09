@@ -50,6 +50,8 @@ Deno.serve(async req => {
     const { data: u } = await sb.auth.getUser(auth.replace(/^Bearer /, ''));
     const { data: mine } = u.user ? await sb.from('members').select('id, role').eq('user_id', u.user.id).eq('active', true).limit(1) : { data: null };
     if (!mine?.length || mine[0].role === 'guest') return json({ error: 'Nicht angemeldet' }, 401);
+    const { data: pro } = await sb.rpc('ai_allowed', {});
+    if (pro !== true) return json({ error: 'Die KI-Funktionen gibt es in FamTO Pro.', pro: true }, 402);
     const { image, today } = await req.json();
     if (!image || typeof image.data !== 'string' || image.data.length > 6_000_000 || !/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(image.type)) throw new Error('Kein Foto');
     const doc = image.type === 'application/pdf'

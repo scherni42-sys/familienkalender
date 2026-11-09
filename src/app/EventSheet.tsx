@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { store, useSnapshot } from '../lib/store';
+import { isPro, store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
 import type { NewEvent } from '../lib/types';
 import { hm, toMin } from '../lib/dates';
@@ -131,7 +131,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
         {d.suggested === d.vis ? <><b>Passt: {d.vis === 'family' ? 'Familie' : 'Privat'}</b>, weil {d.reason}.</>
           : <><b>Hinweis:</b> Du hast {d.vis === 'family' ? 'Familie' : 'Privat'} gewählt. Ich hätte {d.suggested === 'family' ? 'Familie' : 'Privat'} vorgeschlagen, weil {d.reason}.</>}
         {d.timeFound ? '' : ' Keine Uhrzeit genannt, daher ganztägig.'}
-        {d.source && <span className="note" style={{ display: 'block' }}>{d.source === 'ai' ? 'Erkannt von Claude' : `Einfache Erkennung (ohne KI${d.why ? ': ' + d.why : ''})`}</span>}
+        {d.source && <span className="note" style={{ display: 'block' }}>{d.source === 'ai' ? 'Erkannt von Claude' : d.why === 'pro' ? 'Einfache Erkennung. Mit FamTO Pro erkennt Claude Termine genauer.' : `Einfache Erkennung (ohne KI${d.why ? ': ' + d.why : ''})`}</span>}
       </div></div>}
       <div className="visbig" role="group" aria-label="Sichtbarkeit">
         <button type="button" className="private" aria-pressed={d.vis === 'private'} onClick={() => set({ vis: 'private' })}><Icon name="lock" />Privat<small>nur ich</small></button>
@@ -182,7 +182,7 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       {(hits || looking) && <div className="place-hits">
         {looking === 'osm' && !hits && <div className="note">Suche …</div>}
         {hits?.map((h, i) => <button key={i} type="button" onClick={() => pick(h)}><Icon name="place" /><span>{h.name && <b>{h.name}</b>}<small>{h.addr}</small></span></button>)}
-        {hits && looking !== 'web' && <button type="button" className="web" onClick={webSearch}><Icon name="search" /><span>{hits.length ? 'Nicht dabei? Im Internet suchen' : 'Nichts gefunden. Im Internet suchen'}</span></button>}
+        {hits && looking !== 'web' && <button type="button" className="web" onClick={webSearch}><Icon name="search" /><span>{hits.length ? 'Nicht dabei? Im Internet suchen' : 'Nichts gefunden. Im Internet suchen'}</span>{!isPro() && <span className="pro-tag">Pro</span>}</button>}
         {looking === 'web' && <div className="note">Suche im Internet, das dauert ein paar Sekunden …</div>}
       </div>}
       <div className="row2">
