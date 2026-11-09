@@ -20,7 +20,6 @@ services:
       FORGEJO__service__REQUIRE_SIGNIN_VIEW: "true"
       FORGEJO__actions__ENABLED: "true"
       FORGEJO__actions__DEFAULT_ACTIONS_URL: https://github.com
-      FORGEJO__security__INSTALL_LOCK: "false"
     volumes:
       - /srv/famto/forgejo:/data
     ports:
