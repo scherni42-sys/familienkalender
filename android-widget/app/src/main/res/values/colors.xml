@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget immer dunkel (Anthrazit), auch im hellen Modus des Handys: die weißen Symbole bleiben so sichtbar -->
+    <color name="bg">#F2262B29</color>
+    <color name="fg">#EEF3F0</color>
+    <color name="muted">#9AA8A0</color>
+    <color name="line">#3A433E</color>
+    <color name="accent">#1D8657</color>
+    <color name="accent_icon">#111412</color>
+</resources>

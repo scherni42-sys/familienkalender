@@ -1,0 +1,22 @@
+# Caddy holt die HTTPS-Zertifikate selbst (Let's Encrypt).
+git.{$DOMAIN} {
+	reverse_proxy forgejo:3000
+}
+
+app.{$DOMAIN} {
+	root * /srv/app
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(self), microphone=(self), geolocation=(self)"
+	}
+	# Service Worker und Startseite nie zwischenspeichern, damit Updates sofort ankommen
+	@fresh path /sw.js /index.html / /download/*
+	header @fresh Cache-Control "no-cache"
+	@apk path *.apk
+	header @apk Content-Type application/vnd.android.package-archive
+	try_files {path} /index.html
+	file_server
+}

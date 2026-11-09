@@ -1,0 +1,63 @@
+# Baut die iPhone-App (App + Widget). Ohne Apple-Secrets: Probebau für den Simulator (prüft, ob alles übersetzt).
+# Mit Secrets (siehe ios/README.md): signiert, Build-Nummer = Laufnummer, Upload zu TestFlight.
+name: iPhone-App
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-15-intel
+    env:
+      HAS_SIGNING: ${{ secrets.APPLE_TEAM_ID != '' && secrets.ASC_KEY_ID != '' }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Xcode wählen
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app | sort -V | tail -1)" && xcodebuild -version
+      - name: Projekt erzeugen
+        run: |
+          brew install xcodegen >/dev/null
+          cd ios && xcodegen generate
+      - name: Probebau (Simulator, ohne Signatur)
+        if: env.HAS_SIGNING != 'true'
+        run: |
+          set -o pipefail
+          cd ios
+          xcodebuild -project FamTO.xcodeproj -scheme FamTO -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }} build 2>&1 | tee build.log | grep -E 'error:|warning: .*deprecated|BUILD' || true
+          if ! grep -q 'BUILD SUCCEEDED' build.log; then
+            grep -E 'error:' build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
+      - name: Signiert bauen und zu TestFlight hochladen
+        if: env.HAS_SIGNING == 'true'
+        env:
+          TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set -o pipefail
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY=~/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8
+          echo "$ASC_KEY" > "$KEY"
+          cd ios
+          xcodebuild -project FamTO.xcodeproj -scheme FamTO -configuration Release -destination 'generic/platform=iOS' \
+            -archivePath build/FamTO.xcarchive DEVELOPMENT_TEAM=$TEAM CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            -allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID $ASC_KEY_ID -authenticationKeyIssuerID $ASC_ISSUER_ID \
+            archive 2>&1 | tee archive.log | grep -E 'error:|ARCHIVE' || true
+          grep -q 'ARCHIVE SUCCEEDED' archive.log || { grep -E 'error:' archive.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done; exit 1; }
+          cat > export.plist <<PL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>$TEAM</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict></plist>
+          PL
+          xcodebuild -exportArchive -archivePath build/FamTO.xcarchive -exportOptionsPlist export.plist -exportPath build/export \
+            -allowProvisioningUpdates -authenticationKeyPath "$KEY" -authenticationKeyID $ASC_KEY_ID -authenticationKeyIssuerID $ASC_ISSUER_ID
+          echo "::notice::Build ${{ github.run_number }} ist zu TestFlight hochgeladen. Nach Apples Prüfung (meist wenige Minuten) erscheint er in der TestFlight-App."

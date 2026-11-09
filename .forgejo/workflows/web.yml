@@ -1,0 +1,24 @@
+# Baut die Web-App und legt sie in den Ordner, den Caddy unter app.<domain> ausliefert.
+# Geheimwerte in Forgejo (Organisation FamTO → Einstellungen → Actions → Secrets):
+# VITE_SUPABASE_URL und VITE_SUPABASE_ANON_KEY (beide im Supabase-Dashboard unter Project Settings → API).
+name: Web-App
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency: { group: web, cancel-in-progress: true }
+jobs:
+  build:
+    runs-on: docker
+    container: { image: 'node:22-bookworm', volumes: ['/srv/famto/app:/deploy'] }
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      - name: Veröffentlichen (Download-Ordner der APK bleibt erhalten)
+        run: |
+          apt-get -qq update >/dev/null && apt-get -qq install -y rsync >/dev/null
+          rsync -a --delete --exclude download/ dist/ /deploy/

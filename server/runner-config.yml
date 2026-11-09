@@ -1,0 +1,13 @@
+# Wird nach der Registrierung des Runners nach /srv/famto/runner/config.yml kopiert.
+log:
+  level: info
+runner:
+  file: .runner
+  capacity: 1
+  timeout: 1h
+container:
+  network: bridge
+  # Die Bauaufträge dürfen nur diese Ordner des Servers benutzen
+  valid_volumes:
+    - /srv/famto/app
+    - /srv/famto/keystore

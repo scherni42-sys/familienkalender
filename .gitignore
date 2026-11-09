@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+android-widget/.gradle/
+android-widget/build/
+android-widget/app/build/
+build.log
+*.keystore
+
+# Vom TypeScript-Compiler erzeugt, nicht einchecken (Vite würde sonst die alten .js statt der .tsx nehmen)
+src/**/*.js
+vite.config.js

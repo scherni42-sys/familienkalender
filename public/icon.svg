@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#111412"/>
+  <circle cx="256" cy="256" r="206" fill="none" stroke="#34A86E" stroke-width="22"/>
+  <text x="256" y="236" text-anchor="middle" font-family="Familjen Grotesk, Arial, sans-serif" font-weight="700" font-size="132" fill="#ffffff">Fam</text>
+  <text x="256" y="378" text-anchor="middle" font-family="Familjen Grotesk, Arial, sans-serif" font-weight="700" font-size="168" letter-spacing="6" fill="#34A86E">TO</text>
+</svg>

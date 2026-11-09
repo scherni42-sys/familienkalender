@@ -1,0 +1,68 @@
+# Baut die Android-App und legt APK, App-Bundle und Versionsnummer in den Download-Ordner der Web-App
+# (app.<domain>/download/), von dem die App ihre Updates holt.
+# Geheimwerte: WIDGET_KEYSTORE (Signierschlüssel, base64) und WIDGET_KEY_PASS.
+name: Widget-App
+on:
+  push:
+    branches: [main]
+    paths: ['android-widget/**', '.forgejo/workflows/widget.yml']
+  workflow_dispatch:
+jobs:
+  apk:
+    runs-on: docker
+    container: { image: 'node:22-bookworm', volumes: ['/srv/famto/app:/deploy', '/srv/famto/keystore:/keystore'] }
+    env: { VERSION_OFFSET: '10000' }
+    steps:
+      - uses: actions/checkout@v4
+      - name: Werkzeuge
+        run: apt-get -qq update >/dev/null && apt-get -qq install -y unzip curl >/dev/null
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: 17 }
+      - name: Android SDK bereitstellen
+        run: |
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/android-sdk}}"
+          echo "SDK: $SDK"; ls "$SDK" 2>/dev/null | head || true
+          if [ ! -x "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            mkdir -p "$SDK/cmdline-tools"
+            curl -sSLo /tmp/clt.zip https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+            unzip -q /tmp/clt.zip -d /tmp/clt && rm -rf "$SDK/cmdline-tools/latest" && mv /tmp/clt/cmdline-tools "$SDK/cmdline-tools/latest"
+          fi
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK" "platforms;android-35" "build-tools;35.0.0" "platform-tools" > /dev/null
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.14.3' }
+      # Ohne Secret: denselben Debug-Schlüssel über Läufe hinweg behalten, damit Updates ohne Deinstallation gehen
+      # Immer derselbe Signierschlüssel, damit Updates sich über die alte App installieren lassen:
+      # aus dem Secret, sonst aus dem Cache, sonst einmalig neu erzeugt (und danach gecacht)
+      - name: Signierschlüssel bereitstellen
+        env: { KS: '${{ secrets.WIDGET_KEYSTORE }}', WIDGET_KEY_PASS: '${{ secrets.WIDGET_KEY_PASS }}' }
+        run: |
+          KSF=android-widget/app/widget.keystore
+          if [ -n "$KS" ]; then echo "$KS" | base64 -d > $KSF; elif [ -f /keystore/widget.keystore ]; then cp /keystore/widget.keystore $KSF; fi
+          if [ ! -f $KSF ]; then
+            keytool -genkeypair -keystore $KSF -alias widget -keyalg RSA -keysize 2048 -validity 20000 \
+              -storepass "${WIDGET_KEY_PASS:-android}" -keypass "${WIDGET_KEY_PASS:-android}" -dname "CN=Familienkalender Widget"
+            cp $KSF /keystore/widget.keystore
+            echo "::warning::Neuer Signierschlüssel erzeugt und unter /srv/famto/keystore abgelegt. Bitte zusätzlich sicher aufbewahren!"
+          fi
+          FP=$(keytool -list -v -keystore $KSF -storepass "${WIDGET_KEY_PASS:-android}" | grep -m1 'SHA256:' | awk '{print $2}')
+          echo "::notice::Signierschlüssel SHA256 $FP"
+      - name: APK bauen
+        env: { WIDGET_KEY_PASS: '${{ secrets.WIDGET_KEY_PASS }}' }
+        run: |
+          set -o pipefail
+          gradle -p android-widget assembleRelease bundleRelease --no-daemon 2>&1 | tee build.log || {
+            # Fehlerzeilen als Anmerkungen, damit sie ohne Log-Zugriff sichtbar sind
+            grep -E '^e: |error:|FAILURE|What went wrong' -A2 build.log | head -40 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          }
+          cp android-widget/app/build/outputs/apk/release/app-release.apk familien-widget.apk
+          # Für den Play Store (interner Test): App-Bundle mit demselben Schlüssel
+          cp android-widget/app/build/outputs/bundle/release/app-release.aab familien-widget.aab
+      - name: In den Download-Ordner legen
+        run: |
+          mkdir -p /deploy/download
+          cp familien-widget.apk familien-widget.aab /deploy/download/
+          echo "$((GITHUB_RUN_NUMBER + VERSION_OFFSET))" > /deploy/download/familien-widget-version.txt

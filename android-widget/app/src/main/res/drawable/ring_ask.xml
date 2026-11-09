@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Zaubertaste: gelber Ring mit Sternchen -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="40dp" android:height="40dp" android:viewportWidth="40" android:viewportHeight="40">
+    <path android:fillColor="#33FFC83D" android:strokeColor="#FFC83D" android:strokeWidth="2.2" android:pathData="M20,2.5 A17.5,17.5 0 1,1 19.99,2.5 Z" />
+    <path android:fillColor="#FFC83D" android:pathData="M18,12 Q19.3,20.7 28,22 Q19.3,23.3 18,32 Q16.7,23.3 8,22 Q16.7,20.7 18,12 Z" />
+    <path android:fillColor="#FFC83D" android:pathData="M27.5,7.5 Q28.1,11.4 32,12 Q28.1,12.6 27.5,16.5 Q26.9,12.6 23,12 Q26.9,11.4 27.5,7.5 Z" />
+</vector>
