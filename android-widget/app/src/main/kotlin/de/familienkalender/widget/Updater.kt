@@ -14,7 +14,7 @@ import java.net.URL
 // im Hintergrund laden und über den Paket-Installer einspielen. Ab Android 12 ohne Rückfrage,
 // sobald FamTO sich einmal selbst installiert hat.
 object Updater {
-    private const val BASE = "https://app.famto.example/download/"
+    private const val BASE = "https://app.famto.net/download/"
     private const val PREFS = "familien-widget"
     const val DONE = "de.familienkalender.widget.UPDATE_DONE"
 

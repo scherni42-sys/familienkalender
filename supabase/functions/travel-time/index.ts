@@ -9,7 +9,7 @@ const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
-const UA = 'FamTO-Familienkalender/1.0 (https://app.famto.example/)';
+const UA = 'FamTO-Familienkalender/1.0 (https://app.famto.net/)';
 const GKEY = (Deno.env.get('GOOGLE_MAPS_KEY') ?? '').trim();
 const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 

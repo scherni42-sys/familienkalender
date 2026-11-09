@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit
 // rechnet die App die Fahrzeit vom aktuellen Standort (OpenStreetMap: Photon und OSRM, ohne Schlüssel).
 object Away {
     private const val PREFS = "familien-widget"
-    private const val UA = "FamTO-Familienkalender/1.0 (https://app.famto.example/)"
+    private const val UA = "FamTO-Familienkalender/1.0 (https://app.famto.net/)"
     const val FAR_KM = 15.0 // ab so weit Luftlinie von zu Hause wird nachgerechnet
 
     // Fahrzeit, die der Fahrer per Knopf übernommen hat (gilt nur auf diesem Handy, nur für diesen Termin)

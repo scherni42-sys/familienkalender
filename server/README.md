@@ -2,27 +2,27 @@
 
 Diese Anleitung setzt voraus: ein Hetzner-Cloud-Server mit Ubuntu 24.04, Backups und Firewall (Ports 22, 80, 443, 2222 offen) und eine Domain, bei der `git.` und `app.` auf die IP des Servers zeigen.
 
-Im Folgenden steht `famto.example` für deine Domain.
+Die Domain ist famto.net, die Server-Adresse 128.140.71.8.
 
 ## 1. Domain im Code eintragen
 
-Im Projekt ist die neue Adresse als Platzhalter `app.famto.example` eingetragen. Einmal ersetzen (auf deinem Rechner im Projektordner):
+Die Domain famto.net ist bereits überall eingetragen. Für eine andere Domain einmal ersetzen:
 
 ```sh
-grep -rl "famto.example" --exclude-dir=node_modules . | xargs sed -i "s/famto\.example/DEINE-DOMAIN.de/g"
+grep -rl "famto.net" --exclude-dir=node_modules . | xargs sed -i "s/famto\.example/famto.net/g"
 ```
 
 ## 2. Server vorbereiten
 
 ```sh
-ssh root@SERVER-IP
+ssh root@128.140.71.8
 apt update && apt -y upgrade && apt -y install unattended-upgrades rsync
 curl -fsSL https://get.docker.com | sh
 mkdir -p /srv/famto/{server,forgejo,postgres,runner,caddy,app,keystore,backup}
 chown 1000:1000 /srv/famto/forgejo
 ```
 
-Den Ordner `server/` aus dem Projekt nach `/srv/famto/server/` kopieren (z. B. mit `scp -r server root@SERVER-IP:/srv/famto/`), dann:
+Den Ordner `server/` aus dem Projekt nach `/srv/famto/server/` kopieren (z. B. mit `scp -r server root@128.140.71.8:/srv/famto/`), dann:
 
 ```sh
 cd /srv/famto/server
@@ -32,7 +32,7 @@ docker compose up -d forgejo db caddy
 
 ## 3. Forgejo einrichten
 
-1. `https://git.DEINE-DOMAIN.de` öffnen. Die Datenbankwerte sind schon vorausgefüllt, nur ein Administrator-Konto anlegen.
+1. `https://git.famto.net` öffnen. Die Datenbankwerte sind schon vorausgefüllt, nur ein Administrator-Konto anlegen.
 2. Im Profil unter Einstellungen → Sicherheit die Zwei-Faktor-Anmeldung einschalten.
 3. Neue Organisation `famto` anlegen, darin ein leeres, privates Repository `familienkalender`.
 4. In der Organisation unter Einstellungen → Actions → Runner einen Registrierungs-Token erzeugen.
@@ -42,7 +42,7 @@ docker compose up -d forgejo db caddy
 ```sh
 cd /srv/famto/server
 docker compose run --rm runner forgejo-runner register --no-interactive \
-  --instance https://git.DEINE-DOMAIN.de --token TOKEN --name hetzner \
+  --instance https://git.famto.net --token TOKEN --name hetzner \
   --labels docker:docker://node:22-bookworm
 cp runner-config.yml /srv/famto/runner/config.yml
 docker compose up -d runner
@@ -55,7 +55,7 @@ Auf deinem Rechner, im Ordner mit der Datei `familienkalender-umzug.bundle`:
 ```sh
 git clone -b main-neu familienkalender-umzug.bundle familienkalender
 cd familienkalender
-git remote set-url origin https://git.DEINE-DOMAIN.de/famto/familienkalender.git
+git remote set-url origin https://git.famto.net/famto/familienkalender.git
 git push -u origin main-neu:main
 ```
 
@@ -77,7 +77,7 @@ Ohne `WIDGET_KEYSTORE` erzeugt der erste Bau einen neuen Schlüssel und legt ihn
 ## 7. Erster Bau und Umstellung
 
 1. In Forgejo unter Actions die Abläufe „Web-App“ und „Widget-App“ von Hand starten.
-2. `https://app.DEINE-DOMAIN.de` muss die App zeigen, `https://app.DEINE-DOMAIN.de/download/familien-widget.apk` die APK liefern.
+2. `https://app.famto.net` muss die App zeigen, `https://app.famto.net/download/familien-widget.apk` die APK liefern.
 3. In Supabase unter Authentication → URL Configuration die neue Adresse als Site URL und als Redirect URL eintragen.
 4. Auf jedem Familienhandy: alte App deinstallieren, neue APK installieren, in der Web-App unter Einstellungen den Einrichtungscode neu erzeugen und in der App einlesen.
 5. Die Kalender-Daten bleiben dabei erhalten, sie liegen in Supabase.

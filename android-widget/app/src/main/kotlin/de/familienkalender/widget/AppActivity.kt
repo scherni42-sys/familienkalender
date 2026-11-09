@@ -21,7 +21,7 @@ class AppActivity : Activity() {
     companion object {
         const val EXTRA_OPEN = "open"
         const val EXTRA_MIC = "mic"
-        const val DEFAULT_APP = "https://app.famto.example/"
+        const val DEFAULT_APP = "https://app.famto.net/"
         private const val FILES = 7
         private const val SPEECH = 8
         private const val GEO = 9

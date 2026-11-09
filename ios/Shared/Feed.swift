@@ -3,7 +3,7 @@ import Foundation
 // Gemeinsam für App und Widget: Verbindungsdaten (Widget-Code „FK1:…“) und das Laden der Familiendaten
 enum FamTO {
     static let group = "group.de.famto.app"
-    static let defaultApp = "https://app.famto.example/"
+    static let defaultApp = "https://app.famto.net/"
     static var store: UserDefaults { UserDefaults(suiteName: group) ?? .standard }
 }
 
