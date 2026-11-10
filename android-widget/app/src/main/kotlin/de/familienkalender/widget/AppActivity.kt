@@ -357,6 +357,7 @@ class AppActivity : Activity() {
             runOnUiThread {
                 if (BdAlarm.enabled(ctx) && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
                     requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 11)
+                else if (BdAlarm.enabled(ctx)) AlarmService.askFullScreen(this@AppActivity)
             }
             Thread { (Feed.cached(ctx) ?: Feed.load(ctx).first)?.let { BdAlarm.schedule(ctx, it) } }.start()
         }
@@ -372,6 +373,7 @@ class AppActivity : Activity() {
             runOnUiThread {
                 if (lead > 0 && android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
                     requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 11)
+                else if (lead > 0) AlarmService.askFullScreen(this@AppActivity)
             }
             Thread { EvAlarm.schedule(ctx, Feed.cached(ctx)) }.start()
         }

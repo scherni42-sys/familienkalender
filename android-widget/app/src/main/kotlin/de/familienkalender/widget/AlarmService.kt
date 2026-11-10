@@ -72,6 +72,8 @@ class AlarmService : Service() {
 
         // Ton und Vibration liegen hier (nicht im Dienst), damit jeder Weg zum Ausschalten sie sicher findet
         private var player: MediaPlayer? = null
+        // Solange es klingelt, landen die Lautstärketasten hier und schalten den Wecker aus (auch bei gesperrtem Handy)
+        private var session: android.media.session.MediaSession? = null
         private var vibrator: Vibrator? = null
         private val main = Handler(Looper.getMainLooper())
         private val autoQuiet = Runnable { quiet() }
@@ -97,6 +99,16 @@ class AlarmService : Service() {
                 try { play(app, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)) } catch (x: Exception) { null }
             }
             try {
+                session = android.media.session.MediaSession(app, "famto-wecker").apply {
+                    setPlaybackToRemote(object : android.media.VolumeProvider(android.media.VolumeProvider.VOLUME_CONTROL_RELATIVE, 100, 50) {
+                        override fun onAdjustVolume(direction: Int) { main.post { stop(app) } }
+                    })
+                    setPlaybackState(android.media.session.PlaybackState.Builder()
+                        .setState(android.media.session.PlaybackState.STATE_PLAYING, 0, 1f).build())
+                    isActive = true
+                }
+            } catch (e: Exception) { }
+            try {
                 val v = app.getSystemService(Vibrator::class.java)
                 if (v != null && v.hasVibrator()) {
                     @Suppress("DEPRECATION")
@@ -121,6 +133,8 @@ class AlarmService : Service() {
             player = null
             try { vibrator?.cancel() } catch (e: Exception) { }
             vibrator = null
+            try { session?.isActive = false; session?.release() } catch (e: Exception) { }
+            session = null
             if (oldVolume >= 0) try { audio?.setStreamVolume(android.media.AudioManager.STREAM_ALARM, oldVolume, 0) } catch (e: Exception) { }
             oldVolume = -1; audio = null
         }
@@ -160,6 +174,9 @@ class AlarmService : Service() {
             try {
                 val i = Intent(ctx, AlarmService::class.java).putExtra(EXTRA_N, n).putExtra(EXTRA_NID, nid).putExtra(EXTRA_KIND, kind)
                 ctx.startForegroundService(i)
+                // Wecker-Bildschirm auch dann zeigen, wenn das Handy gerade benutzt wird
+                // (die Vollbild-Meldung erscheint sonst nur bei gesperrtem Handy); verbietet Android es, bleibt die Meldung
+                try { ctx.startActivity(screen) } catch (x: Exception) { }
             } catch (e: Exception) {
                 // Dienst darf gerade nicht starten: Meldung zeigen und selbst klingeln, nach 3 Minuten Ruhe
                 val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -167,6 +184,18 @@ class AlarmService : Service() {
                 sound(ctx, kind)
                 main.postDelayed(autoQuiet, RING_MS)
             }
+        }
+
+        // Android 14+: Ohne „Vollbild-Benachrichtigungen“ erscheint der Wecker-Bildschirm nicht. Einmal danach fragen.
+        fun askFullScreen(act: android.app.Activity) {
+            if (Build.VERSION.SDK_INT < 34) return
+            val nm = act.getSystemService(NotificationManager::class.java)
+            if (nm.canUseFullScreenIntent()) return
+            val prefs = act.getSharedPreferences("familien-widget", Context.MODE_PRIVATE)
+            if (prefs.getBoolean("fsiAsked", false)) return
+            prefs.edit().putBoolean("fsiAsked", true).apply()
+            android.widget.Toast.makeText(act, "Bitte für FamTO einschalten, damit beim Wecker ein großer Aus-Knopf erscheint.", android.widget.Toast.LENGTH_LONG).show()
+            try { act.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, android.net.Uri.parse("package:" + act.packageName))) } catch (e: Exception) { }
         }
 
         // Wecker ausschalten, egal auf welchem Weg er klingelt
