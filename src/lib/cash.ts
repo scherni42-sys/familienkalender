@@ -181,22 +181,39 @@ export function takeShared(): File | null {
 }
 
 // Bon vorlesen lassen (Claude über die Edge Function „receipt“)
-export async function read(image: { type: string; data: string }): Promise<ReadResult> {
+class ProError extends Error {}
+export async function read(image: { type: string; data: string }, pages?: string[]): Promise<ReadResult> {
   if (store.demo || !supabase) return { found: true, kind: 'bon', invoice_no: '', net: 6.65, taxes: [{ rate: 7, net: 3.64, tax: 0.25 }, { rate: 19, net: 3.01, tax: 0.57 }], items_net: false, box: { x0: 0.08, y0: 0.04, x1: 0.92, y1: 0.96 }, merchant: 'Testmarkt', date: today(), time: '10:15', payment: 'EC-Karte', card: '1234', total: 7.47, currency: 'EUR', category: 'Lebensmittel',
     items: [{ name: 'Bio Vollmilch', qty: 1, price: 1.49, vat: 7, category: 'Lebensmittel' }, { name: 'Brötchen', qty: 6, price: 2.4, vat: 7, category: 'Lebensmittel' }, { name: 'Zahnpasta', qty: 1, price: 3.58, vat: 19, category: 'Drogerie' }] };
-  if (!isPro()) throw new Error('Belege automatisch auslesen gibt es in FamTO Pro. Trag den Beleg einfach von Hand ein.');
-  const { data, error } = await supabase.functions.invoke('receipt', { body: { image, today: today() } });
-  if ((error as { context?: Response } | null)?.context?.status === 402) throw new Error('Belege automatisch auslesen gibt es in FamTO Pro. Trag den Beleg einfach von Hand ein.');
+  if (!isPro()) throw new ProError('Belege automatisch auslesen gibt es in FamTO Pro. Trag den Beleg einfach von Hand ein.');
+  const { data, error } = await supabase.functions.invoke('receipt', { body: { image, ...(pages?.length ? { pages } : {}), today: today() } });
+  if ((error as { context?: Response } | null)?.context?.status === 402) throw new ProError('Belege automatisch auslesen gibt es in FamTO Pro. Trag den Beleg einfach von Hand ein.');
   if (error || !data?.receipt) throw new Error('Der Bon ließ sich nicht lesen. Du kannst ihn von Hand eintragen.');
   return data.receipt as ReadResult;
+}
+
+// PDF-Rechnung lesen lassen. Manche PDFs (z. B. bestimmte Würth-Rechnungen) lehnt die KI als Datei ab;
+// dann werden die Seiten hier im Handy zu Bildern gezeichnet und als Fotos gelesen.
+export async function readPdf(bytes: Uint8Array): Promise<ReadResult> {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  try { return await read({ type: 'application/pdf', data: btoa(bin) }); }
+  catch (e) {
+    if (e instanceof ProError || store.demo || !supabase) throw e;
+    const { pdfPages } = await import('./pdfprev');
+    const pages = await pdfPages(bytes).catch(() => { throw e; });
+    return read({ type: 'image/jpeg', data: pages[0] }, pages.slice(1));
+  }
 }
 
 // Gespeicherten Beleg (Foto oder PDF) noch einmal auslesen, z. B. für die E-Rechnung
 export async function reread(path: string): Promise<ReadResult> {
   const blob = await (await fetch(await photoUrl(path))).blob();
-  const b = new Uint8Array(await blob.arrayBuffer()); let bin = '';
+  const b = new Uint8Array(await blob.arrayBuffer());
+  if (path.endsWith('.pdf')) return readPdf(b);
+  let bin = '';
   for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000));
-  return read({ type: path.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg', data: btoa(bin) });
+  return read({ type: 'image/jpeg', data: btoa(bin) });
 }
 
 // Foto für den Bon: längste Seite 1800 px, damit kleine Schrift lesbar bleibt

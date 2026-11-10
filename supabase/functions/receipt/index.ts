@@ -52,11 +52,18 @@ Deno.serve(async req => {
     if (!mine?.length || mine[0].role === 'guest') return json({ error: 'Nicht angemeldet' }, 401);
     const { data: pro } = await sb.rpc('ai_allowed', {});
     if (pro !== true) return json({ error: 'Die KI-Funktionen gibt es in FamTO Pro.', pro: true }, 402);
-    const { image, today } = await req.json();
+    const { image, pages, today } = await req.json();
     if (!image || typeof image.data !== 'string' || image.data.length > 6_000_000 || !/^(image\/(jpeg|png|webp)|application\/pdf)$/.test(image.type)) throw new Error('Kein Foto');
+    // Weitere Seiten einer PDF-Rechnung, die die App selbst zu Bildern gezeichnet hat (wenn die KI die PDF-Datei ablehnt)
+    const more: string[] = Array.isArray(pages) ? pages.filter((p: unknown): p is string => typeof p === 'string' && p.length > 0).slice(0, 5) : [];
+    if (image.data.length + more.reduce((s, p) => s + p.length, 0) > 12_000_000) throw new Error('Kein Foto');
     const doc = image.type === 'application/pdf'
       ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: image.data } } as const
       : { type: 'image', source: { type: 'base64', media_type: image.type, data: image.data } } as const;
+    const extra = more.map(data => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } }) as const);
+    const ask = image.type === 'application/pdf' ? 'Lies diese Rechnung (PDF) aus. box: 0, 0, 1, 1.'
+      : more.length ? `Das sind die ${more.length + 1} Seiten einer PDF-Rechnung als Bilder, der Reihe nach. Lies die Rechnung aus. box: 0, 0, 1, 1.`
+      : 'Lies diesen Beleg aus.';
     const r = await client.beta.messages.create({
       model: 'claude-opus-5-5', max_tokens: 8000,
       betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
@@ -69,13 +76,14 @@ Ohne lesbares Datum leer lassen, nicht raten.
 Unterscheide genau zwischen Netto und Brutto: total ist immer der Bruttobetrag. Bei Rechnungen mit Netto-Positionen übernimm die Nettopreise in die Zeilen, setze items_net und gib die MwSt-Aufstellung vollständig an.
 Lies den Verkäufer immer vollständig aus, auch bei Kassenbons: seller.name ist die rechtliche Firmierung mit Rechtsform (GmbH, GmbH & Co. KG, AG, e. K. …), die meist klein oben, unten oder neben der USt-IdNr. steht; dazu Anschrift, USt-IdNr., Steuernummer, Kontakt und IBAN, soweit angegeben. merchant ist dagegen der kurze Alltagsname des Geschäfts mit Ort, z. B. „Aldi Altenholz“. Ist keine Firmierung zu sehen, nimm den Geschäftsnamen. Bei Rechnungen lies auch den Käufer vollständig aus.
 Auf Kassenbons stehen Steuersätze oft als Buchstaben (A = 19 %, B = 7 %); ordne sie den Zeilen zu, wenn die Legende auf dem Bon steht.`,
-      messages: [{ role: 'user', content: [doc, { type: 'text', text: image.type === 'application/pdf' ? 'Lies diese Rechnung (PDF) aus. box: 0, 0, 1, 1.' : 'Lies diesen Beleg aus.' }] }]
+      messages: [{ role: 'user', content: [doc, ...extra, { type: 'text', text: ask }] }]
     });
     if (r.stop_reason === 'refusal') throw new Error('abgelehnt');
     const block = r.content.find(b => b.type === 'text');
     if (!block || block.type !== 'text') throw new Error('Keine Antwort');
     return json({ receipt: JSON.parse(block.text) });
   } catch (e) {
+    console.error('receipt:', e instanceof Error ? e.message : e);
     return json({ error: String(e instanceof Error ? e.message : e) }, 400);
   }
 });

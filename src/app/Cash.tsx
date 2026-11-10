@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, cardFirm, matchFirm, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, cardFirm, matchFirm, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, readPdf, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
@@ -416,9 +416,7 @@ function NewReceipt({ close, back, next, prefs, file }: { close: () => void; bac
     setBusy('Die Rechnung wird gelesen …');
     let rc = blank();
     try {
-      const b = new Uint8Array(await f.arrayBuffer()); let bin = '';
-      for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode(...b.subarray(i, i + 0x8000));
-      const r = await read({ type: 'application/pdf', data: btoa(bin) });
+      const r = await readPdf(new Uint8Array(await f.arrayBuffer()));
       if (!r.found) toast('In der PDF ist keine Rechnung zu erkennen. Du kannst trotzdem alles eintragen.');
       rc = fill(r, await prefsNow());
     } catch (e) { fail(e); }
