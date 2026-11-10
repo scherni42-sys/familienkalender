@@ -92,7 +92,7 @@ class TodayWidget : AppWidgetProvider() {
             WEEK_PREV -> { Feed.turnWeek(ctx, -1); refreshData(ctx); toTop(ctx) }
             WEEK_NEXT -> { Feed.turnWeek(ctx, 1); refreshData(ctx) }
             // Nach einem App-Update: Alarm neu setzen und das Widget mit dem neuen Code neu aufbauen
-            Intent.ACTION_MY_PACKAGE_REPLACED -> { refreshAll(ctx); schedule(ctx); background(ctx); Geo.register(ctx) }
+            Intent.ACTION_MY_PACKAGE_REPLACED -> { Alarms.restore(ctx); refreshAll(ctx); schedule(ctx); background(ctx); Geo.register(ctx) }
         }
     }
 

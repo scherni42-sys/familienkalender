@@ -8,7 +8,7 @@ import { Badge, cvar, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
 import { suggestPlaces, travelTime, type PlaceHit } from '../lib/ai';
 import { AttachButton, FileList } from './Files';
-import { evAlarm, hasEvAlarm, LEADS, setEvAlarm } from '../lib/bdalarm';
+import { alarmNote, evAlarm, hasEvAlarm, LEADS, setEvAlarm } from '../lib/bdalarm';
 import { native } from '../lib/native';
 import { ask } from './ask';
 
@@ -107,8 +107,9 @@ export function EventSheet({ draft, fresh, close, back, saved }: { draft: Draft;
       }
       const id = await store.saveEvent(toNewEvent(dd, bringTxt), d.id);
       for (const f of pending) await store.attachFile(f, { event: id }).catch(fail);
-      if (hasEvAlarm() && (wake || evAlarm(id))) setEvAlarm({ id, lead: dd.all_day ? 0 : wake, date: dd.date, start: dd.start_min, title: dd.title.trim() });
-      toast(d.vis === 'family' ? 'Gespeichert. Steht jetzt auch auf dem Display.' : 'Gespeichert, nur für dich.');
+      const wakeLead = dd.all_day ? 0 : wake;
+      if (hasEvAlarm() && (wake || evAlarm(id))) setEvAlarm({ id, lead: wakeLead, date: dd.date, start: dd.start_min, title: dd.title.trim() });
+      toast((d.vis === 'family' ? 'Gespeichert. Steht jetzt auch auf dem Display.' : 'Gespeichert, nur für dich.') + (hasEvAlarm() ? alarmNote(wakeLead, dd.date, dd.start_min) : ''));
       after?.(id);
       saved(id);
     } catch (e) { fail(e); } finally { setBusy(false); }

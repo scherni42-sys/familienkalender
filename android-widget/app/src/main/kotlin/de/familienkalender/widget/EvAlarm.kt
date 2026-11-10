@@ -53,8 +53,10 @@ object EvAlarm {
             else if (feed != null && System.currentTimeMillis() - a.optLong("added") > 10 * 60_000) { o.remove(id); continue }
             val start = try { LocalDate.parse(a.optString("date")).atStartOfDay().plusMinutes(a.optInt("start").toLong()) } catch (x: Exception) { o.remove(id); continue }
             if (start.isBefore(now.minusHours(2))) { o.remove(id); continue }
-            val at = start.minusMinutes(a.optInt("lead").toLong())
-            if (at.isAfter(now) && (best == null || at.isBefore(best.first))) best = Triple(at, id, a)
+            // Weckzeit schon vorbei, Termin aber noch nicht angefangen (z. B. 1 Std. vorher gewählt, aber erst
+            // 20 Min. vorher eingetragen, oder das Handy war aus): dann gleich klingeln statt gar nicht
+            val at = start.minusMinutes(a.optInt("lead").toLong()).let { if (it.isAfter(now)) it else if (start.isAfter(now)) now.plusSeconds(5) else null } ?: continue
+            if (best == null || at.isBefore(best.first)) best = Triple(at, id, a)
         }
         store(ctx, o)
         val b = best ?: run { am.cancel(fireIntent(ctx, "", "", "")); return }
@@ -68,14 +70,18 @@ object EvAlarm {
     }
 
     fun fire(ctx: Context, id: String, title: String, at: String) {
-        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val a = all(ctx).optJSONObject(id)
         val lead = a?.optInt("lead") ?: 0
         val tap = PendingIntent.getActivity(ctx, 46, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "event:$id")
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val off = PendingIntent.getBroadcast(ctx, 47, Intent(ctx, TodayWidget::class.java).setAction(OFF),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val soon = when { lead >= 120 -> "in 2 Stunden"; lead >= 60 -> "in 1 Stunde"; lead > 0 -> "in $lead Minuten"; else -> "gleich" }
+        // Wie lange noch bis zum Termin (bei verspätetem Klingeln weniger als der gewählte Vorlauf)
+        val left = try {
+            val st = a?.let { LocalDate.parse(it.optString("date")).atStartOfDay().plusMinutes(it.optInt("start").toLong()) }
+            if (st != null) java.time.Duration.between(LocalDateTime.now(), st).toMinutes().toInt().let { if (it > 0) it + 1 else 0 }.coerceAtMost(lead) else lead
+        } catch (e: Exception) { lead }
+        val soon = when { left >= 120 -> "in 2 Stunden"; left >= 60 && left % 60 == 0 -> "in ${left / 60} Stunde"; left >= 60 -> "in 1 Std. ${left % 60} Min."; left > 0 -> "in $left Minuten"; else -> "gleich" }
         val n = Notification.Builder(ctx, Tones.channel(ctx, "ev"))
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle("⏰ $title")
@@ -83,16 +89,16 @@ object EvAlarm {
             .setCategory(Notification.CATEGORY_ALARM)
             .setContentIntent(tap)
             .setAutoCancel(true)
-            .setTimeoutAfter(((lead.coerceAtLeast(15)) * 60_000L))
+            .setTimeoutAfter(((left.coerceAtLeast(15)) * 60_000L))
+            .setDeleteIntent(off)
             .addAction(Notification.Action.Builder(null, "Aus", off).build())
             .build()
-        n.flags = n.flags or Notification.FLAG_INSISTENT
-        val allowed = Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (allowed) nm.notify(NID, n)
+        // Klingelt über AlarmService (auch im Leise-Modus); ohne Erlaubnis für Meldungen klingelt es trotzdem
+        AlarmService.ring(ctx, NID, n, "ev")
         // Erledigt: diesen Wecker austragen und den nächsten stellen
         all(ctx).let { it.remove(id); store(ctx, it) }
         schedule(ctx, Feed.cached(ctx))
     }
 
-    fun off(ctx: Context) = (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NID)
+    fun off(ctx: Context) { AlarmService.stop(ctx); (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NID) }
 }

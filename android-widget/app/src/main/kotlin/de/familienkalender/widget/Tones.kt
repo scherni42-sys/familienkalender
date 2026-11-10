@@ -46,18 +46,17 @@ object Tones {
         } catch (e: Exception) { }
     }
 
-    // Kanal mit dem gewählten Ton; alte Kanäle desselben Weckers werden entfernt
+    // Kanal für die Wecker-Meldung. Der Kanal selbst ist still: Den Ton spielt AlarmService über den
+    // Wecker-Kanal des Handys, damit er auch im Leise-Modus klingelt. Ältere Kanäle mit Ton werden entfernt.
     fun channel(ctx: Context, kind: String): String {
         val base = if (kind == "bd") "geburtstagswecker" else "terminwecker"
-        val u = uri(ctx, kind)
-        val id = "$base-" + Integer.toHexString(u.toString().hashCode())
+        val id = "$base-still"
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notificationChannels.filter { (it.id == base || it.id.startsWith("$base-")) && it.id != id }.forEach { nm.deleteNotificationChannel(it.id) }
         if (nm.getNotificationChannel(id) == null) nm.createNotificationChannel(NotificationChannel(id, if (kind == "bd") "Geburtstags-Wecker" else "Termin-Wecker", NotificationManager.IMPORTANCE_HIGH).apply {
             description = if (kind == "bd") "Klingelt am Geburtstag zur eingestellten Uhrzeit" else "Klingelt vor wichtigen Terminen"
-            setSound(u, AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 600, 400, 600, 400, 600)
+            setSound(null, null)
+            enableVibration(false)
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         })
         return id

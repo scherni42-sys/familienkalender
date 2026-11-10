@@ -69,7 +69,6 @@ object BdAlarm {
 
     // Klingeln: Benachrichtigung mit Weckton, die so lange läutet, bis man „Aus“ tippt oder sie wegwischt
     fun fire(ctx: Context, names: String) {
-        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val tap = PendingIntent.getActivity(ctx, 42, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "bdays")
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val off = PendingIntent.getBroadcast(ctx, 43, Intent(ctx, TodayWidget::class.java).setAction(OFF),
@@ -83,14 +82,14 @@ object BdAlarm {
             .setAutoCancel(true)
             // Verschwindet nach 2 Stunden von selbst, falls niemand „Aus“ tippt
             .setTimeoutAfter(2 * 60 * 60 * 1000L)
+            .setDeleteIntent(off)
             .addAction(Notification.Action.Builder(null, "Aus", off).build())
             .build()
-        n.flags = n.flags or Notification.FLAG_INSISTENT
-        val allowed = Build.VERSION.SDK_INT < 33 || ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (allowed) nm.notify(NID, n)
+        // Klingelt über AlarmService (auch im Leise-Modus); ohne Erlaubnis für Meldungen klingelt es trotzdem
+        AlarmService.ring(ctx, NID, n, "bd")
         // Den nächsten stellen
         Feed.cached(ctx)?.let { schedule(ctx, it) }
     }
 
-    fun off(ctx: Context) = (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NID)
+    fun off(ctx: Context) { AlarmService.stop(ctx); (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NID) }
 }

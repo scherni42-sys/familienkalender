@@ -83,7 +83,7 @@ object Geo {
 
 class GeoReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) { Geo.register(ctx); return }
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) { Geo.register(ctx); Alarms.restore(ctx); return }
         val ev = GeofencingEvent.fromIntent(intent) ?: return
         if (ev.hasError()) return
         val home = when (ev.geofenceTransition) {

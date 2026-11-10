@@ -67,4 +67,13 @@ export const setTone = (kind: 'bd' | 'ev', which: string) => native()?.setTone?.
 export const hasEvAlarm = () => !!native()?.setEvAlarm;
 export const evAlarm = (id?: string) => (id && native()?.evAlarm?.(id)) || 0;
 export const setEvAlarm = (a: { id: string; lead: number; date: string; start: number; title: string }) => native()?.setEvAlarm?.(JSON.stringify(a));
+// Hinweis, wenn die gewählte Weckzeit schon vorbei ist (dann klingelt das Handy sofort) oder der Termin schon läuft
+export const alarmNote = (lead: number, date: string, start: number) => {
+  if (!lead) return '';
+  const st = new Date(`${date}T00:00`); st.setMinutes(start);
+  const now = Date.now();
+  if (st.getTime() <= now) return ' Der Termin hat schon angefangen, deshalb klingelt kein Wecker.';
+  if (st.getTime() - lead * 60_000 <= now) return ' Die Weckzeit ist schon vorbei, deshalb klingelt er gleich jetzt.';
+  return '';
+};
 export const LEADS: [number, string][] = [[15, '15 Min. vorher'], [30, '30 Min. vorher'], [60, '1 Std. vorher'], [120, '2 Std. vorher']];
