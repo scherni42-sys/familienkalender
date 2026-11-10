@@ -246,3 +246,27 @@ export function taxesFromItems(r: Receipt): Tax[] {
   for (const i of r.items) if (i.vat) m.set(i.vat, (m.get(i.vat) ?? 0) + (r.items_net ? i.price : i.price / (1 + i.vat / 100)));
   return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([rate, n]) => ({ rate, net: Math.round(n * 100) / 100, tax: Math.round(n * rate) / 100 }));
 }
+
+// Postfächer für Rechnungen aus E-Mails (FamTO Pro). Zugangsdaten gehen nur an die Edge Function „mailin“ und sind danach nicht mehr lesbar.
+export interface Mailbox { id: string; kind: 'imap' | 'outlook'; address: string; host: string; only_invoices: boolean; active: boolean; last_check: string | null; last_status: string; found: number }
+const mailFn = async (body: Record<string, unknown>) => {
+  if (!supabase) throw new Error('Nicht verbunden.');
+  const { data, error } = await supabase.functions.invoke('mailin', { body });
+  if (error) {
+    const ctxRes = (error as { context?: Response }).context;
+    const j = ctxRes ? await ctxRes.json().catch(() => null) : null;
+    throw new Error(j?.error ?? 'Der Server ist gerade nicht erreichbar.');
+  }
+  return data as Record<string, unknown>;
+};
+export async function mailboxes(): Promise<Mailbox[]> {
+  if (store.demo || !supabase) return [];
+  const r = await sb().from('mailboxes').select('id,kind,address,host,only_invoices,active,last_check,last_status,found').eq('owner', ctx().me).order('created_at');
+  if (r.error) throw new Error(/mailboxes/.test(r.error.message) ? 'Für Postfächer fehlt noch ein Datenbank-Schritt (Migration 0028).' : r.error.message);
+  return r.data as Mailbox[];
+}
+export const addMailbox = (address: string, password: string, host?: string) => mailFn({ action: 'add', address, password, host });
+export const outlookLogin = async () => String((await mailFn({ action: 'outlook' })).url ?? '');
+export const checkMailbox = async (id: string) => (await mailFn({ action: 'check', id })) as { status: string; found: number };
+export async function setMailbox(id: string, p: Partial<Pick<Mailbox, 'only_invoices' | 'active'>>) { const r = await sb().from('mailboxes').update(p).eq('id', id); if (r.error) throw new Error(r.error.message); }
+export async function removeMailbox(id: string) { const r = await sb().from('mailboxes').delete().eq('id', id); if (r.error) throw new Error(r.error.message); }

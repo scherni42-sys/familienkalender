@@ -29,7 +29,7 @@ const savedFilter = (): Filter => { try { const v = localStorage.getItem('fk-fil
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
-export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board'; photo?: boolean } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays'; adding?: boolean; open?: string } | { kind: 'ask' } | { kind: 'cash'; share?: boolean; rc?: Receipt } | null;
+export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board'; photo?: boolean } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays'; adding?: boolean; open?: string } | { kind: 'ask' } | { kind: 'cash'; share?: boolean; rc?: Receipt; postfach?: boolean } | null;
 
 // Uhr, die jede Minute neu zeichnet (für „vorbei“, „los in X Min.“)
 export function useMinute() {
@@ -92,7 +92,8 @@ export function Shell() {
       if (k === 'bdays') setSheet({ kind: 'bdays' });
       if (k === 'bday' && id) setSheet({ kind: 'bdays', open: id });
       if (k === 'bdadd') setSheet({ kind: 'bdays', adding: true });
-      if (k === 'cash') setSheet({ kind: 'cash', share: id === 'share' });
+      if (k === 'cash') setSheet({ kind: 'cash', share: id === 'share', postfach: id === 'postfach' });
+      if (k === 'cash' && id === 'postfach') { const r = o.split(':')[2]; if (r === 'ok') toast('Outlook ist verbunden. FamTO sieht jetzt alle 15 Minuten nach Rechnungen.'); else if (r) toast(r === 'abgebrochen' ? 'Die Microsoft-Anmeldung wurde abgebrochen.' : r === 'abgelaufen' ? 'Die Anmeldung hat zu lange gedauert. Bitte noch einmal.' : 'Outlook ließ sich nicht verbinden. Bitte noch einmal versuchen.'); }
       // Tag im Widget angetippt: leerer Termin an diesem Datum
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
       if (k === 'settings') setTab('settings');
@@ -164,7 +165,7 @@ export function Shell() {
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} day={sheet.day} add={newOn} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
       {sheet?.kind === 'ask' && <AskSheet close={() => setSheet(null)} open={id => setSheet({ kind: 'detail', id })} edit={draft => setSheet({ kind: 'edit', draft, fresh: false })} toDraft={draft => setSheet({ kind: 'edit', draft, fresh: true })} bdays={() => setSheet({ kind: 'bdays' })} receipt={rc => setSheet({ kind: 'cash', rc })} />}
-      {sheet?.kind === 'cash' && <CashSheet key={nonce} close={() => setSheet(null)} share={sheet.share} rc={sheet.rc} />}
+      {sheet?.kind === 'cash' && <CashSheet key={nonce} close={() => setSheet(null)} share={sheet.share} rc={sheet.rc} postfach={sheet.postfach} />}
       {sheet?.kind === 'bdays' && <BdaySheet key={sheet.open ?? ''} adding={sheet.adding} open={sheet.open} close={() => setSheet(null)} />}
       <PushBanner now={now} />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}

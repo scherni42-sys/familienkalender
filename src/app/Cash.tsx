@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, cardFirm, matchFirm, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, readPdf, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax } from '../lib/cash';
+import { isPro, useSnapshot } from '../lib/store';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, cardFirm, matchFirm, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, readPdf, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax, type Mailbox, mailboxes, addMailbox, outlookLogin, checkMailbox, setMailbox, removeMailbox } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
@@ -20,9 +20,9 @@ type Photo = HTMLCanvasElement | Blob | null;
 type View = { kind: 'list' } | { kind: 'new'; file?: File } | { kind: 'prefs' } | { kind: 'edit'; rc: Receipt; photo?: Photo };
 
 // Kassenbuch: Monatsübersicht, Bons fotografieren, auslesen, privat oder Familie
-export function CashSheet({ close, share, rc: openRc }: { close: () => void; share?: boolean; rc?: Receipt }) {
+export function CashSheet({ close, share, rc: openRc, postfach }: { close: () => void; share?: boolean; rc?: Receipt; postfach?: boolean }) {
   // Mit FamTO geteilte Datei (PDF-Rechnung, Foto): gleich einen neuen Beleg damit anlegen
-  const [view, setView] = useState<View>(() => { const f = share ? takeShared() : null; return f ? { kind: 'new', file: f } : openRc ? { kind: 'edit', rc: openRc } : { kind: 'list' }; });
+  const [view, setView] = useState<View>(() => { const f = share ? takeShared() : null; return f ? { kind: 'new', file: f } : openRc ? { kind: 'edit', rc: openRc } : postfach ? { kind: 'prefs' } : { kind: 'list' }; });
   const [prefs, setP] = useState<Prefs>({ business: false, firm: '', cards: [], firms: [] });
   useEffect(() => { void getPrefs().then(setP).catch(() => {}); }, []);
   const keep = async (p: Prefs) => { await setPrefs(p); setP(p); };
@@ -86,9 +86,68 @@ function CashPrefs({ close, back, prefs, keep }: { close: () => void; back: () =
         <button type="button" className="x" aria-label="Karte löschen" onClick={() => setP(x => ({ ...x, cards: x.cards.filter((_, k) => k !== i) }))}>✕</button>
       </div>)}</div>
       <button type="button" className="btn sm" onClick={() => setP(x => ({ ...x, cards: [...x.cards, { card: '', scope: x.business ? 'business' : 'private' }] }))}>＋ Karte</button>
+      <MailBoxes />
       <div className="btn-row"><button type="button" className="btn ghost" onClick={back}>Zurück</button><button type="button" className="btn" disabled={busy} onClick={() => void go()}>{busy ? 'Speichert …' : 'Speichern'}</button></div>
     </Sheet>
   );
+}
+
+// Rechnungen aus E-Mails: eigene Postfächer, die der Server alle 15 Minuten liest (FamTO Pro)
+const MAIL_HINT: [RegExp, string][] = [
+  [/^(gmail|googlemail)\./, 'Gmail: Unter myaccount.google.com/apppasswords ein App-Passwort erzeugen (dafür muss die Bestätigung in zwei Schritten an sein).'],
+  [/^(gmx|web)\./, 'GMX und WEB.DE: Im Postfach unter Einstellungen → POP3/IMAP Abruf den Abruf erlauben. Mit Zwei-Faktor-Schutz ein Anwendungspasswort nehmen.'],
+  [/^(icloud|me|mac)\./, 'iCloud: Unter account.apple.com → Anmeldung und Sicherheit → App-spezifische Passwörter eines erzeugen.'],
+  [/^t-online\./, 'T-Online: Das E-Mail-Passwort aus dem Kundencenter nehmen, nicht das Login-Passwort.'],
+  [/^(outlook|hotmail|live|msn)\./, 'Outlook: Bitte oben „Mit Microsoft anmelden“ nehmen.']
+];
+const ago = (t: string | null) => { if (!t) return 'noch nicht gelesen'; const m = Math.round((Date.now() - new Date(t).getTime()) / 60000); return m < 1 ? 'gerade gelesen' : m < 60 ? `vor ${m} Min. gelesen` : m < 1440 ? `vor ${Math.round(m / 60)} Std. gelesen` : `am ${new Date(t).toLocaleDateString('de-DE')} gelesen`; };
+function MailBoxes() {
+  const [boxes, setBoxes] = useState<Mailbox[] | null>(null), [err, setErr] = useState('');
+  const [adding, setAdding] = useState(false), [f, setF] = useState({ address: '', password: '', host: '' }), [showHost, setShowHost] = useState(false);
+  const [busy, setBusy] = useState('');
+  const load = () => mailboxes().then(b => { setBoxes(b); setErr(''); }).catch(e => setErr(e instanceof Error ? e.message : String(e)));
+  useEffect(() => { if (isPro()) void load(); }, []);
+  const head = <><div className="field"><span>Rechnungen aus E-Mails</span></div></>;
+  if (!isPro()) return <>{head}<p className="cash-check">Mit FamTO Pro liest FamTO deine Postfächer und legt Rechnungen aus PDF-Anhängen automatisch als Belege an.</p></>;
+  const domain = f.address.split('@')[1]?.toLowerCase() ?? '';
+  const hint = MAIL_HINT.find(([r]) => r.test(domain))?.[1];
+  const run = async (k: string, fn: () => Promise<void>) => { setBusy(k); try { await fn(); } catch (e) { fail(e); } finally { setBusy(''); } };
+  const outlook = () => run('ms', async () => { const url = await outlookLogin(); if (url) location.href = url; });
+  const add = () => run('add', async () => {
+    try { await addMailbox(f.address.trim(), f.password, f.host.trim() || undefined); }
+    catch (e) { if (/IMAP-Server|antwortet nicht/.test(e instanceof Error ? e.message : '')) setShowHost(true); throw e; }
+    toast('Postfach verbunden. FamTO sieht jetzt alle 15 Minuten nach.'); setF({ address: '', password: '', host: '' }); setAdding(false); setShowHost(false); await load();
+  });
+  const now = (b: Mailbox) => run(b.id, async () => { const r = await checkMailbox(b.id); toast(r.found ? `${r.found} neue Rechnung${r.found > 1 ? 'en' : ''} im Kassenbuch.` : r.status.startsWith('Fehler') ? r.status : 'Nichts Neues gefunden.'); await load(); });
+  const set = (b: Mailbox, p: Partial<Mailbox>) => run(b.id, async () => { await setMailbox(b.id, p); setBoxes(x => x?.map(y => y.id === b.id ? { ...y, ...p } : y) ?? x); });
+  const del = (b: Mailbox) => run(b.id, async () => { if (!await ask(`Postfach ${b.address} entfernen? Schon erfasste Belege bleiben.`, 'Entfernen')) return; await removeMailbox(b.id); await load(); });
+  return <>
+    {head}
+    <p className="cash-check">FamTO liest diese Postfächer alle 15 Minuten. Rechnungen aus PDF-Anhängen landen als neue Belege im Kassenbuch, doppelte werden übersprungen. Es wird nichts gelöscht oder verschoben.</p>
+    {err && <p className="cash-check">{err}</p>}
+    {boxes?.map(b => <div key={b.id} className="cash-einv cash-mbox">
+      <div className="cash-mbox-top"><b>{b.kind === 'outlook' ? '📧 ' : '✉️ '}{b.address}</b><small>{b.active ? ago(b.last_check) : 'pausiert'}{b.found ? ` · ${b.found} Rechnung${b.found > 1 ? 'en' : ''} bisher` : ''}</small>
+        {b.last_status.startsWith('Fehler') && <small className="cash-mbox-err">{b.last_status}</small>}</div>
+      <label className="cash-opt"><input type="checkbox" checked={b.only_invoices} onChange={e => void set(b, { only_invoices: e.target.checked })} /><span><b>Nur Mails, die nach Rechnung aussehen</b><small>„Rechnung“, „Invoice“, „Bestellung“ o. Ä. im Betreff oder Dateinamen. Spart KI-Kosten für Newsletter und Tickets.</small></span></label>
+      <div className="btn-row">
+        <button type="button" className="btn sm" disabled={!!busy || !b.active} onClick={() => void now(b)}>{busy === b.id ? 'Liest …' : 'Jetzt prüfen'}</button>
+        <button type="button" className="btn sm ghost" disabled={!!busy} onClick={() => void set(b, { active: !b.active })}>{b.active ? 'Pausieren' : 'Fortsetzen'}</button>
+        <button type="button" className="btn sm ghost" disabled={!!busy} onClick={() => void del(b)}>Entfernen</button>
+      </div>
+    </div>)}
+    <div className="btn-row">
+      <button type="button" className="btn sm" disabled={!!busy} onClick={() => void outlook()}>{busy === 'ms' ? 'Öffnet …' : 'Mit Microsoft anmelden (Outlook)'}</button>
+      {!adding && <button type="button" className="btn sm ghost" onClick={() => setAdding(true)}>＋ Anderes Postfach</button>}
+    </div>
+    {adding && <div className="cash-einv">
+      <label className="field"><span>E-Mail-Adresse</span><input type="email" autoComplete="off" value={f.address} onChange={e => setF({ ...f, address: e.target.value })} placeholder="name@gmx.de" /></label>
+      <label className="field"><span>Passwort (meist ein App-Passwort)</span><input type="password" autoComplete="new-password" value={f.password} onChange={e => setF({ ...f, password: e.target.value })} /></label>
+      {hint && <p className="cash-check">{hint}</p>}
+      {showHost && <label className="field"><span>IMAP-Server</span><input value={f.host} onChange={e => setF({ ...f, host: e.target.value })} placeholder={`imap.${domain || 'anbieter.de'}`} /></label>}
+      {!showHost && <button type="button" className="btn sm ghost" onClick={() => setShowHost(true)}>IMAP-Server selbst angeben</button>}
+      <div className="btn-row"><button type="button" className="btn sm ghost" onClick={() => { setAdding(false); setShowHost(false); }}>Abbrechen</button><button type="button" className="btn sm" disabled={!!busy || !f.address || !f.password} onClick={() => void add()}>{busy === 'add' ? 'Prüft …' : 'Verbinden'}</button></div>
+    </div>}
+  </>;
 }
 
 type Tab = 'mine' | 'family' | 'business';
