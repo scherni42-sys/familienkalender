@@ -19,7 +19,7 @@ import android.os.Vibrator
 
 // Klingeln der Wecker (Termin und Geburtstag) wie ein echter Wecker:
 // Der Ton läuft über den Wecker-Kanal des Handys (USAGE_ALARM) und ist deshalb auch im Leise- oder
-// Vibrationsmodus zu hören, solange die Wecker-Lautstärke nicht auf null steht.
+// Vibrationsmodus zu hören. Ist die Wecker-Lautstärke niedrig, wird sie beim Klingeln angehoben und danach zurückgestellt.
 // Ausschalten: großer „Aus“-Knopf im Wecker-Bildschirm, „Aus“ in der Meldung, Meldung antippen oder
 // wegwischen, Lautstärketaste im Wecker-Bildschirm. Spätestens nach 3 Minuten ist von selbst Ruhe.
 class AlarmService : Service() {
@@ -77,9 +77,21 @@ class AlarmService : Service() {
         private val autoQuiet = Runnable { quiet() }
         private val attrs: AudioAttributes get() = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
 
+        // Wecker-Lautstärke des Handys vor dem Klingeln, um sie danach zurückzustellen (-1 = nicht geändert)
+        private var oldVolume = -1
+        private var audio: android.media.AudioManager? = null
+
         @Synchronized private fun sound(ctx: Context, kind: String) {
             quiet()
             val app = ctx.applicationContext
+            // Steht die Wecker-Lautstärke niedrig, beim Klingeln auf 85 % anheben (wie ein Wecker, der nicht überhört werden soll)
+            try {
+                val am = app.getSystemService(android.media.AudioManager::class.java)
+                val max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
+                val cur = am.getStreamVolume(android.media.AudioManager.STREAM_ALARM)
+                val want = Math.ceil(max * 0.85).toInt()
+                if (cur < want) { am.setStreamVolume(android.media.AudioManager.STREAM_ALARM, want, 0); oldVolume = cur; audio = am }
+            } catch (e: Exception) { }
             player = try { play(app, Tones.uri(app, kind)) } catch (e: Exception) {
                 // Gewählter Ton nicht (mehr) da: Weckton des Handys
                 try { play(app, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)) } catch (x: Exception) { null }
@@ -109,6 +121,8 @@ class AlarmService : Service() {
             player = null
             try { vibrator?.cancel() } catch (e: Exception) { }
             vibrator = null
+            if (oldVolume >= 0) try { audio?.setStreamVolume(android.media.AudioManager.STREAM_ALARM, oldVolume, 0) } catch (e: Exception) { }
+            oldVolume = -1; audio = null
         }
 
         private fun cancelAll(ctx: Context) {
