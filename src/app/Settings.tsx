@@ -168,6 +168,20 @@ function Family() {
   </>;
 }
 
+// Mülleimer für einen Geburtstag (Detailansicht und Bearbeiten), mit Rückfrage
+export function BdayDelete({ b, done }: { b: Birthday; done?: () => void }) {
+  const snap = useSnapshot();
+  return <button type="button" className="btn ghost del-btn" aria-label={`Geburtstag ${b.name} löschen`} onClick={async () => {
+    if (!(await ask(`Geburtstag von ${b.name} wirklich löschen?`, 'Löschen'))) return;
+    try {
+      const a = getAlarm(); if (a && alarmOn(a, b)) toggleAlarm(b, false, snap.birthdays);
+      await store.removeBirthday(b.id);
+      toast(b.ext_id ? `${b.name} gelöscht. Steht er noch im Handy-Kalender, kommt er beim nächsten Abgleich wieder.` : `${b.name} gelöscht.`);
+      done?.();
+    } catch (x) { fail(x); }
+  }}><Icon name="trash" /></button>;
+}
+
 // Formular „Geburtstag eintragen“ (Einstellungen und Geburtstagsübersicht, auch aus dem Widget)
 export function BdayForm({ focus, edit, done }: { focus?: boolean; edit?: Birthday; done?: () => void }) {
   const snap = useSnapshot();
@@ -192,7 +206,7 @@ export function BdayForm({ focus, edit, done }: { focus?: boolean; edit?: Birthd
         </div>
         <label className="setrow"><span><Icon name="lock" /> Privat: nur ich sehe ihn (Freunde, Kollegen …)</span><input type="checkbox" checked={priv} onChange={e => setPriv(e.target.checked)} /></label>
         {alarm && <label className="setrow"><span><Icon name="alarm" /> Wecker am Geburtstag um {hm(alarm.min)} Uhr (dieses Handy)</span><input type="checkbox" checked={wake} onChange={e => setWake(e.target.checked)} /></label>}
-        {edit ? <div className="btn-row"><button type="button" className="btn ghost" onClick={done}>Abbrechen</button><button className="btn">Speichern</button></div> : <button className="btn">Eintragen</button>}
+        {edit ? <div className="btn-row"><button type="button" className="btn ghost" onClick={done}>Abbrechen</button><button className="btn">Speichern</button><BdayDelete b={edit} done={done} /></div> : <button className="btn">Eintragen</button>}
       </form>;
 }
 

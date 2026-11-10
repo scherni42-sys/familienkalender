@@ -10,7 +10,7 @@ import { isOnline, meetingUrl, bdLabel, depart, etaDriver, etaMin, isDriver, leg
 import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
 import { useEffect, useState, type ReactNode } from 'react';
-import { BdayForm } from './Settings';
+import { BdayDelete, BdayForm } from './Settings';
 import { sendToOutlook } from '../lib/outlook';
 import { AttachButton, FileList } from './Files';
 
@@ -196,6 +196,7 @@ function BdayDetail({ b, back, close }: { b: ReturnType<typeof upcoming>[number]
       <div className="btn-row">
         <button type="button" className="btn ghost" onClick={back}>Alle Geburtstage</button>
         {can && <button type="button" className="btn" onClick={() => setEdit(true)}>Bearbeiten</button>}
+        {can && <BdayDelete b={raw} done={back} />}
       </div>
     </Sheet>
   );
