@@ -1,5 +1,5 @@
 // Edge Function „receipt“: liest einen fotografierten Kassenbon oder eine PDF-Rechnung aus (Händler, Datum, Karte, Positionen, Summe, Kategorien)
-// und meldet, wo der Bon im Foto liegt, damit die App ihn freistellen kann. Nur für angemeldete Familienmitglieder.
+// und meldet, wo der Bon im Foto liegt, damit die App ihn freistellen kann. Nur für angemeldete Familienmitglieder mit FamTO Pro.
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 

@@ -40,7 +40,8 @@ begin
   update family_plans set plan = p_plan, updated_at = now() where family_id = fam;
 end $$;
 
-revoke all on function public.plan_of(uuid) from public;
+revoke all on function public.plan_of(uuid) from public, anon, authenticated;
+revoke all on function public.set_test_plan(uuid, text) from public, anon;
 grant execute on function public.plan_of(uuid) to service_role;
 grant execute on function public.ai_allowed(uuid, uuid) to anon, authenticated, service_role;
 grant execute on function public.set_test_plan(uuid, text) to authenticated;
