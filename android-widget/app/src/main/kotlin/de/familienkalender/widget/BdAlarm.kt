@@ -69,24 +69,8 @@ object BdAlarm {
 
     // Klingeln: Benachrichtigung mit Weckton, die so lange läutet, bis man „Aus“ tippt oder sie wegwischt
     fun fire(ctx: Context, names: String) {
-        val tap = PendingIntent.getActivity(ctx, 42, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "bdays")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val off = PendingIntent.getBroadcast(ctx, 43, Intent(ctx, TodayWidget::class.java).setAction(OFF),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val n = Notification.Builder(ctx, Tones.channel(ctx, "bd"))
-            .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle("🎂 Geburtstag $names")
-            .setContentText("Heute gratulieren nicht vergessen!")
-            .setCategory(Notification.CATEGORY_ALARM)
-            .setContentIntent(tap)
-            .setAutoCancel(true)
-            // Verschwindet nach 2 Stunden von selbst, falls niemand „Aus“ tippt
-            .setTimeoutAfter(2 * 60 * 60 * 1000L)
-            .setDeleteIntent(off)
-            .addAction(Notification.Action.Builder(null, "Aus", off).build())
-            .build()
-        // Klingelt über AlarmService (auch im Leise-Modus); ohne Erlaubnis für Meldungen klingelt es trotzdem
-        AlarmService.ring(ctx, NID, n, "bd")
+        // Klingelt über AlarmService wie ein echter Wecker (auch im Leise-Modus), mit großem „Aus“-Knopf
+        AlarmService.ring(ctx, NID, "bd", "🎂 Geburtstag $names", "Heute gratulieren nicht vergessen!", "bdays", 2 * 60 * 60 * 1000L)
         // Den nächsten stellen
         Feed.cached(ctx)?.let { schedule(ctx, it) }
     }

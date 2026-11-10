@@ -72,29 +72,14 @@ object EvAlarm {
     fun fire(ctx: Context, id: String, title: String, at: String) {
         val a = all(ctx).optJSONObject(id)
         val lead = a?.optInt("lead") ?: 0
-        val tap = PendingIntent.getActivity(ctx, 46, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "event:$id")
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val off = PendingIntent.getBroadcast(ctx, 47, Intent(ctx, TodayWidget::class.java).setAction(OFF),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         // Wie lange noch bis zum Termin (bei verspätetem Klingeln weniger als der gewählte Vorlauf)
         val left = try {
             val st = a?.let { LocalDate.parse(it.optString("date")).atStartOfDay().plusMinutes(it.optInt("start").toLong()) }
             if (st != null) java.time.Duration.between(LocalDateTime.now(), st).toMinutes().toInt().let { if (it > 0) it + 1 else 0 }.coerceAtMost(lead) else lead
         } catch (e: Exception) { lead }
         val soon = when { left >= 120 -> "in 2 Stunden"; left >= 60 && left % 60 == 0 -> "in ${left / 60} Stunde"; left >= 60 -> "in 1 Std. ${left % 60} Min."; left > 0 -> "in $left Minuten"; else -> "gleich" }
-        val n = Notification.Builder(ctx, Tones.channel(ctx, "ev"))
-            .setSmallIcon(R.drawable.ic_notify)
-            .setContentTitle("⏰ $title")
-            .setContentText("$soon, um $at Uhr")
-            .setCategory(Notification.CATEGORY_ALARM)
-            .setContentIntent(tap)
-            .setAutoCancel(true)
-            .setTimeoutAfter(((left.coerceAtLeast(15)) * 60_000L))
-            .setDeleteIntent(off)
-            .addAction(Notification.Action.Builder(null, "Aus", off).build())
-            .build()
-        // Klingelt über AlarmService (auch im Leise-Modus); ohne Erlaubnis für Meldungen klingelt es trotzdem
-        AlarmService.ring(ctx, NID, n, "ev")
+        // Klingelt über AlarmService wie ein echter Wecker (auch im Leise-Modus), mit großem „Aus“-Knopf
+        AlarmService.ring(ctx, NID, "ev", "⏰ $title", "$soon, um $at Uhr", "event:$id", left.coerceAtLeast(15) * 60_000L)
         // Erledigt: diesen Wecker austragen und den nächsten stellen
         all(ctx).let { it.remove(id); store(ctx, it) }
         schedule(ctx, Feed.cached(ctx))

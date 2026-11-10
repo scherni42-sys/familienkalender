@@ -11,10 +11,13 @@ class OpenActivity : Activity() {
         const val EXTRA_OPEN = "open"
         const val EXTRA_ACT = "act"
         const val EXTRA_MSG = "msg"
+        const val EXTRA_ALARM_OFF = "alarmOff"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Wecker-Meldung angetippt: zuerst den Wecker ausschalten
+        if (intent?.getBooleanExtra(EXTRA_ALARM_OFF, false) == true) AlarmService.stop(this)
         // Board-Knopf im Widget: nur ausführen, nichts öffnen
         val act = intent?.getStringExtra(EXTRA_ACT)
         if (act != null) {
