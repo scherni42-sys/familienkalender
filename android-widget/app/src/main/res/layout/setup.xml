@@ -48,6 +48,27 @@
             android:layout_marginTop="12dp"
             android:text="FamTO-Kalender auf den Startbildschirm legen" />
 
+        <TextView
+            android:id="@+id/bglabel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Widget-Hintergrund"
+            android:textSize="15sp" />
+
+        <SeekBar
+            android:id="@+id/bgalpha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:max="20" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Links durchsichtig, rechts deckend. Das Widget ändert sich sofort."
+            android:textSize="13sp" />
+
         <CheckBox
             android:id="@+id/remind"
             android:layout_width="match_parent"

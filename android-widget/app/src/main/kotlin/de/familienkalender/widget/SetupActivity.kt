@@ -27,6 +27,25 @@ class SetupActivity : Activity() {
         // Abbrechen soll beim Anlegen kein leeres Widget hinterlassen
         setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
 
+        // Durchsichtigkeit des Widget-Hintergrunds, wirkt sofort auf alle Widgets
+        val bgLabel = findViewById<TextView>(R.id.bglabel)
+        val bgBar = findViewById<android.widget.SeekBar>(R.id.bgalpha)
+        fun showBg(p: Int) { bgLabel.text = "Widget-Hintergrund: $p % deckend" + if (p == Look.DEFAULT) " (Standard)" else "" }
+        bgBar.progress = Look.alpha(this) / 5
+        showBg(Look.alpha(this))
+        bgBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: android.widget.SeekBar, step: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                Look.setAlpha(this@SetupActivity, step * 5)
+                showBg(step * 5)
+                TodayWidget.refreshAll(this@SetupActivity)
+            }
+            override fun onStartTrackingTouch(sb: android.widget.SeekBar) {}
+            override fun onStopTrackingTouch(sb: android.widget.SeekBar) {
+                Feed.cached(this@SetupActivity)?.let { NextWidget.updateAll(this@SetupActivity, it) }
+            }
+        })
+
         // Erinnerungen: Schalter und (ab Android 13) Erlaubnis für Benachrichtigungen
         val remind = findViewById<CheckBox>(R.id.remind)
         remind.isChecked = Reminders.enabled(this)

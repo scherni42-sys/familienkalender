@@ -41,6 +41,7 @@ class NextWidget : AppWidgetProvider() {
 
         private fun views(ctx: Context, feed: JSONObject): RemoteViews {
             val v = RemoteViews(ctx.packageName, R.layout.next)
+            Look.applyBg(ctx, v, R.id.n_root)
             val now = LocalDateTime.now()
             val u = Reminders.mine(feed).firstOrNull { it.end.isAfter(now) }
             if (u == null) {
