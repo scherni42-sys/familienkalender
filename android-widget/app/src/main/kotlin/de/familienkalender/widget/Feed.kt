@@ -175,7 +175,10 @@ object Feed {
             val feed = JSONObject(body)
             // Eigene Chats dazu (nur mit persönlichem Code; ohne Chat-Tabelle einfach keine)
             chats(c)?.let { feed.put("chats", it) }
-            cache(ctx).edit().putString("feed", feed.toString()).putLong("at", System.currentTimeMillis()).apply()
+            val e = cache(ctx).edit().putString("feed", feed.toString()).putLong("at", System.currentTimeMillis())
+            // Tarif: FamTO Pro (mit KI) oder Basis; ohne Antwort bleibt der letzte Stand
+            plan(c)?.let { e.putBoolean("pro", it) }
+            e.apply()
             home(ctx, feed) to null
         } catch (e: Exception) {
             val old = cache(ctx).getString("feed", null)
@@ -194,6 +197,25 @@ object Feed {
         conn.outputStream.use { it.write(JSONObject().put("p_token", c.token).toString().toByteArray()) }
         if (conn.responseCode in 200..299) JSONArray(conn.inputStream.bufferedReader().use { it.readText() }) else null
     } catch (e: Exception) { null }
+
+    // Darf diese Familie die KI nutzen? Persönlicher Widget-Code oder Display-Code
+    private fun plan(c: Config): Boolean? {
+        var answered = false
+        for (arg in listOf("p_widget", "p_display")) {
+            try {
+                val conn = URL("${c.url}/rest/v1/rpc/ai_allowed").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"; conn.connectTimeout = 8000; conn.readTimeout = 10000; conn.doOutput = true
+                conn.setRequestProperty("apikey", c.key); conn.setRequestProperty("Content-Type", "application/json")
+                conn.outputStream.use { it.write(JSONObject().put(arg, c.token).toString().toByteArray()) }
+                if (conn.responseCode in 200..299) {
+                    answered = true
+                    if (conn.inputStream.bufferedReader().use { it.readText() }.trim() == "true") return true
+                }
+            } catch (e: Exception) { }
+        }
+        return if (answered) false else null
+    }
+    fun pro(ctx: Context): Boolean = cache(ctx).getBoolean("pro", true)
 
     fun loadedAt(ctx: Context): Long = cache(ctx).getLong("at", 0)
     fun cached(ctx: Context): JSONObject? = try { cache(ctx).getString("feed", null)?.let { home(ctx, JSONObject(it)) } } catch (e: Exception) { null }

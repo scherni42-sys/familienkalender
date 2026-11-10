@@ -250,6 +250,8 @@ class TodayWidget : AppWidgetProvider() {
             // Zaubertaste: App mit „Frag Claude“ öffnen
             val ask = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "ask").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.ask, PendingIntent.getActivity(ctx, 29, ask, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            // Zaubertaste nur in FamTO Pro
+            v.setViewVisibility(R.id.ask, if (Feed.pro(ctx)) android.view.View.VISIBLE else android.view.View.GONE)
             // Kassenbuch: App mit dem Kassenbuch öffnen
             val cash = Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "cash").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             v.setOnClickPendingIntent(R.id.cash, PendingIntent.getActivity(ctx, 31, cash, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
