@@ -22,6 +22,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Wecker-Bildschirm mit großem „Aus“-Knopf, auch auf dem Sperrbildschirm -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- Wecker-Bildschirm auch bei entsperrtem Handy öffnen (sonst blockiert Android den Start aus dem Hintergrund) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!-- Spracherkennung des Handys finden (Android 11+) -->
     <queries>

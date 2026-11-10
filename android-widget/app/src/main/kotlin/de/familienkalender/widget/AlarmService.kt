@@ -186,16 +186,25 @@ class AlarmService : Service() {
             }
         }
 
-        // Android 14+: Ohne „Vollbild-Benachrichtigungen“ erscheint der Wecker-Bildschirm nicht. Einmal danach fragen.
+        // Damit der Wecker-Bildschirm mit „Aus“ auch bei entsperrtem Handy erscheint, braucht FamTO die Erlaubnis
+        // „Über anderen Apps einblenden“ (sonst verbietet Android das Öffnen aus dem Hintergrund).
+        // Für den Sperrbildschirm braucht Android 14+ zusätzlich „Vollbild-Benachrichtigungen“.
+        // Beim Stellen eines Weckers wird jeweils einmal danach gefragt, eins nach dem anderen.
         fun askFullScreen(act: android.app.Activity) {
-            if (Build.VERSION.SDK_INT < 34) return
-            val nm = act.getSystemService(NotificationManager::class.java)
-            if (nm.canUseFullScreenIntent()) return
             val prefs = act.getSharedPreferences("familien-widget", Context.MODE_PRIVATE)
+            fun open(action: String) { try { act.startActivity(Intent(action, android.net.Uri.parse("package:" + act.packageName))) } catch (e: Exception) { } }
+            if (!android.provider.Settings.canDrawOverlays(act) && !prefs.getBoolean("overlayAsked", false)) {
+                prefs.edit().putBoolean("overlayAsked", true).apply()
+                android.widget.Toast.makeText(act, "Bitte „Über anderen Apps einblenden“ für FamTO erlauben. Dann erscheint beim Wecker immer ein großer Aus-Knopf.", android.widget.Toast.LENGTH_LONG).show()
+                open(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                return
+            }
+            if (Build.VERSION.SDK_INT < 34) return
+            if (act.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()) return
             if (prefs.getBoolean("fsiAsked", false)) return
             prefs.edit().putBoolean("fsiAsked", true).apply()
-            android.widget.Toast.makeText(act, "Bitte für FamTO einschalten, damit beim Wecker ein großer Aus-Knopf erscheint.", android.widget.Toast.LENGTH_LONG).show()
-            try { act.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, android.net.Uri.parse("package:" + act.packageName))) } catch (e: Exception) { }
+            android.widget.Toast.makeText(act, "Bitte für FamTO einschalten, damit der Wecker auch auf dem Sperrbildschirm einen Aus-Knopf zeigt.", android.widget.Toast.LENGTH_LONG).show()
+            open(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
         }
 
         // Wecker ausschalten, egal auf welchem Weg er klingelt
