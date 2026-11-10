@@ -291,7 +291,7 @@ function PlanRow({ isAdmin }: { isAdmin: boolean }) {
   return <>
     <label className="setrow"><span><Icon name="spark" /> Tarif: <b>{pro ? 'FamTO Pro' : 'FamTO'}</b>{f.tester && <span className="pro-tag">Test</span>}</span>
       {f.tester && isAdmin && <input type="checkbox" className="sw" checked={pro} disabled={busy} aria-label="FamTO Pro zum Testen ein- oder ausschalten" onChange={e => flip(e.target.checked)} />}</label>
-    <span className="note">{pro ? 'Mit KI: Termine aus Sprache und Fotos, Claude fragen, Belege auslesen, Internetsuche für Orte.' : 'Alles Wichtige ohne KI. Mit FamTO Pro erkennt Claude Termine aus Sprache und Fotos, beantwortet Fragen und liest Belege aus.'}</span>
+    <span className="note">{pro ? 'Mit KI: Zaubertaste (Claude fragen), Termine aus Sprache und Fotos, Belege auslesen, Internetsuche für Orte.' : 'Alles Wichtige ohne KI. Mit FamTO Pro kommt die Zaubertaste dazu: Claude beantwortet Fragen, erkennt Termine aus Sprache und Fotos und liest Belege aus.'}</span>
   </>;
 }
 

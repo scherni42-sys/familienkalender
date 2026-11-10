@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { demoLink, store, useSnapshot } from '../lib/store';
+import { demoLink, isPro, store, useSnapshot } from '../lib/store';
 import { micStart } from '../lib/micstart';
 import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
@@ -97,7 +97,7 @@ export function Shell() {
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
       if (k === 'settings') setTab('settings');
       if (k === 'home') setTab('today');
-      if (k === 'ask' && me.role !== 'guest') setSheet({ kind: 'ask' });
+      if (k === 'ask' && me.role !== 'guest' && isPro()) setSheet({ kind: 'ask' });
       if (k === 'chat') { if (id === 'new') { setChatWith(null); setChatNew(n => n + 1); } else setChatWith(id || null); setTab('chat'); }
       if (k === 'msg') { setTab('board'); setFocusMsg(id); if (o.split(':')[2] === 'reply') setReplyMsg(id); setTimeout(() => setFocusMsg(null), 4000); }
     };
@@ -144,7 +144,8 @@ export function Shell() {
       </div>
       {/* Kassenbuch: €-Knopf links über dem B, gegenüber der Zaubertaste */}
       {me.role !== 'guest' && tab !== 'chat' && tab !== 'board' && <button type="button" className="cash fab" onClick={() => setSheet({ kind: 'cash' })} aria-label="Kassenbuch">€</button>}
-      {me.role !== 'guest' && tab !== 'chat' && tab !== 'board' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen"><svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><path fill="#FFC83D" d="M18,12 Q19.3,20.7 28,22 Q19.3,23.3 18,32 Q16.7,23.3 8,22 Q16.7,20.7 18,12 Z" /><path fill="#FFC83D" d="M27.5,7.5 Q28.1,11.4 32,12 Q28.1,12.6 27.5,16.5 Q26.9,12.6 23,12 Q26.9,11.4 27.5,7.5 Z" /></svg></button>}
+      {/* Zaubertaste nur in FamTO Pro */}
+      {me.role !== 'guest' && snap.family?.plan !== 'basis' && tab !== 'chat' && tab !== 'board' && <button type="button" className="magic fab" onClick={() => setSheet({ kind: 'ask' })} aria-label="Claude fragen"><svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><path fill="#FFC83D" d="M18,12 Q19.3,20.7 28,22 Q19.3,23.3 18,32 Q16.7,23.3 8,22 Q16.7,20.7 18,12 Z" /><path fill="#FFC83D" d="M27.5,7.5 Q28.1,11.4 32,12 Q28.1,12.6 27.5,16.5 Q26.9,12.6 23,12 Q26.9,11.4 27.5,7.5 Z" /></svg></button>}
       {/* Fußzeile wie im Widget: Geburtstage, Kalenderwoche blättern, neuer Eintrag */}
       {!talk && <nav className="wbar" aria-label="Bereiche">
         {tab === 'chat' || tab === 'board' ? <><span /><span /></> : <>
