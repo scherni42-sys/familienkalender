@@ -132,12 +132,15 @@ class TodayWidget : AppWidgetProvider() {
             v.setViewVisibility(R.id.ask, if (big) View.INVISIBLE else if (Feed.pro(ctx)) View.VISIBLE else View.GONE)
             v.setViewVisibility(R.id.cash, if (big) View.INVISIBLE else View.VISIBLE)
             if (big) { v.setViewVisibility(R.id.weekprev, View.INVISIBLE); v.setViewVisibility(R.id.weeknext, View.INVISIBLE); v.setViewVisibility(R.id.weekyear, View.GONE) }
+            // Geburtstagsansicht (B grün): ＋ öffnet „Geburtstag eintragen“
+            val bd = !big && Feed.bdMode(ctx)
             val add = when {
                 chat -> Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "chat:new")
+                bd -> Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, "bdadd")
                 big -> Intent(ctx, QuickActivity::class.java).putExtra(QuickActivity.EXTRA_MODE, "board")
                 else -> Intent(ctx, MicActivity::class.java).putExtra(MicActivity.EXTRA_MODE, "new")
             }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            v.setOnClickPendingIntent(R.id.q_add, PendingIntent.getActivity(ctx, if (chat) 11 else if (big) 12 else 10, add, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
+            v.setOnClickPendingIntent(R.id.q_add, PendingIntent.getActivity(ctx, if (chat) 11 else if (big) 12 else if (bd) 13 else 10, add, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
         }
 
         private fun refreshIntent(ctx: Context): PendingIntent = PendingIntent.getBroadcast(
