@@ -17,7 +17,7 @@ export function ShopSheet({ close }: { close: () => void }) {
   const me = snap.members.find(m => m.id === snap.me);
   const canAct = !!me && me.role !== 'guest' && me.role !== 'child';
   const list = snap.shopping ?? [];
-  const [text, setText] = useState(''), [busy, setBusy] = useState(false);
+  const [text, setText] = useState(''), [busy, setBusy] = useState(false), [adding, setAdding] = useState(false);
 
   // Abschnitte: zuerst der normale Zettel, darunter je Gericht die Zutaten. Innerhalb sortiert nach Abteilung (Weg durch den Markt);
   // Abgehaktes bleibt an seinem Platz, damit beim Einkaufen nichts verrutscht
@@ -121,9 +121,10 @@ export function ShopSheet({ close }: { close: () => void }) {
         </section>)}
       </div>
 
-      {canAct && <>
+      {/* Eingabe nur auf Wunsch (leerer Zettel: gleich offen), sonst nur der Zettel */}
+      {canAct && (adding || !list.length) && <>
         <form className="compose" onSubmit={e => { e.preventDefault(); void add(); }}>
-          <input value={text} onChange={e => setText(e.target.value)} placeholder="z. B. Milch, 2 Butter, 500 g Hack" maxLength={500} aria-label="Artikel hinzufügen" />
+          <input autoFocus={adding} value={text} onChange={e => setText(e.target.value)} placeholder="z. B. Milch, 2 Butter, 500 g Hack" maxLength={500} aria-label="Artikel hinzufügen" />
           <button disabled={busy || !text.trim()}>{busy ? '…' : 'Dazu'}</button>
         </form>
         <div className="shop-photo">
@@ -137,8 +138,9 @@ export function ShopSheet({ close }: { close: () => void }) {
           : 'Zettel und Rezepte vom Foto lesen gibt es in FamTO Pro.'}</p>
       </>}
       <div className="btn-row">
-        {canAct && done.length > 0 && <button type="button" className="btn ghost" onClick={() => store.removeShop(done.map(x => x.id)).then(() => toast('Abgehakte Artikel entfernt.'), fail)}>Abgehakte entfernen ({done.length})</button>}
-        <button type="button" className="btn" onClick={close}>Fertig</button>
+        {canAct && list.length > 0 && !adding && <button type="button" className="btn ghost shop-b" onClick={() => setAdding(true)}>＋ Dazu</button>}
+        {canAct && done.length > 0 && !adding && <button type="button" className="btn ghost shop-b" onClick={() => store.removeShop(done.map(x => x.id)).then(() => toast('Abgehakte Artikel entfernt.'), fail)}>Abgehakte weg</button>}
+        <button type="button" className="btn" onClick={() => adding ? setAdding(false) : close()}>{adding ? 'Zurück zum Zettel' : 'Fertig'}</button>
       </div>
     </Sheet>
   );

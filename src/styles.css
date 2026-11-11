@@ -844,3 +844,4 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cook-tip { margin: 0; line-height: var(--zl); font-size: 14.5px !important; color: #24302b !important; }
 .cook-acts { display: flex; gap: 8px; min-height: var(--zl); align-items: center; }
 .cook-acts button { border: 1.5px solid #d6a07f; background: #fff; color: #b2541a; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; }
+.btn.shop-b { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
