@@ -18,8 +18,31 @@ const unitOf = (w: string) => { for (const [re, u] of UNITS) if (re.test(w)) ret
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // „Milch, 2 Packungen Butter und 500 g Hack“ → drei Artikel
+// Namen aus mehreren Wörtern, die zusammenbleiben (sonst trennt die Spracheingabe sie)
+const PHRASES = ['rote bete', 'rote beete', 'crème fraîche', 'creme fraiche', 'saure sahne', 'schlagsahne', 'griechischer joghurt', 'frische milch', 'h-milch'];
+const isNum = (w: string) => /^\d/.test(w) || NUM[w.toLowerCase()] !== undefined;
+// Spracheingabe liefert oft keine Kommas: „Hirse Bananen Äpfel“ oder „Hirse 2 Bananen 3 Äpfel“ → drei Artikel.
+// Neuer Artikel beginnt bei jedem großgeschriebenen Wort (Hauptwort) oder einer Zahl; kleingeschriebene Wörter („frische“)
+// gehören zum nächsten Hauptwort, Mengen und Einheiten („2 Packungen Butter“) bleiben beim Artikel.
+function splitSpoken(part: string): string[] {
+  const w = part.split(/\s+/).filter(Boolean);
+  if (w.length < 2 || PHRASES.some(p => part.toLowerCase() === p)) return [part];
+  const out: string[][] = []; let cur: string[] = [], noun = false;
+  for (let i = 0; i < w.length; i++) {
+    const x = w[i];
+    const pair = (x + ' ' + (w[i + 1] ?? '')).toLowerCase();
+    const starts = isNum(x) || (/^[A-ZÄÖÜ]/.test(x) && unitOf(x) === null);
+    if (noun && starts) { out.push(cur); cur = []; noun = false; }
+    if (PHRASES.includes(pair)) { cur.push(x, w[++i]); noun = true; continue; }
+    cur.push(x);
+    if (/^[A-ZÄÖÜ]/.test(x) && unitOf(x) === null && !isNum(x)) noun = true;
+  }
+  if (cur.length) out.push(cur);
+  return out.map(c => c.join(' '));
+}
+
 export function parseShop(text: string): ShopIn[] {
-  return text.split(/[,;\n]+|\s+und\s+|\s+sowie\s+/i).map(x => x.trim().replace(/[.!?]+$/, '')).filter(Boolean).map(part => {
+  return text.split(/[,;\n]+|\s+und\s+|\s+sowie\s+/i).map(x => x.trim().replace(/[.!?]+$/, '')).filter(Boolean).flatMap(splitSpoken).map(part => {
     const w = part.split(/\s+/);
     let qty = 1, unit = '', i = 0;
     const n = w[0].toLowerCase().replace(',', '.');
@@ -121,7 +144,7 @@ const RULES: [ShopCat, string[]][] = [
   ['Käse', ['käse', 'gouda', 'emmentaler', 'parmesan', 'mozzarella', 'feta', 'camembert', 'brie', 'cheddar', 'gorgonzola', 'raclette', 'halloumi', 'bergkäse', 'edamer', 'grana']],
   ['Milchprodukte & Eier', ['milch', 'joghurt', 'jogurt', 'quark', 'sahne', 'schmand', 'butter', 'margarine', 'eier', ' ei ', 'kefir', 'buttermilch', 'pudding', 'skyr', 'crème fraîche', 'creme fraiche', 'frischkäse', 'mascarpone', 'ricotta', 'hafermilch', 'sojamilch']],
   ['Brot & Gebäck', ['brot', 'brötchen', 'toast', 'baguette', 'croissant', 'laugen', 'brezel', 'kuchen', 'zwieback', 'knäcke', 'wrap', 'tortilla', 'ciabatta', 'semmel', 'gebäck', 'berliner', 'franzbrötchen']],
-  ['Frühstück & Cerealien', ['müsli', 'cornflakes', 'flakes', 'haferflocken', 'cerealien', 'granola', 'marmelade', 'konfitüre', 'honig', 'nutella', 'aufstrich', 'kaffee', 'tee', 'kakao', 'espresso', 'erdnussbutter']],
+  ['Frühstück & Cerealien', ['müsli', 'hirse', 'porridge', 'dinkelflocken', 'cornflakes', 'flakes', 'haferflocken', 'cerealien', 'granola', 'marmelade', 'konfitüre', 'honig', 'nutella', 'aufstrich', 'kaffee', 'tee', 'kakao', 'espresso', 'erdnussbutter']],
   ['Süßes & Snacks', ['schokolade', 'schoko', 'chips', 'kekse', 'keks', 'gummi', 'bonbon', 'süßigkeit', 'riegel', 'nüsse', 'erdnüsse', 'salzstangen', 'popcorn', 'cracker', 'lakritz', 'praline', 'waffel']],
   ['Backen & Gewürze', ['mehl', 'zucker', 'backpulver', 'hefe', 'vanille', 'salz', 'pfeffer', 'gewürz', 'paprikapulver', 'zimt', 'öl', 'essig', 'senf', 'ketchup', 'mayo', 'brühe', 'oregano', 'basilikum getr', 'curry', 'stärke', 'speisestärke', 'kakaopulver', 'puderzucker', 'sojasoße', 'sojasauce']],
   ['Nudeln, Reis & Konserven', ['nudel', 'spaghetti', 'penne', 'fusilli', 'lasagne', 'tortellini', 'reis', 'couscous', 'bulgur', 'linsen', 'kichererbsen', 'bohnen dose', 'dose', 'konserve', 'passierte', 'tomatenmark', 'pesto', 'soße', 'sauce', 'suppe', 'mais dose', 'quinoa', 'gnocchi', 'spätzle', 'polenta']],
