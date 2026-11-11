@@ -157,12 +157,8 @@ class AppActivity : Activity() {
         askSoon(intent)
     }
 
-    // Zaubertaste im Widget: Mikrofon sicher starten, auch wenn die Seite noch lädt
-    private fun askSoon(i: Intent?) {
-        if (i?.getStringExtra(EXTRA_OPEN) != "ask") return
-        val before = listens
-        web.postDelayed({ if (listens == before && !pendingListen) startListen() }, 2500)
-    }
+    // Zaubertaste im Widget: Mikrofon startet nicht mehr von selbst, sondern erst beim Antippen (wie bei „Neuer Eintrag“)
+    @Suppress("UNUSED_PARAMETER") private fun askSoon(i: Intent?) {}
 
     private var geoAsk: Pair<String, GeolocationPermissions.Callback>? = null
 

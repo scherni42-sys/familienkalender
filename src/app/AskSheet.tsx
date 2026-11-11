@@ -10,7 +10,6 @@ import { cvar, Icon, Sheet } from './ui';
 import { toast } from './toast';
 import { eur, type Receipt } from '../lib/cash';
 import { CatIcon } from './CashIcons';
-import { Wave } from './Wave';
 import { store } from '../lib/store';
 import { dishShop } from '../lib/shop';
 import { shopToast } from './ShopSheet';
@@ -91,12 +90,6 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt, shop }: {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Zaubertaste: Mikrofon geht sofort an
-  useEffect(() => {
-    const t = setTimeout(() => { if (native()?.listen || SR) listen(); else input.current?.focus(); }, 350);
-    return () => clearTimeout(t);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Feld wächst mit dem Text
   useLayoutEffect(() => {
     const el = input.current; if (!el) return;
@@ -141,16 +134,14 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt, shop }: {
         <h2>🔎 Suchen <span className="pro-tag">Claude: Pro</span></h2>
         <p className="note">Such nach Namen, Terminen oder Orten. Mit FamTO Pro beantwortet Claude jede Frage und trägt auch Termine für dich ein.</p>
       </>}
+      {/* Mikrofon wie bei „Neuer Eintrag“: grün, erst antippen, beim Zuhören orange */}
+      <div className="listen"><button type="button" className={`mic${rec ? ' rec' : ''}`} onClick={listen} aria-label={rec ? 'Zuhören beenden' : 'Frage sprechen'}><Icon name="mic" /></button></div>
+      <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem. Mikrofon antippen zum Beenden.' : q.trim() ? 'Fertig? Dann „Fragen“ tippen.' : 'Tippe aufs Mikrofon und sprich, oder schreib deine Frage.'}</p>
       <div className="ask-in">
         <textarea ref={input} rows={3} value={q} placeholder="z. B. Wann treffe ich Tom das nächste Mal?" onChange={e => { setQ(e.target.value); if (!want.current) base.current = e.target.value; }}
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} aria-label="Deine Frage an Claude" />
-        <div className="ask-bar">
-          {rec && !busy ? <Wave /> : <span className="ask-hint">{q.trim() ? 'Fertig? Dann „Fragen“ tippen.' : 'Tippe aufs Mikrofon und sprich los.'}</span>}
-          <button type="button" className={`btn ghost sm ask-mic${rec ? ' on' : ''}`} onClick={listen} aria-label={rec ? 'Zuhören beenden' : 'Frage sprechen'}><Icon name="mic" /></button>
-        </div>
       </div>
       {!res && !busy && !err && !rec && !q.trim() && <div className="ask-ideas">{IDEAS.map(i => <button key={i} type="button" onClick={() => { setQ(i); void ask(i); }}>{i}</button>)}</div>}
-      {rec && !busy && <p className="note">Sprich ruhig mit Pausen. Mikrofon antippen zum Beenden, „Fragen“ schickt ab.</p>}
       {busy && <p className="note ask-busy">{phase === 'shop' ? 'Claude stellt die Zutaten zusammen …' : isPro() ? 'Claude sieht im Kalender nach …' : 'Suche …'}</p>}
       {err && <p className="note">{err}</p>}
       {res && <div className="ask-res">
