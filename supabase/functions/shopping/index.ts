@@ -1,5 +1,6 @@
 // Edge Function „shopping“ (FamTO Pro): liest einen handgeschriebenen Einkaufszettel oder eine Zutatenliste (Kochbuch, Rezept)
-// vom Foto, oder stellt zu einem genannten Gericht (Zaubertaste) die Zutaten für den Einkauf zusammen. Artikel, die schon auf dem Zettel stehen, bekommen genau den Namen von dort, damit die App sie zusammenführt.
+// vom Foto, oder stellt zu einem genannten Gericht (Zaubertaste) die Zutaten für den Einkauf zusammen.
+// guide: kurze Kochanleitung zu einem Gericht vom Zettel, passend zu den eingekauften Zutaten und der Personenzahl. Artikel, die schon auf dem Zettel stehen, bekommen genau den Namen von dort, damit die App sie zusammenführt.
 import Anthropic from 'npm:@anthropic-ai/sdk';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
@@ -29,6 +30,17 @@ const schema = {
   }
 };
 
+const guideSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['title', 'minutes', 'steps', 'tip'],
+  properties: {
+    title: { type: 'string', description: 'Name des Gerichts, kurz' },
+    minutes: { type: 'integer', description: 'Ungefähre Gesamtzeit in Minuten' },
+    steps: { type: 'array', items: { type: 'string' }, description: '4 bis 10 kurze Arbeitsschritte in der richtigen Reihenfolge, je ein bis zwei Sätze, mit Mengen, Temperaturen und Zeiten' },
+    tip: { type: 'string', description: 'Ein kurzer Tipp (Beilage, Vorbereiten, Kinder helfen lassen); leer, wenn keiner nötig ist' }
+  }
+};
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
@@ -39,7 +51,24 @@ Deno.serve(async req => {
     if (!mine?.length || mine[0].role === 'guest') return json({ error: 'Nicht angemeldet' }, 401);
     const { data: pro } = await sb.rpc('ai_allowed', {});
     if (pro !== true) return json({ error: 'Die KI-Funktionen gibt es in FamTO Pro.', pro: true }, 402);
-    const { image, known, dish, servings } = await req.json();
+    const { image, known, dish, servings, guide, items } = await req.json();
+    // Kochanleitung: nur Text, kein Foto
+    if (guide && typeof dish === 'string' && dish.trim()) {
+      const people = Number.isInteger(servings) && servings > 0 && servings < 100 ? servings : 4;
+      const list = (Array.isArray(items) ? items : []).filter((x: unknown) => typeof x === 'string').slice(0, 60).map((x: string) => x.slice(0, 120));
+      const g = await client.beta.messages.create({
+        model: 'claude-opus-5-5', max_tokens: 3000,
+        betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: guideSchema } },
+        system: `Du schreibst für eine Familie eine kurze, gut verständliche Kochanleitung auf Deutsch, die man beim Kochen auf dem Handy liest. Duzen, keine Einleitung.
+Halte dich an die eingekauften Zutaten und Mengen; Grundzutaten wie Salz, Pfeffer, Öl und Wasser darfst du dazunehmen. Schritte kurz und konkret, mit Temperatur und Zeit.`,
+        messages: [{ role: 'user', content: `Gericht: ${dish.trim().slice(0, 120)}, für ${people} Personen.\nEingekauft: ${list.length ? list.join('; ') : '(keine Liste)'}` }]
+      });
+      if (g.stop_reason === 'refusal') throw new Error('abgelehnt');
+      const gb = g.content.find(b => b.type === 'text');
+      if (!gb || gb.type !== 'text') throw new Error('Keine Antwort');
+      return json({ guide: JSON.parse(gb.text) });
+    }
     const cook = typeof dish === 'string' && dish.trim() ? dish.trim().slice(0, 120) : '';
     const people = Number.isInteger(servings) && servings > 0 && servings < 100 ? servings : 4;
     if (!cook && (!image || typeof image.data !== 'string' || image.data.length > 6_000_000 || !/^image\/(jpeg|png|webp)$/.test(image.type))) throw new Error('Kein Foto');

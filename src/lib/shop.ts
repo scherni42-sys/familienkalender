@@ -122,6 +122,21 @@ async function callShopping(body: Record<string, unknown>, what: string, list: S
   return { found: r.found && r.items.length > 0, dish, servings, items: r.items.map(x => ({ name: cap(x.name.trim()), qty: x.qty > 0 ? x.qty : 1, unit: unitOf(x.unit) ?? x.unit.trim(), cat: x.cat, dish, servings })) };
 }
 export const readShopPhoto = (image: { type: string; data: string }, list: ShopItem[]) => callShopping({ image }, 'Zettel und Rezepte vom Foto lesen', list);
+// Kochanleitung zu einem Gericht vom Zettel (FamTO Pro): kurz zusammengefasst, passend zu Zutaten und Personenzahl
+export type CookGuide = { title: string; minutes: number; steps: string[]; tip: string };
+export async function cookGuide(dish: string, servings: number | null, items: ShopItem[]): Promise<CookGuide> {
+  if (!supabase) throw new Error('Die Kochanleitung geht nur mit einer echten Familie, nicht in der Beispielfamilie.');
+  if (!isPro()) throw new Error(`Die Kochanleitung schreibt die KI. ${PRO_ONLY}`);
+  const { data, error } = await supabase.functions.invoke('shopping', { body: { guide: true, dish, servings: servings ?? undefined, items: items.map(x => `${shopQty(x)} ${x.name}`.trim()) } });
+  if (error) {
+    const res = (error as { context?: Response }).context;
+    if (res?.status === 402) throw new Error(`Die Kochanleitung schreibt die KI. ${PRO_ONLY}`);
+    throw new Error('Claude ist gerade nicht erreichbar. Bitte noch einmal versuchen.');
+  }
+  const g = data?.guide as CookGuide | undefined;
+  if (!g?.steps?.length) throw new Error('Claude hat keine Anleitung geliefert. Bitte noch einmal versuchen.');
+  return g;
+}
 // Zaubertaste: „Einkaufen für Wiener Schnitzel mit Kartoffelstampf“ → Claude stellt die Zutaten zusammen
 export const dishShop = (dish: string, servings: number, list: ShopItem[]) => callShopping({ dish, servings }, 'Zutaten für ein Gericht zusammenstellen', list);
 

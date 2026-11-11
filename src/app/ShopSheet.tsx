@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { isPro, store, useSnapshot } from '../lib/store';
 import { shrinkPhoto } from '../lib/ai';
-import { catOf, catRank, openShop, parseShop, readShopPhoto, shopQty } from '../lib/shop';
+import { catOf, catRank, cookGuide, openShop, parseShop, readShopPhoto, shopQty, type CookGuide } from '../lib/shop';
 import type { ShopItem } from '../lib/types';
 import { Badge, Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
@@ -49,6 +49,17 @@ export function ShopSheet({ close }: { close: () => void }) {
   // Personenzahl je Gericht: Mengen rechnen sich um
   const serv = (d: string) => list.find(x => x.dish === d && x.servings)?.servings ?? null;
   const scale = (d: string, n: number) => store.scaleDish(d, n).catch(fail);
+  // Kochanleitung zum Gericht (Pro), am schönsten, wenn alles eingekauft ist
+  const [guide, setGuide] = useState<{ dish: string; g?: CookGuide } | null>(null);
+  const cook = async (d: string) => {
+    setGuide({ dish: d });
+    try { setGuide({ dish: d, g: await cookGuide(d, serv(d), list.filter(x => x.dish === d)) }); }
+    catch (e) { setGuide(null); fail(e); }
+  };
+  const copyGuide = (d: string, g: CookGuide) => {
+    const t = `${g.title} (${serv(d) ?? ''}${serv(d) ? ' Personen, ' : ''}ca. ${g.minutes} Min.)\n\n${g.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}${g.tip ? `\n\nTipp: ${g.tip}` : ''}`;
+    navigator.clipboard?.writeText(t).then(() => toast('Kochanleitung kopiert.'), () => toast('Kopieren ging nicht.'));
+  };
   const dropDish = async (d: string) => {
     if (await ask(`Alle Zutaten für ${d} vom Zettel nehmen?`, 'Wegnehmen')) store.removeShop(list.filter(x => x.dish === d).map(x => x.id)).catch(fail);
   };
@@ -76,6 +87,11 @@ export function ShopSheet({ close }: { close: () => void }) {
             <span>{serv(d)} {serv(d) === 1 ? 'Person' : 'Personen'}</span>
             {canAct && <button type="button" aria-label="Eine Person mehr" disabled={serv(d)! >= 99} onClick={() => scale(d, serv(d)! + 1)}>+</button>}
           </div>}
+          {d && canAct && <div className="zettel-cook">
+            <button type="button" className={list.filter(x => x.dish === d).every(x => x.done) ? 'ready' : ''} disabled={guide?.dish === d && !guide.g} onClick={() => guide?.dish === d && guide.g ? setGuide(null) : void cook(d)}>
+              🍳 {guide?.dish === d ? (guide.g ? 'Kochanleitung schließen' : 'Claude schreibt …') : list.filter(x => x.dish === d).every(x => x.done) ? 'Alles da: Kochanleitung' : 'Kochanleitung'}
+            </button>
+          </div>}
           <ul>{sorted(d).map((x, i, all) => <Fragment key={x.id}>
             {(i === 0 || catOf(all[i - 1]) !== catOf(x)) && <li className="zcat">{catOf(x)}</li>}
             <li className={x.done ? 'done' : ''}>
@@ -91,6 +107,15 @@ export function ShopSheet({ close }: { close: () => void }) {
           </li></Fragment>)}</ul>
         </section>)}
       </div>
+      {guide?.g && <div className="cook-card">
+        <h3>{guide.g.title}<small>{serv(guide.dish) ? `${serv(guide.dish)} Personen · ` : ''}ca. {guide.g.minutes} Min.</small></h3>
+        <ol>{guide.g.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+        {guide.g.tip && <p className="cook-tip"><b>Tipp:</b> {guide.g.tip}</p>}
+        <div className="btn-row tight">
+          <button type="button" className="btn ghost sm" onClick={() => copyGuide(guide.dish, guide.g!)}>Kopieren</button>
+          <button type="button" className="btn ghost sm" onClick={() => setGuide(null)}>Schließen</button>
+        </div>
+      </div>}
       {canAct && <>
         <form className="compose" onSubmit={e => { e.preventDefault(); void add(); }}>
           <input value={text} onChange={e => setText(e.target.value)} placeholder="z. B. Milch, 2 Butter, 500 g Hack" maxLength={500} aria-label="Artikel hinzufügen" />

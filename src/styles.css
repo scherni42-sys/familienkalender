@@ -830,3 +830,12 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .zettel .ztk.on .b { box-shadow: 0 0 0 2px #fffdf3; }
 .zettel .ztk[disabled] { opacity: 1; }
 .zettel li.zcat { min-height: var(--zl); align-items: flex-end; padding-bottom: 5px; box-sizing: border-box; font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #4f79a8; }
+.zettel-cook { min-height: var(--zl); display: flex; align-items: center; }
+.zettel-cook button { border: 1.5px solid #d6a07f; background: #fff; color: #b2541a; border-radius: 999px; padding: 3px 12px; font-size: 13.5px; font-weight: 700; font-family: var(--font-display); }
+.zettel-cook button.ready { background: #b2541a; border-color: #b2541a; color: #fff; }
+.zettel-cook button:disabled { opacity: .7; }
+.cook-card { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; background: var(--surface-2); border: 1.5px solid color-mix(in srgb, #b2541a 45%, transparent); }
+.cook-card h3 { margin: 0; font-family: var(--font-display); font-size: 18px; display: grid; gap: 2px; }
+.cook-card h3 small { font-size: 13px; font-weight: 600; color: var(--muted); }
+.cook-card ol { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 15px; line-height: 1.4; }
+.cook-tip { margin: 0; font-size: 14px !important; color: var(--ink) !important; }
