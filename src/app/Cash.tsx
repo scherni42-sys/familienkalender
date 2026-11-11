@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { isPro, useSnapshot } from '../lib/store';
-import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, cardFirm, matchFirm, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, readPdf, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax, type Mailbox, mailboxes, addMailbox, outlookLogin, checkMailbox, setMailbox, removeMailbox } from '../lib/cash';
+import { CATS, canViewFamily, groups, listGroup, crop, eur, familyPart, gross, taxesFromItems, getPrefs, setPrefs, cardScope, cardFirm, matchFirm, type Prefs, type Scope, type Party, type EInv, type ReadResult, takeShared, openPdf, list, loadPhoto, photoUrl, read, readPdf, reread, remove, save, toB64, toBlob, type Item, type Receipt, type Tax, type Mailbox, mailboxes, addMailbox, outlookLogin, checkMailbox, setMailbox, removeMailbox, msStatus, msSetup } from '../lib/cash';
 import { Badge, Icon, Sheet } from './ui';
 import { ask } from './ask';
 import { CatIcon, CatPick } from './CashIcons';
@@ -105,6 +105,8 @@ function MailBoxes() {
   const [boxes, setBoxes] = useState<Mailbox[] | null>(null), [err, setErr] = useState('');
   const [adding, setAdding] = useState(false), [f, setF] = useState({ address: '', password: '', host: '' }), [showHost, setShowHost] = useState(false);
   const [busy, setBusy] = useState('');
+  const [ms, setMs] = useState<{ ready: boolean; operator: boolean } | null>(null), [msf, setMsf] = useState({ id: '', secret: '' });
+  useEffect(() => { if (isPro()) void msStatus().then(setMs).catch(() => {}); }, []);
   const load = () => mailboxes().then(b => { setBoxes(b); setErr(''); }).catch(e => setErr(e instanceof Error ? e.message : String(e)));
   useEffect(() => { if (isPro()) void load(); }, []);
   const head = <><div className="field"><span>Rechnungen aus E-Mails</span></div></>;
@@ -135,6 +137,13 @@ function MailBoxes() {
         <button type="button" className="btn sm ghost" disabled={!!busy} onClick={() => void del(b)}>Entfernen</button>
       </div>
     </div>)}
+    {ms?.operator && !ms.ready && <div className="cash-einv">
+      <b>Outlook einrichten (nur für dich als Betreiber)</b>
+      <p className="cash-check">Aus der App-Registrierung „FamTO“ bei Microsoft. Beides wird nur verschlüsselt auf dem Server gespeichert.</p>
+      <label className="field"><span>Anwendungs-ID (Client-ID)</span><input autoComplete="off" value={msf.id} onChange={e => setMsf({ ...msf, id: e.target.value })} placeholder="1a2b3c4d-…" /></label>
+      <label className="field"><span>Wert des geheimen Clientschlüssels</span><input type="password" autoComplete="new-password" value={msf.secret} onChange={e => setMsf({ ...msf, secret: e.target.value })} /></label>
+      <div className="btn-row"><button type="button" className="btn sm" disabled={!!busy || !msf.id || !msf.secret} onClick={() => void run('mss', async () => { await msSetup(msf.id.trim(), msf.secret.trim()); setMs({ ready: true, operator: true }); setMsf({ id: '', secret: '' }); toast('Outlook ist eingerichtet. Jetzt „Mit Microsoft anmelden“ tippen.'); })}>{busy === 'mss' ? 'Speichert …' : 'Speichern'}</button></div>
+    </div>}
     <div className="btn-row">
       <button type="button" className="btn sm" disabled={!!busy} onClick={() => void outlook()}>{busy === 'ms' ? 'Öffnet …' : 'Mit Microsoft anmelden (Outlook)'}</button>
       {!adding && <button type="button" className="btn sm ghost" onClick={() => setAdding(true)}>＋ Anderes Postfach</button>}

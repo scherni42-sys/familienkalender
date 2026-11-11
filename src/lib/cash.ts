@@ -270,3 +270,5 @@ export const outlookLogin = async () => String((await mailFn({ action: 'outlook'
 export const checkMailbox = async (id: string) => (await mailFn({ action: 'check', id })) as { status: string; found: number };
 export async function setMailbox(id: string, p: Partial<Pick<Mailbox, 'only_invoices' | 'active'>>) { const r = await sb().from('mailboxes').update(p).eq('id', id); if (r.error) throw new Error(r.error.message); }
 export async function removeMailbox(id: string) { const r = await sb().from('mailboxes').delete().eq('id', id); if (r.error) throw new Error(r.error.message); }
+export const msStatus = async () => (await mailFn({ action: 'ms_status' })) as { ready: boolean; operator: boolean };
+export const msSetup = (client_id: string, secret: string) => mailFn({ action: 'ms_setup', client_id, secret });

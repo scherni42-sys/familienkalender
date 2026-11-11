@@ -1,7 +1,7 @@
 // Edge Function „mailin“: liest die Postfächer der Mitglieder (Tabelle mailboxes) und legt PDF-Rechnungen als neue Belege in den Eingang des Kassenbuchs.
 // Läuft alle 15 Minuten über pg_cron (Kopf x-famto-cron, Schlüssel in cash_mailkey) und auf Knopfdruck aus der App.
 // Postfacharten: IMAP mit (App-)Passwort, Outlook/Microsoft 365 über die Microsoft-Anmeldung (Graph, nur Lesen).
-// Geheimnisse: MS_CLIENT_ID, MS_CLIENT_SECRET (App-Registrierung bei Microsoft), optional MAILBOX_KEY (verschlüsselt Passwörter und Microsoft-Schlüssel, sonst der Dienstschlüssel).
+// Geheimnisse: MS_CLIENT_ID, MS_CLIENT_SECRET (App-Registrierung bei Microsoft; ersatzweise vom Betreiber in der App eingetragen, Tabelle server_config), optional MAILBOX_KEY (verschlüsselt Passwörter und Microsoft-Schlüssel, sonst der Dienstschlüssel).
 // Postfächer werden nur gelesen: nichts wird gelöscht oder verschoben, gelesene Mails merkt sich die Tabelle cash_mail.
 // Doppelte Rechnungen (gleiche PDF oder gleiche Rechnungsnummer/Betrag/Datum in der Familie) werden übersprungen.
 import Anthropic from 'npm:@anthropic-ai/sdk';
@@ -159,8 +159,21 @@ const MS_SCOPE = 'offline_access Mail.Read User.Read';
 const GRAPH = 'https://graph.microsoft.com/v1.0';
 const redirect = () => `${Deno.env.get('SUPABASE_URL')}/functions/v1/mailin`;
 const APP = 'https://app.famto.net/';
+// Zugang zur Microsoft-App: aus den Geheimnissen MS_CLIENT_ID/MS_CLIENT_SECRET oder, vom Betreiber in der App eingetragen, aus server_config
+// deno-lint-ignore no-explicit-any
+let msAdmin: any = null;
+let msCache: { id: string; secret: string } | null = null;
+async function msCfg(): Promise<{ id: string; secret: string } | null> {
+  if (Deno.env.get('MS_CLIENT_ID') && Deno.env.get('MS_CLIENT_SECRET')) return { id: Deno.env.get('MS_CLIENT_ID')!, secret: Deno.env.get('MS_CLIENT_SECRET')! };
+  if (msCache) return msCache;
+  const { data } = await msAdmin.from('server_config').select('value').eq('key', 'ms').maybeSingle();
+  if (!data?.value?.id || !data?.value?.secret) return null;
+  return msCache = { id: data.value.id, secret: await unseal(data.value.secret) };
+}
 async function msToken(body: Record<string, string>) {
-  const r = await fetch(`${MS_AUTH}/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: Deno.env.get('MS_CLIENT_ID') ?? '', client_secret: Deno.env.get('MS_CLIENT_SECRET') ?? '', scope: MS_SCOPE, ...body }) });
+  const cfg = await msCfg();
+  if (!cfg) throw new Error('Outlook ist auf dem Server noch nicht eingerichtet.');
+  const r = await fetch(`${MS_AUTH}/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: cfg.id, client_secret: cfg.secret, scope: MS_SCOPE, ...body }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.access_token) throw new Error('Microsoft-Anmeldung: ' + String(j.error_description ?? j.error ?? r.status).split('\n')[0].slice(0, 160));
   return j as { access_token: string; refresh_token?: string };
@@ -361,6 +374,7 @@ const back = (msg: string) => new Response(null, { status: 302, headers: { Locat
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  msAdmin = admin;
   const t0 = Date.now(), until = t0 + BUDGET;
 
   // Rückkehr von der Microsoft-Anmeldung
@@ -386,7 +400,7 @@ Deno.serve(async req => {
   }
 
   try {
-    const body = await req.json().catch(() => ({})) as { action?: string; id?: string; address?: string; password?: string; host?: string };
+    const body = await req.json().catch(() => ({})) as { action?: string; id?: string; address?: string; password?: string; host?: string; client_id?: string; secret?: string };
     const { data: key } = await admin.from('cash_mailkey').select('key').eq('id', 1).maybeSingle();
     const cron = !!key?.key && req.headers.get('x-famto-cron') === key.key;
 
@@ -411,10 +425,29 @@ Deno.serve(async req => {
     const { data: plan } = await admin.rpc('plan_of', { fam: m.family_id });
     if (plan !== 'pro') return json({ error: 'Rechnungen aus E-Mails gibt es in FamTO Pro.', pro: true }, 402);
 
+    // Betreiber: Admin einer Testfamilie darf den Zugang zur Microsoft-App eintragen
+    const operator = async () => {
+      const { data: me } = await admin.from('members').select('role').eq('id', m.id).maybeSingle();
+      const { data: fp } = await admin.from('family_plans').select('tester').eq('family_id', m.family_id).maybeSingle();
+      return me?.role === 'admin' && !!fp?.tester;
+    };
+    if (body.action === 'ms_status') return json({ ready: !!(await msCfg()), operator: await operator() });
+    if (body.action === 'ms_setup') {
+      if (!await operator()) return json({ error: 'Nur für den Betreiber.' }, 403);
+      const id = String(body.client_id ?? '').trim(), secret = String(body.secret ?? '').trim();
+      if (!/^[0-9a-f-]{36}$/i.test(id) || secret.length < 20) return json({ error: 'Bitte die Client-ID (lange Zeichenfolge mit Bindestrichen) und den Wert des geheimen Schlüssels eintragen.' }, 400);
+      if (/^[0-9a-f-]{36}$/i.test(secret)) return json({ error: 'Das sieht nach der Geheimnis-ID aus. Gebraucht wird der Eintrag aus der Spalte „Wert“.' }, 400);
+      const r = await admin.from('server_config').upsert({ key: 'ms', value: { id, secret: await seal(secret) }, updated_at: new Date().toISOString() });
+      if (r.error) throw new Error(r.error.message);
+      msCache = null;
+      return json({ ok: true });
+    }
+
     if (body.action === 'outlook') {
-      if (!Deno.env.get('MS_CLIENT_ID')) return json({ error: 'Outlook ist auf dem Server noch nicht eingerichtet.' }, 400);
+      const cfg = await msCfg();
+      if (!cfg) return json({ error: 'Outlook ist auf dem Server noch nicht eingerichtet.' }, 400);
       const st = b64url(enc.encode(JSON.stringify({ m: m.id, f: m.family_id, t: Date.now() })));
-      const p = new URLSearchParams({ client_id: Deno.env.get('MS_CLIENT_ID')!, response_type: 'code', redirect_uri: redirect(), response_mode: 'query', scope: MS_SCOPE, state: `${st}.${await sign(st)}`, prompt: 'select_account' });
+      const p = new URLSearchParams({ client_id: cfg.id, response_type: 'code', redirect_uri: redirect(), response_mode: 'query', scope: MS_SCOPE, state: `${st}.${await sign(st)}`, prompt: 'select_account' });
       return json({ url: `${MS_AUTH}/authorize?${p}` });
     }
 
