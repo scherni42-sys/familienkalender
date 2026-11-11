@@ -74,6 +74,9 @@ export function Settings() {
     <Sel isAdmin={isAdmin} icon="week" text="Display: Vorschau" value={s.ahead} opts={[1, 2, 3, 4, 5, 6, 7].map(v => [v, v === 1 ? 'nur morgen' : `${v} Tage`] as [number, string])} onPick={v => upd({ ahead: v }, 'Gespeichert.')} />
     <Sel isAdmin={isAdmin} icon="clock" text="Display: Vorschau ab" value={s.split} opts={[[0, 'immer zeigen'], ...[10, 11, 12, 13, 14, 15, 16, 17, 18].map(h => [h * 60, `${h}:00 Uhr`] as [number, string])]} onPick={v => upd({ split: v }, 'Gespeichert.')} show={s.split ? `${hm(s.split)} Uhr` : 'immer'} />
     <span className="note">Vor dieser Uhrzeit zeigt das Display im Flur nur den heutigen Tag, groß und gut lesbar.</span>
+    <Sel isAdmin={isAdmin} icon="week" text="Widget: Vorschau" value={s.wAhead} opts={[1, 2, 3, 4, 5, 6, 7].map(v => [v, v === 1 ? 'nur morgen' : `${v} Tage`] as [number, string])} onPick={v => upd({ wAhead: v }, 'Gespeichert.')} />
+    <Sel isAdmin={isAdmin} icon="clock" text="Widget: Vorschau ab" value={s.wSplit} opts={[[0, 'immer zeigen'], ...[10, 11, 12, 13, 14, 15, 16, 17, 18].map(h => [h * 60, `${h}:00 Uhr`] as [number, string])]} onPick={v => upd({ wSplit: v }, 'Gespeichert.')} show={s.wSplit ? `${hm(s.wSplit)} Uhr` : 'immer'} />
+    <span className="note">Das Handy-Widget zeigt unter „Heute“ so viele weitere Tage. Vor der Uhrzeit zeigt es nur den heutigen Tag.</span>
   </>;
   if (sub === 'colors') content = <>
     <p className="note">Statt des Buchstabens kann jede Person ein Foto als Avatar haben, die Farbe bleibt als Ring drumherum. Die Farbe erscheint als Balken und zarte Tönung bei allen Terminen der Person, in der App und auf dem Display. {isAdmin ? 'Als Admin kannst du alle Farben ändern.' : 'Du kannst deine eigene Farbe ändern.'}</p>

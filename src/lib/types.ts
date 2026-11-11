@@ -93,11 +93,14 @@ export interface Settings {
   wbg: string;
   tall?: string[]; // Displays (id), die hochkant hängen
   chatDays: number; // Chat-Nachrichten verschwinden nach 1 bis 30 Tagen
+  wAhead: number; // Handy-Widget: Tage nach heute (1 = nur morgen)
+  wSplit: number; // Handy-Widget: Minuten; 0 = Vorschau immer
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   bdLead: 14, ttlHours: 24, split: 14 * 60, pastMode: 'fade', showTravel: true,
-  home: '', buffer: 5, remind: 10, ahead: 6, boardMode: 'dynamic', wbg: '', chatDays: 7
+  home: '', buffer: 5, remind: 10, ahead: 6, boardMode: 'dynamic', wbg: '', chatDays: 7,
+  wAhead: 1, wSplit: 0
 };
 
 export type Plan = 'basis' | 'pro';

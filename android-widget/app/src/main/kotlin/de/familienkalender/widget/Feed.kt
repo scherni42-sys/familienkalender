@@ -450,9 +450,16 @@ object Feed {
         if (!board && !chat) {
             out += Row(Kind.SECTION, "Heute")
             day(today, true)
-            val tomorrow = LocalDate.now().plusDays(1)
-            out += Row(Kind.SECTION, "Morgen · ${dateLabel(tomorrow)}")
-            day(tomorrow.toString(), false)
+            // Vorschau wie beim Display: Anzahl Tage und ab welcher Uhrzeit (Grundeinstellungen)
+            val ahead = settings.optInt("wAhead", 1).coerceIn(1, 7)
+            val split = settings.optInt("wSplit", 0)
+            if (split > 0 && nowMin < split) {
+                out += Row(Kind.NOTE, "Ab ${hm(split)} Uhr: " + if (ahead == 1) "Vorschau auf morgen" else "Vorschau auf $ahead Tage")
+            } else for (i in 1L..ahead.toLong()) {
+                val d = LocalDate.now().plusDays(i)
+                out += Row(Kind.SECTION, (if (i == 1L) "Morgen · " else "") + dateLabel(d))
+                day(d.toString(), false)
+            }
         }
 
         val msgs = feed.optJSONArray("messages") ?: JSONArray()
