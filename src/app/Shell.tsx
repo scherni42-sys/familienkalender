@@ -22,6 +22,7 @@ import { PushBanner } from './PushBanner';
 import { WidgetView } from './WidgetView';
 import { Chat } from './Chat';
 import { CashSheet } from './Cash';
+import { ShopSheet } from './ShopSheet';
 
 type Tab = 'today' | 'week' | 'board' | 'chat' | 'settings';
 type Filter = 'all' | 'family' | 'home';
@@ -29,7 +30,7 @@ const savedFilter = (): Filter => { try { const v = localStorage.getItem('fk-fil
 // Widget-Schnellknöpfe: ?mic=private|family|board legt die Art fest, das Mikrofon startet man selbst (Seitentaste ?mic=1 startet sofort)
 const micPreset = (v: string | null) => v === 'private' || v === 'family' || v === 'board' ? v : undefined;
 
-export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board'; photo?: boolean } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays'; adding?: boolean; open?: string } | { kind: 'ask' } | { kind: 'cash'; share?: boolean; rc?: Receipt; postfach?: boolean } | null;
+export type SheetState = { kind: 'mic'; auto?: boolean; quick?: boolean; preset?: 'private' | 'family' | 'board'; photo?: boolean } | { kind: 'edit'; draft: Draft; fresh: boolean } | { kind: 'detail'; id: string; day?: string } | { kind: 'bdays'; adding?: boolean; open?: string } | { kind: 'ask' } | { kind: 'cash'; share?: boolean; rc?: Receipt; postfach?: boolean } | { kind: 'shop' } | null;
 
 // Uhr, die jede Minute neu zeichnet (für „vorbei“, „los in X Min.“)
 export function useMinute() {
@@ -139,7 +140,7 @@ export function Shell() {
       </div>
       {demoLink && <div className="demo-bar">Testversion mit Beispielfamilie. Was du änderst, bleibt nur in diesem Browser.</div>}
       <div className={`ph-body${tab === 'today' || tab === 'board' || tab === 'chat' ? ' today' : ''}${talk ? ' fill' : ''}`}>
-        {(tab === 'today' || tab === 'board' || tab === 'chat') && <WidgetView big={tab === 'board' || tab === 'chat' ? tab : null} bigEl={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} big /> : tab === 'chat' ? <Chat open={chatWith} opened={() => setChatWith(null)} plus={chatNew} inThread={setInThread} /> : undefined} toggle={w => setTab(tab === w ? 'today' : w)} chat={id => { setChatWith(id); setTab('chat'); }} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
+        {(tab === 'today' || tab === 'board' || tab === 'chat') && <WidgetView big={tab === 'board' || tab === 'chat' ? tab : null} bigEl={tab === 'board' ? <Board focus={focusMsg} reply={replyMsg} big /> : tab === 'chat' ? <Chat open={chatWith} opened={() => setChatWith(null)} plus={chatNew} inThread={setInThread} /> : undefined} toggle={w => setTab(tab === w ? 'today' : w)} shop={() => setSheet({ kind: 'shop' })} chat={id => { setChatWith(id); setTab('chat'); }} snap={snap} filter={filter} now={now} go={{ open: (id, day) => setSheet({ kind: 'detail', id, day }), edit: id => open(id, 'edit'), bday: id => setSheet({ kind: 'bdays', open: id }), add: newOn, msg: id => { setTab('board'); setFocusMsg(id); setTimeout(() => setFocusMsg(null), 4000); } }} />}
         {tab === 'week' && <CalendarTab snap={snap} filter={filter} now={now} open={open} add={newOn} flash={flash} wk={wk} />}
         {tab === 'settings' && <Settings key={nonce} />}
       </div>
@@ -161,11 +162,12 @@ export function Shell() {
           : tab === 'board' ? <button type="button" className="ring-a" aria-label="Neue Nachricht ans Board" onClick={() => setSheet({ kind: 'mic', preset: 'board' })}>＋</button>
           : <button type="button" className="ring-a" aria-label="Termin oder Nachricht eintragen" onClick={() => setSheet({ kind: 'mic' })}>＋</button>}
       </nav>}
-      {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} photoFirst={sheet.photo} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} saved={(id) => { setSheet(null); saved(id); }} />}
+      {sheet?.kind === 'mic' && <MicSheet auto={sheet.auto} quick={sheet.quick} preset={sheet.preset} photoFirst={sheet.photo} close={() => setSheet(null)} toDraft={(draft) => setSheet({ kind: 'edit', draft, fresh: true })} posted={() => { setSheet(null); setTab('board'); }} shopped={() => { setTab('board'); setSheet({ kind: 'shop' }); }} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'edit' && <EventSheet draft={sheet.draft} fresh={sheet.fresh} close={() => setSheet(null)} back={() => setSheet({ kind: 'mic' })} saved={(id) => { setSheet(null); saved(id); }} />}
       {sheet?.kind === 'detail' && <DetailSheet id={sheet.id} day={sheet.day} add={newOn} close={() => setSheet(null)} edit={(draft) => setSheet({ kind: 'edit', draft, fresh: false })} />}
-      {sheet?.kind === 'ask' && <AskSheet close={() => setSheet(null)} open={id => setSheet({ kind: 'detail', id })} edit={draft => setSheet({ kind: 'edit', draft, fresh: false })} toDraft={draft => setSheet({ kind: 'edit', draft, fresh: true })} bdays={() => setSheet({ kind: 'bdays' })} receipt={rc => setSheet({ kind: 'cash', rc })} />}
+      {sheet?.kind === 'ask' && <AskSheet close={() => setSheet(null)} open={id => setSheet({ kind: 'detail', id })} edit={draft => setSheet({ kind: 'edit', draft, fresh: false })} toDraft={draft => setSheet({ kind: 'edit', draft, fresh: true })} bdays={() => setSheet({ kind: 'bdays' })} receipt={rc => setSheet({ kind: 'cash', rc })} shop={() => { setTab('board'); setSheet({ kind: 'shop' }); }} />}
       {sheet?.kind === 'cash' && <CashSheet key={nonce} close={() => setSheet(null)} share={sheet.share} rc={sheet.rc} postfach={sheet.postfach} />}
+      {sheet?.kind === 'shop' && <ShopSheet close={() => setSheet(null)} />}
       {sheet?.kind === 'bdays' && <BdaySheet key={sheet.open ?? ''} adding={sheet.adding} open={sheet.open} close={() => setSheet(null)} />}
       <PushBanner now={now} />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}

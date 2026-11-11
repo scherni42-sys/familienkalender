@@ -98,7 +98,7 @@ export async function suggestPlaces(q: string, home: string, web = false): Promi
 }
 
 // Zaubertaste: Frage an Claude zu den eigenen Terminen (Edge Function „ask“)
-export type AskResult = { answer: string; events: CalEvent[]; birthdays: Birthday[]; receipts: Receipt[]; action: 'none' | 'open' | 'edit' | 'new' | 'bdays'; target: CalEvent | null; newText: string | null; local?: boolean };
+export type AskResult = { answer: string; events: CalEvent[]; birthdays: Birthday[]; receipts: Receipt[]; action: 'none' | 'open' | 'edit' | 'new' | 'bdays' | 'shop'; target: CalEvent | null; newText: string | null; dish?: string | null; servings?: number | null; local?: boolean };
 export async function askClaude(q: string, me: string, members: Member[], events: CalEvent[], birthdays: Birthday[]): Promise<AskResult> {
   const t = today(), from = addDays(t, -365), to = addDays(t, 730);
   const evs = events.filter(e => e.end_date >= from && e.date <= to).sort((a, b) => a.date.localeCompare(b.date) || a.start_min - b.start_min).slice(0, 2500);
@@ -122,8 +122,8 @@ export async function askClaude(q: string, me: string, members: Member[], events
     r.einv?.buyer?.name ? `an ${[r.einv.buyer.name, r.einv.buyer.street, r.einv.buyer.city].filter(Boolean).join(', ')}` : '', r.payment, r.grp ? `Gruppe ${r.grp}` : '',
     r.items.slice(0, 25).map(i => `${i.name} ${eu(i.price)}`).join('; ').slice(0, 400), r.note.slice(0, 80)
   ].filter(Boolean).join(' | ');
-  const pick = (r: { answer: string; events: number[]; birthdays: number[]; receipts?: number[]; action: AskResult['action']; target: number | null; new_text: string | null }): AskResult => ({
-    answer: r.answer, action: r.action, newText: r.new_text,
+  const pick = (r: { answer: string; events: number[]; birthdays: number[]; receipts?: number[]; action: AskResult['action']; target: number | null; new_text: string | null; dish?: string | null; servings?: number | null }): AskResult => ({
+    answer: r.answer, action: r.action, newText: r.new_text, dish: r.dish ?? null, servings: r.servings ?? null,
     receipts: [...new Set(r.receipts ?? [])].map(i => rcs[i]).filter(Boolean),
     events: [...new Set(r.events)].map(i => evs[i]).filter(Boolean),
     birthdays: r.birthdays.map(i => birthdays[i]).filter(Boolean),

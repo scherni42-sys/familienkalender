@@ -48,6 +48,10 @@ export function seed(): Snapshot {
       { id: 'g2', name: 'Ben', rel: 'Sohn', day: Number(d(9).slice(8)), month: Number(d(9).slice(5, 7)), year: Number(d(9).slice(0, 4)) - 7 },
       { id: 'g3', name: 'Onkel Tom', rel: 'Onkel', day: Number(d(20).slice(8)), month: Number(d(20).slice(5, 7)), year: null }
     ],
-    displays: [{ id: 'd1', name: 'Flur', token: 'demo' }]
+    displays: [{ id: 'd1', name: 'Flur', token: 'demo' }],
+    shopping: [
+      ['s1', 'Milch', 2, '', '', 'anna', 0], ['s2', 'Butter', 1, 'Pck.', '', 'anna', 0], ['s3', 'Brot', 1, '', '', 'jan', 1], ['s4', 'Bananen', 6, '', '', 'mia', 0],
+      ['s5', 'Zahnpasta', 1, '', '', 'jan', 0], ['s6', 'Hackfleisch', 500, 'g', 'Lasagne', 'anna', 0], ['s7', 'Lasagneplatten', 1, 'Pck.', 'Lasagne', 'anna', 0], ['s8', 'Tomaten', 2, 'Dose', 'Lasagne', 'anna', 0]
+    ].map(([id, name, qty, unit, dish, by, done], i) => ({ id: id as string, name: name as string, qty: qty as number, unit: unit as string, dish: dish as string, cat: id === 's8' ? 'Nudeln, Reis & Konserven' : '', servings: dish ? 4 : null, done: !!done, taker: id === 's6' || id === 's7' || id === 's8' ? 'anna' : null, added_by: by as string, done_by: done ? 'anna' : null, created_at: ago(300 - i), done_at: done ? ago(20) : null }))
   };
 }

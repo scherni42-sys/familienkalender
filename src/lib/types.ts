@@ -114,7 +114,15 @@ export interface Snapshot {
   displays: DisplayDevice[];
   // Chat von Person zu Person: nur eigene (gesendet oder empfangen), nie auf dem Display
   chats?: ChatMsg[];
+  // Einkaufszettel der Familie: jeder darf dazuschreiben und abhaken
+  shopping?: ShopItem[];
 }
+
+// Ein Artikel auf dem Einkaufszettel; dish: gehört zu einem Gericht (Zutatenliste), sonst leer
+// servings: Personenzahl des Gerichts (Mengen rechnen sich beim Ändern um); qty wird ungerundet gespeichert, gerundet angezeigt
+// cat: Abteilung im Supermarkt, nach der der Zettel sortiert ist
+export interface ShopItem { id: string; name: string; qty: number; unit: string; dish: string; cat: string; servings: number | null; done: boolean; taker: string | null; added_by: string | null; done_by: string | null; created_at: string; done_at: string | null }
+export type ShopIn = { name: string; qty?: number; unit?: string; dish?: string; cat?: string; servings?: number | null };
 
 export type ChatKind = 'text' | 'image' | 'voice' | 'place';
 export interface ChatMsg { id: string; from_member: string; to_member: string; kind: ChatKind; text: string; media: string | null; dur: number | null; lat: number | null; lon: number | null; created_at: string; read_at: string | null }

@@ -11,18 +11,21 @@ import { toast } from './toast';
 import { eur, type Receipt } from '../lib/cash';
 import { CatIcon } from './CashIcons';
 import { Wave } from './Wave';
+import { store } from '../lib/store';
+import { dishShop } from '../lib/shop';
+import { shopToast } from './ShopSheet';
 
 type Rec = { lang: string; interimResults: boolean; continuous: boolean; start(): void; stop(): void; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onend: (() => void) | null; onerror: ((e: { error: string }) => void) | null };
 const SR = (window as unknown as { SpeechRecognition?: new () => Rec; webkitSpeechRecognition?: new () => Rec }).SpeechRecognition
   ?? (window as unknown as { webkitSpeechRecognition?: new () => Rec }).webkitSpeechRecognition;
 
-const IDEAS = ['Wann treffe ich Tom das nächste Mal?', 'Alle Termine mit Oma', 'Wer fährt diese Woche?', 'Wann hat Opa Geburtstag?', 'Was habe ich diesen Monat getankt?'];
+const IDEAS = ['Wann treffe ich Tom das nächste Mal?', 'Alle Termine mit Oma', 'Wer fährt diese Woche?', 'Einkaufen für Wiener Schnitzel mit Kartoffelstampf', 'Wann hat Opa Geburtstag?', 'Was habe ich diesen Monat getankt?'];
 
 // Zaubertaste: in eigenen Worten fragen oder etwas erledigen lassen
-export function AskSheet({ close, open, edit, toDraft, bdays, receipt }: { close: () => void; open: (id: string) => void; edit: (d: Draft) => void; toDraft: (d: Draft) => void; bdays: () => void; receipt: (r: Receipt) => void }) {
+export function AskSheet({ close, open, edit, toDraft, bdays, receipt, shop }: { close: () => void; open: (id: string) => void; edit: (d: Draft) => void; toDraft: (d: Draft) => void; bdays: () => void; receipt: (r: Receipt) => void; shop?: () => void }) {
   const snap = useSnapshot();
   const [q, setQ] = useState(''), [busy, setBusy] = useState(false), [rec, setRec] = useState(false);
-  const [res, setRes] = useState<AskResult | null>(null), [err, setErr] = useState('');
+  const [res, setRes] = useState<AskResult | null>(null), [err, setErr] = useState(''), [phase, setPhase] = useState<'ask' | 'shop'>('ask');
   const latest = useRef(q); latest.current = q;
   const input = useRef<HTMLTextAreaElement>(null);
 
@@ -35,13 +38,23 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt }: { close
 
   const ask = async (text = latest.current) => {
     const v = text.trim(); if (!v || busy) return;
-    setBusy(true); setErr(''); setRes(null);
+    setBusy(true); setErr(''); setRes(null); setPhase('ask');
     try {
       const r = await askClaude(v, snap.me!, snap.members, snap.events, snap.birthdays);
       // Wünsche gleich ausführen: bearbeiten, neuer Termin, Geburtstage
       if (r.action === 'edit' && r.target && r.events.length <= 1) { edit(eventDraft(r.target)); return; }
       if (r.action === 'open' && r.target && r.events.length <= 1) { open(r.target.id); return; }
       if (r.action === 'new' && r.newText) { toDraft(await parseSpoken(r.newText, snap.me!, snap.members.filter(m => m.role !== 'guest'))); return; }
+      // Gericht genannt: Claude stellt die Zutaten zusammen, sie kommen unten auf den Einkaufszettel (ohne Angabe für die ganze Familie)
+      if (r.action === 'shop' && r.dish) {
+        setPhase('shop');
+        const n = r.servings && r.servings > 0 ? r.servings : Math.max(1, snap.members.filter(m => m.role !== 'guest').length);
+        const d = await dishShop(r.dish, n, snap.shopping ?? []);
+        if (!d.found) { setRes({ ...r, answer: `Zu „${r.dish}“ habe ich keine Zutaten gefunden. Versuch es mit einem anderen Namen.` }); return; }
+        shopToast(await store.addShop(d.items), d.dish);
+        if (shop) shop(); else setRes(r);
+        return;
+      }
       setRes(r);
     } catch (x) { setErr(x instanceof Error ? x.message : String(x)); }
     finally { setBusy(false); }
@@ -123,7 +136,7 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt }: { close
     <Sheet onClose={close} label="Claude fragen">
       {isPro() ? <>
         <h2>✨ Frag Claude</h2>
-        <p className="note">Frag nach Terminen, Personen, Geburtstagen oder Belegen im Kassenbuch, oder sag, was du ändern oder eintragen möchtest.</p>
+        <p className="note">Frag nach Terminen, Personen, Geburtstagen oder Belegen im Kassenbuch, sag, was du ändern oder eintragen möchtest, oder nenn ein Gericht, für das du einkaufen willst.</p>
       </> : <>
         <h2>🔎 Suchen <span className="pro-tag">Claude: Pro</span></h2>
         <p className="note">Such nach Namen, Terminen oder Orten. Mit FamTO Pro beantwortet Claude jede Frage und trägt auch Termine für dich ein.</p>
@@ -138,7 +151,7 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt }: { close
       </div>
       {!res && !busy && !err && !rec && !q.trim() && <div className="ask-ideas">{IDEAS.map(i => <button key={i} type="button" onClick={() => { setQ(i); void ask(i); }}>{i}</button>)}</div>}
       {rec && !busy && <p className="note">Sprich ruhig mit Pausen. Mikrofon antippen zum Beenden, „Fragen“ schickt ab.</p>}
-      {busy && <p className="note ask-busy">{isPro() ? 'Claude sieht im Kalender nach …' : 'Suche …'}</p>}
+      {busy && <p className="note ask-busy">{phase === 'shop' ? 'Claude stellt die Zutaten zusammen …' : isPro() ? 'Claude sieht im Kalender nach …' : 'Suche …'}</p>}
       {err && <p className="note">{err}</p>}
       {res && <div className="ask-res">
         <p>{res.answer}</p>

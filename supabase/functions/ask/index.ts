@@ -14,15 +14,17 @@ const cors = {
 const schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['answer', 'events', 'birthdays', 'receipts', 'action', 'target', 'new_text'],
+  required: ['answer', 'events', 'birthdays', 'receipts', 'action', 'target', 'new_text', 'dish', 'servings'],
   properties: {
     answer: { type: 'string', description: 'Kurze, freundliche Antwort auf Deutsch (1 bis 3 Sätze), duzen. Bei Listen nur zusammenfassen, die Termine zeigt die App darunter.' },
     events: { type: 'array', items: { type: 'integer' }, description: 'Nummern (#) der passenden Termine, chronologisch, höchstens 30' },
     birthdays: { type: 'array', items: { type: 'integer' }, description: 'Nummern (G#) passender Geburtstage' },
     receipts: { type: 'array', items: { type: 'integer' }, description: 'Nummern (B#) passender Belege aus dem Kassenbuch, neueste zuerst, höchstens 30' },
-    action: { type: 'string', enum: ['none', 'open', 'edit', 'new', 'bdays'], description: 'open: einen Termin anzeigen · edit: einen Termin bearbeiten · new: neuen Termin anlegen · bdays: Geburtstage öffnen · none: nur antworten' },
+    action: { type: 'string', enum: ['none', 'open', 'edit', 'new', 'bdays', 'shop'], description: 'open: einen Termin anzeigen · edit: einen Termin bearbeiten · new: neuen Termin anlegen · bdays: Geburtstage öffnen · shop: Zutaten für ein Gericht auf den Einkaufszettel · none: nur antworten' },
     target: { type: ['integer', 'null'], description: 'Nummer des Termins für open/edit' },
-    new_text: { type: ['string', 'null'], description: 'Bei new: der Terminwunsch als Satz, z. B. „Freitag 15 Uhr Zahnarzt Mia“' }
+    new_text: { type: ['string', 'null'], description: 'Bei new: der Terminwunsch als Satz, z. B. „Freitag 15 Uhr Zahnarzt Mia“' },
+    dish: { type: ['string', 'null'], description: 'Bei shop: das Gericht, so wie genannt, z. B. „Wiener Schnitzel mit Kartoffelstampf“' },
+    servings: { type: ['integer', 'null'], description: 'Bei shop: für wie viele Personen, wenn genannt, sonst null' }
   }
 };
 
@@ -76,6 +78,7 @@ Regeln:
 - „nächste Mal“ heißt: der früheste Termin ab jetzt. „Übersicht/alle“: alle passenden, vergangene nur, wenn danach gefragt wird.
 - Wer etwas ändern, verschieben oder bearbeiten will, bekommt action „edit“ mit dem passenden Termin. Bei Geburtstagen (nicht Geburtstagsfeiern im Kalender) action „bdays“.
 - Wer einen neuen Termin eintragen will, bekommt action „new“ und new_text.
+- Wer für ein Gericht einkaufen, es kochen oder die Zutaten auf den Einkaufszettel haben will („Einkaufen für Wiener Schnitzel mit Kartoffelstampf“, „Lasagne für 6 Personen“), bekommt action „shop“ mit dish und servings; answer dann kurz, z. B. „Ich schreibe dir die Zutaten auf den Einkaufszettel.“ Fragen nach vergangenen Einkäufen gehören dagegen zum Kassenbuch.
 - Fragen zu Ausgaben, Einkäufen, Rechnungen oder Belegen beantwortest du aus dem Kassenbuch: rechne Summen genau aus und nenne sie in Euro (z. B. „123,45 €“), die passenden Belege kommen in receipts. Fremde Belege zählen nur mit ihrem Familienanteil.
 - Fragen nach Rechnungen an eine Firma oder Person beantwortest du über „an …“ (Rechnungsempfänger) und „Firma …“ (zugeordnete Firma); Schreibweisen dürfen leicht abweichen.
 - Erfinde nichts. Findest du nichts Passendes, sag das freundlich und schlage eine andere Formulierung vor.

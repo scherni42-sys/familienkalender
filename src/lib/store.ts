@@ -1,12 +1,13 @@
 import { useSyncExternalStore } from 'react';
-import type { Birthday, CalEvent, ChatMsg, ChatOut, FileRef, DisplayFeed, Member, Message, NewEvent, Plan, Role, Settings, Snapshot } from './types';
+import type { Birthday, CalEvent, ChatMsg, ChatOut, FileRef, DisplayFeed, Member, Message, NewEvent, Plan, Role, Settings, ShopIn, ShopItem, Snapshot } from './types';
+import { mergeShop } from './shop';
 import { DEFAULT_SETTINGS } from './types';
 import { supabase } from './supabase';
 import { seed } from './seed';
 import { addDays, today } from './dates';
 import { native } from './native';
 
-const EMPTY: Snapshot = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [], chats: [] };
+const EMPTY: Snapshot = { family: null, me: null, members: [], events: [], busy: [], messages: [], birthdays: [], displays: [], chats: [], shopping: [] };
 
 export interface MemberInput { name: string; role: Role; color: string; adult: boolean }
 
@@ -48,6 +49,14 @@ export interface Store {
   chatSeen(withId: string): Promise<void>;
   chatUrl(path: string): Promise<string>;
   deleteChat(id: string): Promise<void>;
+  // Einkaufszettel: Gleiche Artikel werden zusammengeführt (Menge erhöht), nicht doppelt aufgeführt
+  addShop(items: ShopIn[]): Promise<{ added: number; merged: number }>;
+  setShop(id: string, patch: Partial<Pick<ShopItem, 'done' | 'name' | 'qty' | 'unit' | 'taker'>>): Promise<void>;
+  // Einkauf übernehmen (taker = ich) oder abgeben (null), für mehrere Artikel auf einmal
+  takeShop(ids: string[], taker: string | null): Promise<void>;
+  removeShop(ids: string[]): Promise<void>;
+  // Personenzahl eines Gerichts ändern: alle Mengen dieses Gerichts rechnen sich um
+  scaleDish(dish: string, servings: number): Promise<void>;
   addDisplay(name: string): Promise<void>;
   widgetToken(): Promise<string>;
   removeDisplay(id: string): Promise<void>;
@@ -142,6 +151,22 @@ class LocalStore extends Base implements Store {
   }
   async chatUrl(path: string) { return path; }
   async deleteChat(id: string) { this.patch(s => ({ chats: (s.chats ?? []).filter(c => c.id !== id) })); }
+  async addShop(items: ShopIn[]) {
+    const { ins, upd, merged } = mergeShop(this.snap.shopping ?? [], items);
+    const now = new Date().toISOString();
+    this.patch(s => ({ shopping: [...(s.shopping ?? []).map(x => upd.has(x.id) ? { ...x, ...upd.get(x.id) } : x),
+      ...ins.map(x => ({ id: uid(), name: x.name, qty: x.qty ?? 1, unit: x.unit ?? '', dish: x.dish ?? '', cat: x.cat ?? '', servings: x.servings ?? null, done: false, taker: null, added_by: s.me, done_by: null, created_at: now, done_at: null }))] }));
+    return { added: ins.length, merged };
+  }
+  async setShop(id: string, patch: Partial<ShopItem>) {
+    const p = patch.done === undefined ? patch : { ...patch, done_by: patch.done ? this.snap.me : null, done_at: patch.done ? new Date().toISOString() : null };
+    this.patch(s => ({ shopping: (s.shopping ?? []).map(x => x.id === id ? { ...x, ...p } : x) }));
+  }
+  async removeShop(ids: string[]) { this.patch(s => ({ shopping: (s.shopping ?? []).filter(x => !ids.includes(x.id)) })); }
+  async takeShop(ids: string[], taker: string | null) { this.patch(s => ({ shopping: (s.shopping ?? []).map(x => ids.includes(x.id) ? { ...x, taker } : x) })); }
+  async scaleDish(dish: string, servings: number) {
+    this.patch(s => ({ shopping: (s.shopping ?? []).map(x => x.dish === dish && x.servings ? { ...x, qty: x.qty * servings / x.servings, servings } : x) }));
+  }
   async attachFile(file: { name: string; type: string; data: string }, to: { event?: string; birthday?: string; text?: string }) {
     if (file.data.length > 3_000_000) throw new Error('In der Beispielfamilie gehen nur kleine Dateien (bis 2 MB).');
     const ref: FileRef = { path: `data:${file.type};base64,${file.data}`, name: file.name, type: file.type, size: Math.round(file.data.length * 0.75) };
@@ -268,9 +293,11 @@ class SupabaseStore extends Base implements Store {
       messages: ((this.ok(msg) ?? []) as Omit<Message, 'replies'>[]).map(m => ({ ...m, replies: replies.filter(r => r.message_id === m.id) })),
       birthdays: (this.ok(bd) ?? []) as Birthday[],
       displays: (this.ok(disp) ?? []) as Snapshot['displays'],
-      chats: this.snap.me === me ? this.snap.chats ?? [] : []
+      chats: this.snap.me === me ? this.snap.chats ?? [] : [],
+      shopping: this.snap.me === me ? this.snap.shopping ?? [] : []
     });
     void this.loadChats(fam, me);
+    void this.loadShop(fam);
     this.listen(fam);
   }
   // Chats getrennt laden: ohne Chat-Tabelle (Migration noch nicht ausgeführt) läuft der Rest normal weiter
@@ -291,6 +318,59 @@ class SupabaseStore extends Base implements Store {
         this.chatTimer = setTimeout(() => void this.loadChats(fam, me), 300);
       }).subscribe();
     }
+  }
+  // Einkaufszettel getrennt laden: ohne Tabelle (Migration 0028 noch nicht ausgeführt) läuft der Rest normal weiter.
+  // Abgehakte Artikel verschwinden nach 12 Stunden von selbst.
+  private async loadShop(fam: string) {
+    const r = await this.sb.from('shopping').select('*').eq('family_id', fam).order('created_at');
+    if (r.error || this.familyId !== fam) return;
+    const all = (r.data ?? []) as (ShopItem & { qty: number | string })[];
+    const old = all.filter(x => x.done && x.done_at && Date.now() - Date.parse(x.done_at) > 12 * 3600_000).map(x => x.id);
+    if (old.length) void this.sb.from('shopping').delete().in('id', old);
+    this.emit({ ...this.snap, shopping: all.filter(x => !old.includes(x.id)).map(x => ({ ...x, qty: Number(x.qty) })) });
+    if (!this.shopCh) {
+      this.shopCh = this.sb.channel(`shop-${fam}`).on('postgres_changes', { event: '*', schema: 'public', table: 'shopping', filter: `family_id=eq.${fam}` }, () => {
+        if (this.shopTimer) clearTimeout(this.shopTimer);
+        this.shopTimer = setTimeout(() => void this.loadShop(fam), 300);
+      }).subscribe();
+    }
+  }
+  private shopCh: unknown = null;
+  private shopTimer: ReturnType<typeof setTimeout> | null = null;
+  private shopErr(e: { message: string } | null) {
+    if (e) throw new Error(/shopping/.test(e.message) && /exist|find|schema cache/.test(e.message) ? 'Der Einkaufszettel ist noch nicht eingerichtet (Migration 0029).' : e.message);
+  }
+  async addShop(items: ShopIn[]) {
+    const fam = this.familyId!;
+    const { ins, upd, merged } = mergeShop(this.snap.shopping ?? [], items);
+    for (const [id, p] of upd) this.shopErr((await this.sb.from('shopping').update(p).eq('id', id)).error);
+    if (ins.length) this.shopErr((await this.sb.from('shopping').insert(ins.map(x => ({ family_id: fam, name: x.name, qty: x.qty ?? 1, unit: x.unit ?? '', dish: x.dish ?? '', cat: x.cat ?? '', servings: x.servings ?? null, added_by: this.snap.me })))).error);
+    await this.loadShop(fam);
+    return { added: ins.length, merged };
+  }
+  async setShop(id: string, patch: Partial<ShopItem>) {
+    const p = patch.done === undefined ? patch : { ...patch, done_by: patch.done ? this.snap.me : null, done_at: patch.done ? new Date().toISOString() : null };
+    // sofort zeigen, dann speichern (Abhaken im Supermarkt soll ohne Warten gehen)
+    this.emit({ ...this.snap, shopping: (this.snap.shopping ?? []).map(x => x.id === id ? { ...x, ...p } : x) });
+    this.shopErr((await this.sb.from('shopping').update(p).eq('id', id)).error);
+    await this.loadShop(this.familyId!);
+  }
+  async takeShop(ids: string[], taker: string | null) {
+    this.emit({ ...this.snap, shopping: (this.snap.shopping ?? []).map(x => ids.includes(x.id) ? { ...x, taker } : x) });
+    this.shopErr((await this.sb.from('shopping').update({ taker }).in('id', ids)).error);
+    await this.loadShop(this.familyId!);
+  }
+  async scaleDish(dish: string, servings: number) {
+    const items = (this.snap.shopping ?? []).filter(x => x.dish === dish && x.servings);
+    const next = new Map(items.map(x => [x.id, x.qty * servings / x.servings!]));
+    this.emit({ ...this.snap, shopping: (this.snap.shopping ?? []).map(x => next.has(x.id) ? { ...x, qty: next.get(x.id)!, servings } : x) });
+    for (const [id, qty] of next) this.shopErr((await this.sb.from('shopping').update({ qty, servings }).eq('id', id)).error);
+    await this.loadShop(this.familyId!);
+  }
+  async removeShop(ids: string[]) {
+    this.emit({ ...this.snap, shopping: (this.snap.shopping ?? []).filter(x => !ids.includes(x.id)) });
+    this.shopErr((await this.sb.from('shopping').delete().in('id', ids)).error);
+    await this.loadShop(this.familyId!);
   }
   private chatCh: unknown = null;
   private chatTimer: ReturnType<typeof setTimeout> | null = null;

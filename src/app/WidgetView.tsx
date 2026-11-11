@@ -5,6 +5,7 @@ import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, cvar, Icon, useLong } from './ui';
 import { chatPreview, chatThreads } from './Chat';
+import { openShop } from '../lib/shop';
 
 // Startseite der App im Aussehen des Handy-Widgets: nur Heute, dazu das Board auf dunklem Grund
 type Filter = 'all' | 'family' | 'home';
@@ -82,7 +83,7 @@ function Day({ d, snap, filter, now, go }: { d: string; snap: Snapshot; filter: 
 }
 
 // big: Board oder Chat groß statt der Termine (Knopf grün); nochmal antippen schaltet zurück
-export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat }: { snap: Snapshot; filter: Filter; now: number; go: Go; big: 'board' | 'chat' | null; bigEl?: ReactNode; toggle: (w: 'board' | 'chat') => void; chat: (id: string) => void }) {
+export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat, shop }: { snap: Snapshot; filter: Filter; now: number; go: Go; big: 'board' | 'chat' | null; bigEl?: ReactNode; toggle: (w: 'board' | 'chat') => void; chat: (id: string) => void; shop?: () => void }) {
   const t = today();
   const s = snap.family!.settings;
   const msgs = liveMsgs(snap.messages, s);
@@ -90,7 +91,9 @@ export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat }: 
   const me = m(snap.me ?? '');
   const threads = chatThreads(snap.chats ?? [], snap.me);
   const unread = threads.reduce((n, x) => n + x.unread, 0);
-  const pill = (w: 'board' | 'chat', label: string, n = 0) => <div className={`wv-sec${big ? ' top' : ''}${w === 'chat' && big === 'chat' ? ' slotted' : ''}`}><button type="button" className={`kw-p bd-p${big === w ? ' on' : ''}`} aria-pressed={big === w} onClick={() => toggle(w)}>{label}{n > 0 && <i className="bd-n">{n}</i>}</button>{w === 'chat' && big === 'chat' && <span id="wv-chat-slot" className="wv-slot" />}</div>;
+  // Einkaufszettel: grünes Zettel-Symbol rechts neben „Board“, nur solange etwas zu kaufen ist
+  const shopN = openShop(snap.shopping).length;
+  const pill = (w: 'board' | 'chat', label: string, n = 0) => <div className={`wv-sec${big ? ' top' : ''}${w === 'chat' && big === 'chat' ? ' slotted' : ''}${w === 'board' && shopN > 0 && shop ? ' shopped' : ''}`}><button type="button" className={`kw-p bd-p${big === w ? ' on' : ''}`} aria-pressed={big === w} onClick={() => toggle(w)}>{label}{n > 0 && <i className="bd-n">{n}</i>}</button>{w === 'chat' && big === 'chat' && <span id="wv-chat-slot" className="wv-slot" />}{w === 'board' && shopN > 0 && shop && <button type="button" className="shop-p" onClick={shop} aria-label={`Einkaufszettel, ${shopN} offen`} title="Einkaufszettel"><Icon name="note" /><i className="bd-n">{shopN}</i></button>}</div>;
   return (
     <div className="wv">
       {!big && <Day d={t} snap={snap} filter={filter} now={now} go={go} />}
