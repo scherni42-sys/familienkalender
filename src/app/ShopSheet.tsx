@@ -53,7 +53,10 @@ export function ShopSheet({ close }: { close: () => void }) {
   const [guide, setGuide] = useState<{ dish: string; g?: CookGuide } | null>(null);
   const cook = async (d: string) => {
     setGuide({ dish: d });
-    try { setGuide({ dish: d, g: await cookGuide(d, serv(d), list.filter(x => x.dish === d)) }); }
+    try {
+      setGuide({ dish: d, g: await cookGuide(d, serv(d), list.filter(x => x.dish === d)) });
+      setTimeout(() => document.querySelector('.cook-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
     catch (e) { setGuide(null); fail(e); }
   };
   const copyGuide = (d: string, g: CookGuide) => {
@@ -105,17 +108,19 @@ export function ShopSheet({ close }: { close: () => void }) {
               : canAct && <button type="button" className="ztk" aria-label={`${x.name} übernehme ich`} title="Übernehme ich" onClick={() => take([x.id], snap.me, `Alle sehen: du kaufst ${x.name}.`)}>Ich</button>)}
             {canAct && <button type="button" className="zx" aria-label={`${x.name} wegnehmen`} onClick={() => store.removeShop([x.id]).catch(fail)}>×</button>}
           </li></Fragment>)}</ul>
+          {/* Kochanleitung direkt unter den Zutaten auf dem Zettel; der Zettel scrollt mit */}
+          {d && guide?.dish === d && guide.g && <div className="cook-card">
+            <h3>Kochanleitung: {guide.g.title}<small>{serv(d) ? `${serv(d)} Personen · ` : ''}ca. {guide.g.minutes} Min.</small></h3>
+            <ol>{guide.g.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+            {guide.g.tip && <p className="cook-tip"><b>Tipp:</b> {guide.g.tip}</p>}
+            <div className="cook-acts">
+              <button type="button" onClick={() => copyGuide(d, guide.g!)}>Kopieren</button>
+              <button type="button" onClick={() => setGuide(null)}>Schließen</button>
+            </div>
+          </div>}
         </section>)}
       </div>
-      {guide?.g && <div className="cook-card">
-        <h3>{guide.g.title}<small>{serv(guide.dish) ? `${serv(guide.dish)} Personen · ` : ''}ca. {guide.g.minutes} Min.</small></h3>
-        <ol>{guide.g.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
-        {guide.g.tip && <p className="cook-tip"><b>Tipp:</b> {guide.g.tip}</p>}
-        <div className="btn-row tight">
-          <button type="button" className="btn ghost sm" onClick={() => copyGuide(guide.dish, guide.g!)}>Kopieren</button>
-          <button type="button" className="btn ghost sm" onClick={() => setGuide(null)}>Schließen</button>
-        </div>
-      </div>}
+
       {canAct && <>
         <form className="compose" onSubmit={e => { e.preventDefault(); void add(); }}>
           <input value={text} onChange={e => setText(e.target.value)} placeholder="z. B. Milch, 2 Butter, 500 g Hack" maxLength={500} aria-label="Artikel hinzufügen" />
