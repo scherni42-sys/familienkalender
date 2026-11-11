@@ -126,9 +126,9 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt, shop }: {
 
   const nm = (id: string | null) => snap.members.find(m => m.id === id)?.name ?? '';
   return (
-    <Sheet onClose={close} label="Claude fragen">
+    <Sheet onClose={close} label="FamTO fragen">
       {isPro() ? <>
-        <h2>✨ Frag Claude</h2>
+        <h2>✨ Frag FamTO</h2>
         <p className="note">Frag nach Terminen, Personen, Geburtstagen oder Belegen im Kassenbuch, sag, was du ändern oder eintragen möchtest, oder nenn ein Gericht, für das du einkaufen willst.</p>
       </> : <>
         <h2>🔎 Suchen <span className="pro-tag">Claude: Pro</span></h2>
@@ -139,7 +139,7 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt, shop }: {
       <p style={{ textAlign: 'center' }}>{rec ? 'Ich höre zu … Kurze Pausen sind kein Problem. Mikrofon antippen zum Beenden.' : q.trim() ? 'Fertig? Dann „Fragen“ tippen.' : 'Tippe aufs Mikrofon und sprich, oder schreib deine Frage.'}</p>
       <div className="ask-in">
         <textarea ref={input} rows={3} value={q} placeholder="z. B. Wann treffe ich Tom das nächste Mal?" onChange={e => { setQ(e.target.value); if (!want.current) base.current = e.target.value; }}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} aria-label="Deine Frage an Claude" />
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} aria-label="Deine Frage an FamTO" />
       </div>
       {!res && !busy && !err && !rec && !q.trim() && <div className="ask-ideas">{IDEAS.map(i => <button key={i} type="button" onClick={() => { setQ(i); void ask(i); }}>{i}</button>)}</div>}
       {busy && <p className="note ask-busy">{phase === 'shop' ? 'Claude stellt die Zutaten zusammen …' : isPro() ? 'Claude sieht im Kalender nach …' : 'Suche …'}</p>}
