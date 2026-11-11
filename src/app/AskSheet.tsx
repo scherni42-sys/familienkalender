@@ -128,7 +128,7 @@ export function AskSheet({ close, open, edit, toDraft, bdays, receipt, shop }: {
   return (
     <Sheet onClose={close} label="FamTO fragen">
       {isPro() ? <>
-        <h2>✨ Frag FamTO</h2>
+        <h2>✨ Frage FamTO …</h2>
         <p className="note">Frag nach Terminen, Personen, Geburtstagen oder Belegen im Kassenbuch, sag, was du ändern oder eintragen möchtest, oder nenn ein Gericht, für das du einkaufen willst.</p>
       </> : <>
         <h2>🔎 Suchen <span className="pro-tag">Claude: Pro</span></h2>
