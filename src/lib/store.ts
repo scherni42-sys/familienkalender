@@ -327,7 +327,12 @@ class SupabaseStore extends Base implements Store {
     const all = (r.data ?? []) as (ShopItem & { qty: number | string })[];
     const old = all.filter(x => x.done && x.done_at && Date.now() - Date.parse(x.done_at) > 12 * 3600_000).map(x => x.id);
     if (old.length) void this.sb.from('shopping').delete().in('id', old);
-    this.emit({ ...this.snap, shopping: all.filter(x => !old.includes(x.id)).map(x => ({ ...x, qty: Number(x.qty) })) });
+    const shopping = all.filter(x => !old.includes(x.id)).map(x => ({ ...x, qty: Number(x.qty) }));
+    // Zahl offener Artikel geändert: Android-Widget nachladen lassen (Zettel-Symbol am Board)
+    const open = shopping.filter(x => !x.done).length;
+    if (this.shopOpen !== null && open !== this.shopOpen) { try { native()?.changed?.(); } catch { /* ältere App */ } }
+    this.shopOpen = open;
+    this.emit({ ...this.snap, shopping });
     if (!this.shopCh) {
       this.shopCh = this.sb.channel(`shop-${fam}`).on('postgres_changes', { event: '*', schema: 'public', table: 'shopping', filter: `family_id=eq.${fam}` }, () => {
         if (this.shopTimer) clearTimeout(this.shopTimer);
@@ -336,6 +341,7 @@ class SupabaseStore extends Base implements Store {
     }
   }
   private shopCh: unknown = null;
+  private shopOpen: number | null = null;
   private shopTimer: ReturnType<typeof setTimeout> | null = null;
   private shopErr(e: { message: string } | null) {
     if (e) throw new Error(/shopping/.test(e.message) && /exist|find|schema cache/.test(e.message) ? 'Der Einkaufszettel ist noch nicht eingerichtet (Migration 0029).' : e.message);

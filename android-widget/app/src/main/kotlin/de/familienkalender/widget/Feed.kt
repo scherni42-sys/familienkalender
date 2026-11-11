@@ -35,7 +35,9 @@ data class Row(
     // Board-Nachricht: Avatar-Foto des Absenders (Pfad im Speicher), leer = keins
     val avatar: String = "",
     // Termin mit Fahrer: zweite Zeile, z. B. „🚗 Matthias fährt · ETA 13:58“
-    val drive: String = ""
+    val drive: String = "",
+    // Board-Überschrift: offene Artikel auf dem Einkaufszettel (0 = kein Zettel-Symbol)
+    val shop: Int = 0
 )
 
 object Feed {
@@ -175,6 +177,8 @@ object Feed {
             val feed = JSONObject(body)
             // Eigene Chats dazu (nur mit persönlichem Code; ohne Chat-Tabelle einfach keine)
             chats(c)?.let { feed.put("chats", it) }
+            // Einkaufszettel: Zahl der offenen Artikel (ohne Tabelle oder Funktion einfach keiner)
+            shop(c)?.let { feed.put("shop", it) }
             val e = cache(ctx).edit().putString("feed", feed.toString()).putLong("at", System.currentTimeMillis())
             // Tarif: FamTO Pro (mit KI) oder Basis; ohne Antwort bleibt der letzte Stand
             plan(c)?.let { e.putBoolean("pro", it) }
@@ -216,6 +220,13 @@ object Feed {
         return if (answered) false else null
     }
     fun pro(ctx: Context): Boolean = cache(ctx).getBoolean("pro", true)
+    private fun shop(c: Config): Int? = try {
+        val conn = URL("${c.url}/rest/v1/rpc/widget_shop").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"; conn.connectTimeout = 8000; conn.readTimeout = 10000; conn.doOutput = true
+        conn.setRequestProperty("apikey", c.key); conn.setRequestProperty("Content-Type", "application/json")
+        conn.outputStream.use { it.write(JSONObject().put("p_token", c.token).toString().toByteArray()) }
+        if (conn.responseCode in 200..299) conn.inputStream.bufferedReader().use { it.readText() }.trim().toIntOrNull() else null
+    } catch (e: Exception) { null }
 
     fun loadedAt(ctx: Context): Long = cache(ctx).getLong("at", 0)
     fun cached(ctx: Context): JSONObject? = try { cache(ctx).getString("feed", null)?.let { home(ctx, JSONObject(it)) } } catch (e: Exception) { null }
@@ -452,7 +463,7 @@ object Feed {
             val at = try { OffsetDateTime.parse(m.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { now }
             now - at < ttlHours * 3_600_000L
         }.sortedWith(compareBy({ !it.optBoolean("pinned") }, { -(try { OffsetDateTime.parse(it.optString("created_at")).toInstant().toEpochMilli() } catch (e: Exception) { 0L }) }))
-        if (!chat) out += Row(Kind.SECTION, "Board", open = "toggle:board", toggle = board)
+        if (!chat) out += Row(Kind.SECTION, "Board", open = "toggle:board", toggle = board, shop = feed.optInt("shop", 0))
         if (!chat && live.isEmpty()) out += Row(Kind.NOTE, "Keine Nachrichten")
         for (m in if (chat) emptyList() else live) {
             val from = m.optString("from_member")

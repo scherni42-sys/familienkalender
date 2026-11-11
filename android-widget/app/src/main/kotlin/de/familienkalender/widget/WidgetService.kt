@@ -62,6 +62,10 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 setTextViewText(R.id.text, r.text)
                 setInt(R.id.text, "setBackgroundResource", if (r.toggle) R.drawable.bar_on else R.drawable.kw_off)
                 setOnClickFillInIntent(R.id.text, Intent().putExtra(OpenActivity.EXTRA_ACT, r.open.removePrefix("toggle:")))
+                // Einkaufszettel: grünes Zettel-Symbol rechts, nur solange etwas zu kaufen ist; antippen öffnet den Zettel in der App
+                setViewVisibility(R.id.shop, if (r.shop > 0) View.VISIBLE else View.GONE)
+                setTextViewText(R.id.shop_n, if (r.shop > 99) "99+" else r.shop.toString())
+                if (r.shop > 0) setOnClickFillInIntent(R.id.shop, Intent().putExtra(OpenActivity.EXTRA_OPEN, "shop"))
             } else RemoteViews(ctx.packageName, R.layout.section).apply {
                 setTextViewText(R.id.text, r.text)
                 if (r.open.isNotEmpty()) setOnClickFillInIntent(R.id.row, Intent().putExtra(OpenActivity.EXTRA_OPEN, r.open))

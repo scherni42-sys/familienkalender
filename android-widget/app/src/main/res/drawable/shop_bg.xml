@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Einkaufszettel-Symbol am Board: grün wie in der App -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1D8657" />
+    <corners android:topLeftRadius="9dp" android:topRightRadius="9dp" android:bottomLeftRadius="9dp" android:bottomRightRadius="14dp" />
+</shape>

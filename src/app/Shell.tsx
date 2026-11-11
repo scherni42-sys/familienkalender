@@ -98,6 +98,8 @@ export function Shell() {
       // Tag im Widget angetippt: leerer Termin an diesem Datum
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
       if (k === 'settings') setTab('settings');
+      // Widget: Zettel-Symbol am Board öffnet den Einkaufszettel
+      if (k === 'shop') { setTab('board'); setSheet({ kind: 'shop' }); }
       if (k === 'home') setTab('today');
       if (k === 'ask' && me.role !== 'guest' && isPro()) setSheet({ kind: 'ask' });
       if (k === 'chat') { if (id === 'new') { setChatWith(null); setChatNew(n => n + 1); } else setChatWith(id || null); setTab('chat'); }
