@@ -24,7 +24,8 @@
         <TextView
             android:id="@+id/text"
             android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_height="wrap_content"
+            android:minHeight="34dp"
             android:minWidth="110dp"
             android:background="@drawable/kw_off"
             android:gravity="center"
@@ -65,7 +66,7 @@
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp"
                 android:textColor="#FFFFFF"
-                android:textSize="11sp"
+                android:textSize="11dp"
                 android:textStyle="bold" />
         </FrameLayout>
     </LinearLayout>

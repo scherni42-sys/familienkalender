@@ -11,7 +11,8 @@
     <TextView
         android:id="@+id/a_like"
         android:layout_width="wrap_content"
-        android:layout_height="32dp"
+        android:layout_height="wrap_content"
+        android:minHeight="32dp"
         android:background="@drawable/bar_off"
         android:gravity="center"
         android:paddingStart="14dp"
@@ -22,7 +23,8 @@
     <TextView
         android:id="@+id/a_take"
         android:layout_width="wrap_content"
-        android:layout_height="32dp"
+        android:layout_height="wrap_content"
+        android:minHeight="32dp"
         android:layout_marginStart="6dp"
         android:background="@drawable/bar_off"
         android:gravity="center"
@@ -36,7 +38,8 @@
     <TextView
         android:id="@+id/a_done"
         android:layout_width="wrap_content"
-        android:layout_height="32dp"
+        android:layout_height="wrap_content"
+        android:minHeight="32dp"
         android:layout_marginStart="6dp"
         android:background="@drawable/bar_off"
         android:gravity="center"

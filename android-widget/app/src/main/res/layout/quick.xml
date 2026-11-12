@@ -15,7 +15,8 @@
             android:id="@+id/m_private"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="wrap_content"
+            android:minHeight="44dp"
             android:layout_weight="1"
             android:text="Privat" />
 
@@ -23,7 +24,8 @@
             android:id="@+id/m_family"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="wrap_content"
+            android:minHeight="44dp"
             android:layout_weight="1"
             android:text="Familie" />
 
@@ -31,7 +33,8 @@
             android:id="@+id/m_board"
             style="?android:attr/borderlessButtonStyle"
             android:layout_width="0dp"
-            android:layout_height="44dp"
+            android:layout_height="wrap_content"
+            android:minHeight="44dp"
             android:layout_weight="1"
             android:text="Board" />
     </LinearLayout>
