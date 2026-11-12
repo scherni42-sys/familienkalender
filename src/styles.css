@@ -847,3 +847,8 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cook-acts { display: flex; gap: 8px; min-height: var(--zl); align-items: center; }
 .cook-acts button { border: 1.5px solid #d6a07f; background: #fff; color: #b2541a; border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 700; }
 .btn.shop-b { white-space: nowrap; padding-left: 8px; padding-right: 8px; }
+/* Beleg bearbeiten: Blättern zwischen den Belegen der Liste */
+.cash-flip { display: flex; align-items: center; gap: 8px; margin-top: -4px; color: var(--muted); font-size: 12.5px; }
+.cash-flip span { flex: 1; text-align: center; }
+.cash-flip button { border: 0; background: var(--surface-2); color: var(--ink); width: 36px; height: 30px; border-radius: 9px; font-size: 14px; flex: none; }
+.cash-flip button:disabled { opacity: .3; }

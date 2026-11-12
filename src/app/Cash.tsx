@@ -17,7 +17,7 @@ const num = (s: string) => { const n = Number(s.replace(/\./g, '').replace(',', 
 const fmt = (n: number) => n.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
 
 type Photo = HTMLCanvasElement | Blob | null;
-type View = { kind: 'list' } | { kind: 'new'; file?: File } | { kind: 'prefs' } | { kind: 'edit'; rc: Receipt; photo?: Photo };
+type View = { kind: 'list' } | { kind: 'new'; file?: File } | { kind: 'prefs' } | { kind: 'edit'; rc: Receipt; photo?: Photo; seq?: Receipt[] };
 
 // Kassenbuch: Monatsübersicht, Bons fotografieren, auslesen, privat oder Familie
 export function CashSheet({ close, share, rc: openRc, postfach }: { close: () => void; share?: boolean; rc?: Receipt; postfach?: boolean }) {
@@ -37,9 +37,14 @@ export function CashSheet({ close, share, rc: openRc, postfach }: { close: () =>
     list();
   };
   if (view.kind === 'new') return <NewReceipt close={close} back={list} prefs={prefs} file={view.file} next={(rc, photo) => setView({ kind: 'edit', rc, photo })} />;
-  if (view.kind === 'edit') return <ReceiptForm close={close} rc={view.rc} photo={view.photo} prefs={prefs} keep={keep} done={list} saved={saved} />;
+  if (view.kind === 'edit') {
+    // Aus der Liste geöffnet: nach links/rechts wischen blättert zum nächsten/vorigen Beleg der Liste
+    const seq = view.seq, i = seq ? seq.findIndex(x => x.id === view.rc.id) : -1;
+    const nav = seq && i >= 0 && seq.length > 1 ? { pos: i + 1, n: seq.length, step: (d: number) => { const n = seq[i + d]; if (n) setView({ kind: 'edit', rc: n, seq }); } } : undefined;
+    return <ReceiptForm key={view.rc.id || 'neu'} close={close} rc={view.rc} photo={view.photo} prefs={prefs} keep={keep} done={list} saved={saved} nav={nav} />;
+  }
   if (view.kind === 'prefs') return <CashPrefs close={close} back={list} prefs={prefs} keep={keep} />;
-  return <CashList close={close} prefs={prefs} per={per} setPer={setPer} tab={tab} setTab={setTab} add={() => setView({ kind: 'new' })} open={rc => setView({ kind: 'edit', rc })} settings={() => setView({ kind: 'prefs' })} />;
+  return <CashList close={close} prefs={prefs} per={per} setPer={setPer} tab={tab} setTab={setTab} add={() => setView({ kind: 'new' })} open={(rc, seq) => setView({ kind: 'edit', rc, seq })} settings={() => setView({ kind: 'prefs' })} />;
 }
 
 const SCOPE_LABEL: Record<Scope, string> = { private: 'Privat', family: 'Familie', business: 'Firma' };
@@ -165,7 +170,7 @@ export interface Period { mode: Mode; off: number; yoff: number; from: string; t
 const MS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
 const dmy = (s: string) => s ? `${s.slice(8, 10)}.${s.slice(5, 7)}.${s.slice(0, 4)}` : '';
 
-function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab }: { per: Period; setPer: (f: (p: Period) => Period) => void; tab: Tab; setTab: (t: Tab) => void; close: () => void; add: () => void; open: (rc: Receipt) => void; settings: () => void; prefs: Prefs }) {
+function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab }: { per: Period; setPer: (f: (p: Period) => Period) => void; tab: Tab; setTab: (t: Tab) => void; close: () => void; add: () => void; open: (rc: Receipt, seq: Receipt[]) => void; settings: () => void; prefs: Prefs }) {
   const snap = useSnapshot();
   const me = snap.me!;
   const [fam, setFam] = useState(false), [grps, setGrps] = useState<string[]>([]), [umlSel, setUmlSel] = useState<string[]>([]);
@@ -266,7 +271,7 @@ function CashList({ close, add, open, settings, prefs, per, setPer, tab, setTab 
         <div className="cash-list">{shown.map(r => {
           const m = snap.members.find(x => x.id === r.owner);
           const d = new Date(r.bought_at);
-          return <button key={r.id} type="button" className="cash-row" onClick={() => open(r)}>
+          return <button key={r.id} type="button" className="cash-row" onClick={() => open(r, shown)}>
             <span className="cash-ic"><CatIcon c={r.category} size={24} /></span>
             <span className="cash-mid"><b>{r.merchant || 'Beleg'}</b><small>{d.getDate()}.{d.getMonth() + 1}.{per.mode === 'month' && !find ? '' : String(d.getFullYear()).slice(2)}{r.kind === 'rechnung' ? '' : ` ${pad(d.getHours())}:${pad(d.getMinutes())}`}{r.payment ? ` · ${r.payment}${r.card ? ` …${r.card}` : ''}` : ''}{r.kind === 'rechnung' ? ' · Rechnung' : ''}{r.grp && !grpMode ? ` · ${r.grp}` : ''}{r.scope === 'family' ? ' · Familie' : r.scope === 'business' && r.firm ? ` · ${r.firm}` : r.items.some(i => i.family) ? ' · teils Familie' : ''}</small></span>
             {(tab === 'family' || grpMode || find) && m && m.id !== me && <Badge m={m} size={24} plain />}
@@ -558,7 +563,7 @@ function CropBox({ img, box, set }: { img: HTMLCanvasElement; box: { x0: number;
 }
 
 // Bon prüfen und speichern (neu oder bearbeiten)
-function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { saved: (rc: Receipt) => void; close: () => void; rc: Receipt; photo?: Photo; done: () => void; prefs: Prefs; keep: (p: Prefs) => Promise<void> }) {
+function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep, nav }: { saved: (rc: Receipt) => void; close: () => void; rc: Receipt; photo?: Photo; done: () => void; prefs: Prefs; keep: (p: Prefs) => Promise<void>; nav?: { pos: number; n: number; step: (d: number) => void } }) {
   const snap = useSnapshot();
   const mine = !start.owner || start.owner === snap.me;
   const [rc, setRc] = useState<Receipt>(start), [busy, setBusy] = useState(false), [url, setUrl] = useState(''), [big, setBig] = useState(false);
@@ -602,9 +607,37 @@ function ReceiptForm({ close, rc: start, photo, done, saved, prefs, keep }: { sa
   };
   const del = async () => { if (!(await ask('Diesen Beleg mit Foto löschen?', 'Löschen'))) return; try { await remove(rc); toast('Beleg gelöscht.'); done(); } catch (e) { fail(e); } };
   const ro = !mine;
+  // Blättern: geänderte Belege erst speichern oder abbrechen, damit nichts verloren geht
+  const cur = useRef({ rc, big, nav, busy }); cur.current = { rc, big, nav, busy };
+  const flip = (d: number) => {
+    const c = cur.current;
+    if (!c.nav || c.big || c.busy) return;
+    if (c.nav.pos + d < 1 || c.nav.pos + d > c.nav.n) { toast(d > 0 ? 'Das war der letzte Beleg.' : 'Das ist der erste Beleg.'); return; }
+    if (JSON.stringify(c.rc) !== JSON.stringify(start)) { toast('Erst speichern oder abbrechen, dann weiterblättern.'); return; }
+    c.nav.step(d);
+  };
+  useEffect(() => {
+    if (!nav) return;
+    let x0 = 0, y0 = 0, t0 = 0, ok = false;
+    const sx = (el: Element | null) => { for (let e = el; e && !e.classList.contains('sheet-in'); e = e.parentElement) { const cs = getComputedStyle(e); if (e.scrollWidth > e.clientWidth + 2 && /auto|scroll/.test(cs.overflowX)) return true; } return false; };
+    const start = (e: TouchEvent) => {
+      const t = e.target as Element | null;
+      ok = e.touches.length === 1 && !!t?.closest('.sheet-in') && !(t === document.activeElement && t.matches('input, textarea, [contenteditable]')) && !sx(t);
+      x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+    };
+    const end = (e: TouchEvent) => {
+      if (!ok) return; ok = false;
+      const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+      if (Math.abs(dx) > 70 && Math.abs(dx) > 1.8 * Math.abs(dy) && Date.now() - t0 < 800) flip(dx < 0 ? 1 : -1);
+    };
+    document.addEventListener('touchstart', start, { passive: true });
+    document.addEventListener('touchend', end, { passive: true });
+    return () => { document.removeEventListener('touchstart', start); document.removeEventListener('touchend', end); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Sheet onClose={close} label="Beleg">
       <h2>{start.id ? (ro ? 'Beleg' : 'Beleg bearbeiten') : 'Beleg prüfen'}</h2>
+      {nav && <div className="cash-flip"><button type="button" aria-label="Voriger Beleg" disabled={nav.pos <= 1} onClick={() => flip(-1)}>◀</button><span>Beleg {nav.pos} von {nav.n} · wischen zum Blättern</span><button type="button" aria-label="Nächster Beleg" disabled={nav.pos >= nav.n} onClick={() => flip(1)}>▶</button></div>}
       {isPdf && !url && <button type="button" className="cash-pdf" disabled={!rc.photo || photo instanceof Blob} onClick={() => void openPdf(rc.photo!)}><CatIcon c="rechnung" size={28} /><span><b>PDF-Rechnung</b><small>{photo instanceof Blob ? 'wird mit dem Beleg gespeichert' : 'antippen zum Öffnen'}</small></span></button>}
       {url && <button type="button" className="cash-photo" onClick={() => setBig(true)} aria-label="Foto vergrößern"><img src={url} alt="Kassenbon" /><span className="cash-photo-tip">Antippen zum Vergrößern</span></button>}
       {big && url && <ZoomView src={url} close={() => setBig(false)} />}
