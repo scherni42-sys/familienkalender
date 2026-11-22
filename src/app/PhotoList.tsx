@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
+import { createRoot } from 'react-dom/client';
 import { store, useSnapshot } from '../lib/store';
 import type { Draft } from '../lib/parse';
 import type { CalEvent } from '../lib/types';
@@ -6,6 +7,7 @@ import { hm, shortDate } from '../lib/dates';
 import { toNewEvent } from './EventSheet';
 import { Sheet } from './ui';
 import { fail, toast } from './toast';
+import './PhotoList.css';
 
 // Titel vergleichbar machen: klein, ohne Satzzeichen und Klammerzusätze („Bioabfall (14-täglich)“ = „bioabfall“)
 const norm = (s: string) => s.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -23,7 +25,18 @@ export function findTwin(d: Draft, events: CalEvent[]): CalEvent | undefined {
 }
 
 // Mehrere Termine von einem Foto/Screenshot: Liste zum Abhaken, dann alle auf einmal anlegen
-export function PhotoList({ drafts, close, back, saved }: { drafts: Draft[]; close: () => void; back: () => void; saved: (id: string) => void }) {
+// Öffnet die Liste über der App (an derselben Stelle wie das gerade offene Fenster), unabhängig vom übrigen Aufbau
+export function openPhotoList(drafts: Draft[]) {
+  const host = document.querySelector('.sheet')?.parentElement ?? document.getElementById('root') ?? document.body;
+  const el = document.createElement('div');
+  el.style.display = 'contents';
+  host.appendChild(el);
+  const root = createRoot(el);
+  const close = () => { root.unmount(); el.remove(); };
+  root.render(<StrictMode><PhotoList drafts={drafts} close={close} /></StrictMode>);
+}
+
+function PhotoList({ drafts, close }: { drafts: Draft[]; close: () => void }) {
   const snap = useSnapshot();
   const [rows, setRows] = useState(() => drafts.map(d => { const twin = findTwin(d, snap.events); return { d, on: !twin, twin }; }));
   const [busy, setBusy] = useState(false);
@@ -34,11 +47,11 @@ export function PhotoList({ drafts, close, back, saved }: { drafts: Draft[]; clo
   const saveAll = async () => {
     if (!picked.length) return;
     setBusy(true);
-    let last = '', n = 0;
+    let n = 0;
     try {
-      for (const r of picked) { last = await store.saveEvent(toNewEvent(r.d)); n++; }
+      for (const r of picked) { await store.saveEvent(toNewEvent(r.d)); n++; }
       toast(`${n} ${n === 1 ? 'Termin' : 'Termine'} eingetragen${picked[0].d.vis === 'family' ? ', auch auf dem Display' : ''}.`);
-      saved(last);
+      close();
     } catch (e) {
       // Was schon gespeichert ist, bleibt; die übrigen bleiben in der Liste
       if (n) { setRows(rs => rs.filter(r => !picked.slice(0, n).includes(r))); toast(`${n} eingetragen, der Rest hat nicht geklappt.`); }
@@ -64,7 +77,7 @@ export function PhotoList({ drafts, close, back, saved }: { drafts: Draft[]; clo
         ))}
       </ul>
       <div className="btn-row">
-        <button type="button" className="btn ghost" onClick={back} disabled={busy}>Zurück</button>
+        <button type="button" className="btn ghost" onClick={close} disabled={busy}>Abbrechen</button>
         <button type="button" className="btn" disabled={busy || !picked.length} onClick={() => void saveAll()}>
           {busy ? <span className="spin" /> : picked.length === rows.length ? `Alle ${picked.length} anlegen` : `${picked.length} anlegen`}</button>
       </div>

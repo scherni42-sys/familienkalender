@@ -774,13 +774,3 @@ button.cam-big { border: 0; color: var(--ink); font: inherit; font-weight: 700; 
 .cash-fmt label { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); }
 .cash-fmt label.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
 .cash-fmt span { display: grid; } .cash-fmt small { color: var(--muted); font-size: 12.5px; }
-
-/* Mehrere Termine vom Foto: Liste zum Abhaken */
-.plist { list-style: none; margin: 8px 0 14px; padding: 0; display: grid; gap: 8px; max-height: 55vh; overflow-y: auto; }
-.plist li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); opacity: .6; }
-.plist li.on { opacity: 1; }
-.plist li > input[type=checkbox] { width: 24px; height: 24px; flex: 0 0 auto; accent-color: var(--accent); }
-.plist li > div { display: grid; gap: 2px; min-width: 0; flex: 1; }
-.plist .when { font-size: 13px; color: var(--muted); }
-.plist .ttl { font: inherit; font-weight: 600; border: 0; border-bottom: 1px dashed var(--line); background: transparent; color: var(--ink); padding: 2px 0; width: 100%; }
-.plist .twin { font-size: 12px; color: var(--accent); }
