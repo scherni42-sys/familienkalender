@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { store, useSnapshot } from '../lib/store';
 import { parseSpoken, shrinkPhoto } from '../lib/ai';
 import { findTwin, openPhotoList } from './PhotoList';
+import { photoMore } from '../lib/ai';
 import type { Draft } from '../lib/parse';
 import { ClipMenu } from './ClipMenu';
 import { Icon, Sheet } from './ui';
@@ -127,8 +128,7 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
         return;
       }
       // Mehrere Termine auf dem Bild (oder einer, der schon im Kalender steht): Liste zum Abhaken statt Einzeltermin
-      const { more = [], ...first } = parsed;
-      const all = [first, ...more].map(d => ({ ...d, vis: m, busy: m === 'private' && d.busy }));
+      const all = [parsed, ...photoMore(parsed)].map(d => ({ ...d, vis: m, busy: m === 'private' && d.busy }));
       if (all.length > 1 || findTwin(all[0], snap.events)) { openPhotoList(all); close(); return; }
       toDraft({ ...parsed, vis: m, busy: m === 'private' && parsed.busy });
     } catch (e) { fail(e); } finally { setBusy(false); }

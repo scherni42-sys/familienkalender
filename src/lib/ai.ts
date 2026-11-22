@@ -25,7 +25,7 @@ export async function squarePhoto(file: File): Promise<{ type: string; data: str
 }
 
 // KI-Erkennung über die Edge Function „parse-event“ (Text oder Foto); ohne Verbindung die einfache Erkennung auf dem Handy
-export async function parseSpoken(text: string, me: string, members: Pick<Member, 'id' | 'name' | 'role'>[], image?: { type: string; data: string }, display?: string): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean; more?: Draft[] }> {
+export async function parseSpoken(text: string, me: string, members: Pick<Member, 'id' | 'name' | 'role'>[], image?: { type: string; data: string }, display?: string): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean }> {
   const local = parseLocal(text, me, members);
   if (!supabase) return { ...local, source: 'local' };
   try {
@@ -66,7 +66,9 @@ export async function parseSpoken(text: string, me: string, members: Pick<Member
       all_day: !!x.all_day, start_min: x.all_day ? 0 : x.start_min ?? 600, end_min: x.all_day ? 1440 : x.end_min ?? (x.start_min ?? 600) + 60,
       place: x.place ?? '', addr: '', bring: [], timeFound: !x.all_day
     }));
-    return { ...first, source: 'ai', found: e.found !== false, more };
+    // „more“ hängt am Ergebnis, ohne die Rückgabe-Art zu ändern (MicSheet liest es mit photoMore)
+    const out = { ...first, source: 'ai' as const, found: e.found !== false, more };
+    return out;
   } catch (err) {
     // Grund mitgeben, damit die Bestätigung zeigt, warum die KI nicht geholfen hat
     let why = err instanceof Error ? err.message : String(err);
@@ -77,6 +79,9 @@ export async function parseSpoken(text: string, me: string, members: Pick<Member
     return { ...local, source: 'local', why };
   }
 }
+
+// Weitere Termine vom selben Foto (siehe parseSpoken)
+export const photoMore = (d: Draft): Draft[] => (d as { more?: Draft[] }).more ?? [];
 
 // Fahrzeit mit dem Auto von zu Hause zur Adresse (Edge Function „travel-time“, OpenStreetMap)
 export async function travelTime(from: string, to: string): Promise<{ minutes: number; km: number }> {
