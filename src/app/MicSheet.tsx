@@ -7,6 +7,7 @@ import { Icon, Sheet } from './ui';
 import { fail, toast } from './toast';
 import { native } from '../lib/native';
 import { ask } from './ask';
+import { findTwin, PhotoList } from './PhotoList';
 
 type Mode = 'private' | 'family' | 'board';
 // Web-Spracherkennung des Browsers (Chrome/Android, Safari/iOS)
@@ -19,12 +20,14 @@ const PREFIX = /^\s*(privat|familie|pinnwand|board|bord)\b[\s,.:;!-]*/i;
 const PAUSE = 3000;     // so lange darf man schweigen, bevor die Aufnahme endet
 const FIRST = 7000;     // Zeit bis zum ersten Wort
 
-export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, posted }: { auto?: boolean; quick?: boolean; preset?: Mode; photoFirst?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
+export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, posted, saved }: { auto?: boolean; quick?: boolean; preset?: Mode; photoFirst?: boolean; close: () => void; toDraft: (d: Draft) => void; posted: () => void; saved: (id: string) => void }) {
   const snap = useSnapshot();
   // Seitentaste: ohne Stichwort „Privat“/„Familie“ landet das Gesprochene auf der Pinnwand
   const [mode, setMode] = useState<Mode>(preset ?? (quick ? 'board' : 'family'));
   const [text, setText] = useState('');
   const [rec, setRec] = useState(false), [busy, setBusy] = useState(false);
+  // Mehrere Termine vom Foto (oder einer, der schon im Kalender steht): Liste zum Abhaken
+  const [many, setMany] = useState<Draft[] | null>(null);
   const r = useRef<Rec | null>(null);
   // Aufnahme-Zustand: Android beendet die Erkennung nach kurzer Stille, wir starten sie bis zur echten Pause neu
   const sess = useRef({ base: '', cur: '', last: 0, first: true, stop: false });
@@ -125,9 +128,14 @@ export function MicSheet({ auto, quick, preset, photoFirst, close, toDraft, post
         if (await ask(`${why}\n\nSoll das Foto stattdessen ans Board?`, 'Ans Board')) { await store.postMessage(typed || '📷 Foto', img); toast('Foto hängt jetzt am Board.'); posted(); }
         return;
       }
-      toDraft({ ...parsed, vis: m, busy: m === 'private' && parsed.busy });
+      const { more = [], ...first } = parsed;
+      const all = [first, ...more].map(d => ({ ...d, vis: m, busy: m === 'private' && d.busy }));
+      if (all.length > 1 || findTwin(all[0], snap.events)) { setMany(all); return; }
+      toDraft(all[0]);
     } catch (e) { fail(e); } finally { setBusy(false); }
   };
+
+  if (many) return <PhotoList drafts={many} close={close} back={() => setMany(null)} saved={saved} />;
 
   return (
     <Sheet onClose={close} label="Sprechen">
