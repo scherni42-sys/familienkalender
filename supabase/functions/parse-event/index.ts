@@ -1,4 +1,5 @@
-// Edge Function: versteht einen gesprochenen Satz oder ein Foto (Zettel, Brief, Einladung) und macht daraus einen Termin-Vorschlag.
+// Edge Function: versteht einen gesprochenen Satz oder ein Foto (Zettel, Brief, Einladung, Screenshot) und macht daraus einen Termin-Vorschlag
+// (bei Fotos mit mehreren Terminen zusätzlich die Liste „more“).
 // Secret setzen: supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 // Nur angemeldete Familienmitglieder dürfen die Funktion nutzen (Prüfung im Code, „Verify JWT“ kann aus bleiben).
 import Anthropic from 'npm:@anthropic-ai/sdk';
@@ -14,7 +15,7 @@ const cors = {
 const schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['found', 'title', 'date', 'end_date', 'all_day', 'start_min', 'end_min', 'persons', 'driver', 'vis', 'reason', 'place', 'addr', 'bring', 'discreet'],
+  required: ['found', 'title', 'date', 'end_date', 'all_day', 'start_min', 'end_min', 'persons', 'driver', 'vis', 'reason', 'place', 'addr', 'bring', 'discreet', 'more'],
   properties: {
     found: { type: 'boolean', description: 'false, wenn Text oder Foto gar keinen Termin enthält (z. B. Einkaufszettel, Notiz, Foto ohne Datum)' },
     title: { type: 'string', description: 'Kurzer Titel, z. B. „Fußballtraining“' },
@@ -30,7 +31,25 @@ const schema = {
     place: { type: 'string' },
     addr: { type: 'string', description: 'Adresse, falls genannt' },
     bring: { type: 'array', items: { type: 'string' }, description: 'Was mitgebracht werden soll' },
-    discreet: { type: 'boolean', description: 'true bei Arzt- oder Therapieterminen' }
+    discreet: { type: 'boolean', description: 'true bei Arzt- oder Therapieterminen' },
+    more: {
+      type: 'array',
+      description: 'Nur bei Fotos/Screenshots mit mehreren Terminen: alle weiteren Termine nach dem ersten, in der Reihenfolge des Bildes. Sonst leer.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['title', 'date', 'end_date', 'all_day', 'start_min', 'end_min', 'place'],
+        properties: {
+          title: { type: 'string' },
+          date: { type: 'string', description: 'YYYY-MM-DD' },
+          end_date: { type: 'string', description: 'YYYY-MM-DD' },
+          all_day: { type: 'boolean' },
+          start_min: { type: 'integer' },
+          end_min: { type: 'integer' },
+          place: { type: 'string' }
+        }
+      }
+    }
   }
 };
 
@@ -66,7 +85,7 @@ Deno.serve(async req => {
 
     const response = await client.beta.messages.create({
       model: 'claude-opus-5-5',
-      max_tokens: 4000,
+      max_tokens: img ? 12000 : 4000,
       betas: ['server-side-fallback-2026-07-01'],
       fallbacks: 'default',
       output_config: { effort: 'low', format: { type: 'json_schema', schema } },
@@ -77,7 +96,7 @@ Regeln: „ich/mich/mein“ meint die sprechende Person. Mama, Papa, Oma usw. or
 Wochentage meinen das nächste kommende Datum. Ohne Uhrzeit ist der Termin ganztägig.
 vis ist „family“, wenn andere Mitglieder betroffen sind oder jemand anderes fährt, sonst „private“; bei „privat“ im Satz immer „private“.
 Wer fährt, bringt oder abholt, ist driver und gehört nicht zu persons, außer er nimmt selbst teil.
-Ein Datum ohne Jahr meint das nächste kommende Datum. Bei einem Foto liest du den Termin aus Handschrift, Brief, Einladung oder Screenshot; stehen mehrere Termine darauf, nimm den ersten.
+Ein Datum ohne Jahr meint das nächste kommende Datum. Bei einem Foto liest du den Termin aus Handschrift, Brief, Einladung oder Screenshot; stehen mehrere Termine darauf (z. B. Abfuhrkalender, Spielplan, Schulferien, Terminliste), kommt der erste in die Hauptfelder und jeder weitere als eigener Eintrag in more, höchstens 60. Titel kurz und ohne Zusätze wie „(14-täglich)“, z. B. „Bioabfall“. Ohne Uhrzeit ganztägig. Personen und vis gelten für alle.
 Steht nirgends ein Termin (kein Datum, kein Wochentag, keine Uhrzeit, kein Anlass), setze found auf false und fülle die übrigen Felder nur grob.`,
       messages: [{
         role: 'user',

@@ -25,7 +25,7 @@ export async function squarePhoto(file: File): Promise<{ type: string; data: str
 }
 
 // KI-Erkennung über die Edge Function „parse-event“ (Text oder Foto); ohne Verbindung die einfache Erkennung auf dem Handy
-export async function parseSpoken(text: string, me: string, members: Pick<Member, 'id' | 'name' | 'role'>[], image?: { type: string; data: string }, display?: string): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean }> {
+export async function parseSpoken(text: string, me: string, members: Pick<Member, 'id' | 'name' | 'role'>[], image?: { type: string; data: string }, display?: string): Promise<Draft & { source: 'ai' | 'local'; why?: string; found?: boolean; more?: Draft[] }> {
   const local = parseLocal(text, me, members);
   if (!supabase) return { ...local, source: 'local' };
   try {
@@ -39,7 +39,7 @@ export async function parseSpoken(text: string, me: string, members: Pick<Member
     const ids = new Set(members.map(m => m.id));
     const persons = (e.persons as string[]).filter(id => ids.has(id));
     const allDay = !!e.all_day;
-    return {
+    const first: Draft = {
       ...local,
       title: e.title || local.title,
       date: e.date || local.date,
@@ -57,10 +57,16 @@ export async function parseSpoken(text: string, me: string, members: Pick<Member
       bring: Array.isArray(e.bring) ? e.bring : [],
       discreet: !!e.discreet,
       reason: e.reason || local.reason,
-      timeFound: !allDay,
-      source: 'ai',
-      found: e.found !== false
+      timeFound: !allDay
     };
+    // Screenshot/Foto mit mehreren Terminen (z. B. Abfuhrkalender): weitere Termine mit denselben Personen und derselben Art
+    type More = { title: string; date: string; end_date: string; all_day: boolean; start_min: number; end_min: number; place: string };
+    const more = (Array.isArray(e.more) ? e.more as More[] : []).filter(x => x && /^\d{4}-\d{2}-\d{2}$/.test(x.date) && x.title).slice(0, 60).map((x): Draft => ({
+      ...first, title: x.title, date: x.date, end_date: x.end_date && x.end_date >= x.date ? x.end_date : x.date,
+      all_day: !!x.all_day, start_min: x.all_day ? 0 : x.start_min ?? 600, end_min: x.all_day ? 1440 : x.end_min ?? (x.start_min ?? 600) + 60,
+      place: x.place ?? '', addr: '', bring: [], timeFound: !x.all_day
+    }));
+    return { ...first, source: 'ai', found: e.found !== false, more };
   } catch (err) {
     // Grund mitgeben, damit die Bestätigung zeigt, warum die KI nicht geholfen hat
     let why = err instanceof Error ? err.message : String(err);
