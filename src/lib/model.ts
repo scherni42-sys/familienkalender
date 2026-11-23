@@ -11,9 +11,18 @@ export const BGS: [string, string][] = [
 ];
 export const ROLE: Record<string, string> = { admin: 'Admin', member: 'Mitglied', child: 'Kind (ohne Handy)', guest: 'Gast' };
 export const NEUTRAL = '#7a8590';
+// Rollen im Kinder-Bereich (gleiche Rechte, andere Namen)
+export const ROLE_KIDS: Record<string, string> = { admin: 'Elternteil', guest: 'Bezugsperson', member: 'Kind (mit Handy)', child: 'Kind (ohne Handy)' };
+export const TIER: Record<string, [string, string]> = {
+  kids: ['Kinder-Termin', 'alle im Kinder-Bereich, beide Familien'],
+  care: ['Betreuung', 'wer hat die Kinder, Übergaben'],
+  parents: ['Nur Eltern', 'nur ihr beide, nie auf dem Display']
+};
 
 export const initial = (m?: Member) => (m ? m.name.replace(/^(Oma|Opa)\s+/, '').trim()[0]?.toUpperCase() ?? '?' : '?');
 export const colorOf = (members: Member[], id?: string | null) => members.find(m => m.id === id)?.color ?? NEUTRAL;
+// Farbe eines Termins: eingeblendete Kinder-Bereich-Termine in dessen Farbe, sonst die der Person
+export const evColor = (members: Member[], e: { color?: string; persons: string[]; owner: string }) => e.color ?? colorOf(members, e.persons[0] ?? e.owner);
 export const nameOf = (members: Member[], id?: string | null) => members.find(m => m.id === id)?.name ?? 'Unbekannt';
 
 type Span = Pick<CalEvent, 'date' | 'end_date' | 'all_day' | 'start_min' | 'end_min'>;

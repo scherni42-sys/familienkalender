@@ -8,6 +8,7 @@ import { bdOn, byTime, driveDone, dayOfN, depart, etaDriver, etaMin, leg2, liveM
 import { cvar, Icon } from '../app/ui';
 import { DisplayInput } from './DisplayInput';
 import { DisplayEdit } from './DisplayEdit';
+import { isSosMsg } from '../lib/sos';
 
 type Variant = 'bigme' | 'qm' | 'color' | 'eink' | 'mini' | 'hoch';
 const variant = (): Variant => {
@@ -78,9 +79,9 @@ export function Display({ token }: { token: string }) {
 
   const av = (id: string) => avatarOf(members.find(m => m.id === id));
   const sb = (id: string) => { const a = av(id); return <span key={id} className={`b${a ? ' av' : ''}`} style={cvar(color(id))}>{a ? <img src={a} alt="" /> : ini(id)}</span>; };
-  const ad = (e: CalEvent, d: string) => <div key={e.id} className="w-ad" style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}><b>{e.title}</b><span className="lbl">ganztägig{e.end_date > e.date ? ` · ${dayOfN(e, d)}` : ''}</span></div>;
+  const ad = (e: CalEvent, d: string) => <div key={e.id} className="w-ad" style={cvar(e.color ?? (e.persons.length ? color(e.persons[0]) : '#7a8590'))} onClick={() => setDetail(e)} role="button" tabIndex={0}><b>{e.title}</b><span className="lbl">ganztägig{e.end_date > e.date ? ` · ${dayOfN(e, d)}` : ''}</span></div>;
   const row = (e: CalEvent, past: boolean, noGo = false) => (
-    <div key={e.id} className={`w-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>
+    <div key={e.id} className={`w-ev${past ? ' past' : ''}`} style={cvar(e.color ?? (e.persons.length ? color(e.persons[0]) : '#7a8590'))} onClick={() => setDetail(e)} role="button" tabIndex={0}>
       <time>{hm(e.start_min)}</time>
       <div><div className="tt">{e.title}</div>{e.driver && !(etaMin(e) === null && driveDone(e)) && <div className="dr"><Icon name="car" /> {nm(e.driver)} {etaMin(e) !== null ? <>fährt · <b>Ankunft {hm(etaMin(e)!)}</b></> : <>fährt{travel(e, s) && !noGo ? <> · <b>los {hm(depart(e, s))}</b></> : null}</>}{e.place ? ` · ${e.place}` : ''}</div>}</div>
       <span className="wb">{e.persons.map(sb)}</span>
@@ -129,7 +130,7 @@ export function Display({ token }: { token: string }) {
     const n = fitN;
     const shown = msgs.slice(0, n);
     const head = <h3>Board{msgs.length > n && <span className="w-more">+{msgs.length - n} weitere</span>}</h3>;
-    const body = shown.length ? shown.map(m => <div key={m.id} className="w-msg">{sb(m.from_member)}<span>{m.text}{m.image && <img className="w-img" src={boardImg(m.image)} alt="" />}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span>
+    const body = shown.length ? shown.map(m => <div key={m.id} className={`w-msg${isSosMsg(m) ? ' sos' : ''}`}>{sb(m.from_member)}<span>{m.text}{m.image && <img className="w-img" src={boardImg(m.image)} alt="" />}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span>
       {m.pinned ? <small className="pinned" title="angeheftet"><Icon name="pin" /></small> : <small>{whenM(m)}</small>}</div>) : <div className="w-empty">Keine Nachrichten</div>;
     return <div className="w-sec">{head}<div className="w-msgs">{body}</div></div>;
   };
@@ -216,7 +217,7 @@ export function Display({ token }: { token: string }) {
     const tev = (e: CalEvent, d: string) => {
       const past = d === day && !e.all_day && e.end_min <= now;
       if (d === day && hidePast(e)) return null;
-      return <div key={e.id + d} className={`t-ev${past ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')} onClick={() => setDetail(e)} role="button" tabIndex={0}>
+      return <div key={e.id + d} className={`t-ev${past ? ' past' : ''}`} style={cvar(e.color ?? (e.persons.length ? color(e.persons[0]) : '#7a8590'))} onClick={() => setDetail(e)} role="button" tabIndex={0}>
         <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
         <div className="tt"><b>{e.title}</b>{e.driver && !(etaMin(e) === null && driveDone(e)) ? <small> · {nm(e.driver)} {etaMin(e) !== null ? `fährt · Ankunft ${hm(etaMin(e)!)}` : `fährt${travel(e, s) && d === day && !past ? ` · los ${hm(depart(e, s))}` : ''}`}</small> : e.place ? <small> · {e.place}</small> : null}</div>
         <span className="wb">{e.persons.map(sb)}</span></div>;
@@ -236,7 +237,7 @@ export function Display({ token }: { token: string }) {
         <div className="t-head"><h2>{longDate(day)}</h2><div className="clock">{hm(now)}</div></div>
         <div className="t-days">{days}</div>
         <div className="t-board"><div className="w-sec"><h3>Board{msgs.length > fitN && <span className="w-more">+{msgs.length - fitN} weitere</span>}</h3><div className="w-msgs">
-          {shown.length ? shown.map(m => <div key={m.id} className="w-msg">{sb(m.from_member)}<span>{m.pinned && <Icon name="pin" />} {m.text}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span><small>{nm(m.from_member)} · {whenM(m)}</small></div>) : <div className="w-empty">Keine Nachrichten</div>}
+          {shown.length ? shown.map(m => <div key={m.id} className={`w-msg${isSosMsg(m) ? ' sos' : ''}`}>{sb(m.from_member)}<span>{m.pinned && <Icon name="pin" />} {m.text}{m.taker ? <b> · übernimmt {nm(m.taker)}</b> : m.replies.length ? <b> · {nm(m.replies.at(-1)!.from_member)}: {m.replies.at(-1)!.text}</b> : null}</span><small>{nm(m.from_member)} · {whenM(m)}</small></div>) : <div className="w-empty">Keine Nachrichten</div>}
         </div></div></div>
         <div className="t-bar">
           <button type="button" className="t-ring b" onClick={() => setBdOpen(true)} aria-label="Geburtstage">B</button>
@@ -277,7 +278,7 @@ function Mini({ feed, day, now }: { feed: DisplayFeed; day: string; now: number 
       <div className="mini-h"><b>Heute</b><span>{WDS[d.getDay()]} {d.getDate()}. {MON[d.getMonth()]}</span></div>
       {evs.length === 0 && <div className="mini-empty">Keine Familientermine</div>}
       {evs.map(e => (
-        <div key={e.id} className={`mini-ev${!e.all_day && e.end_min <= now ? ' past' : ''}`} style={cvar(e.persons.length ? color(e.persons[0]) : '#7a8590')}>
+        <div key={e.id} className={`mini-ev${!e.all_day && e.end_min <= now ? ' past' : ''}`} style={cvar(e.color ?? (e.persons.length ? color(e.persons[0]) : '#7a8590'))}>
           <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}</time>
           <span className="t">{e.title}{e.driver && !(etaMin(e) === null && driveDone(e)) ? <small> · {nm(e.driver)} fährt</small> : null}</span>
         </div>
@@ -285,7 +286,7 @@ function Mini({ feed, day, now }: { feed: DisplayFeed; day: string; now: number 
       <div className="mini-h board"><b>Board</b>{msgs.length > 0 && <span>{msgs.length}</span>}</div>
       {msgs.length === 0 && <div className="mini-empty">Keine Nachrichten</div>}
       {msgs.map(m => (
-        <div key={m.id} className="mini-msg" style={cvar(color(m.from_member))}>
+        <div key={m.id} className={`mini-msg${isSosMsg(m) ? ' sos' : ''}`} style={cvar(color(m.from_member))}>
           {m.pinned && <Icon name="pin" />}<span>{m.text}{m.image && <img className="w-img" src={boardImg(m.image)} alt="" />}</span><small>{nm(m.from_member)}</small>
         </div>
       ))}

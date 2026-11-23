@@ -5,7 +5,7 @@ import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
 import type { BusySlot, CalEvent, Snapshot } from '../lib/types';
 import { addDays, dayLabel, fromIso, hm, isoWeek, longDate, MON, mondayOf, nowMin, today, WDS } from '../lib/dates';
-import { bdOn, colorOf, depart, driveDone, etaDriver, etaMin, leg2, nameOf, target, travel, upcoming, visibleOnDay } from '../lib/model';
+import { bdOn, evColor, depart, driveDone, etaDriver, etaMin, leg2, nameOf, target, travel, upcoming, visibleOnDay } from '../lib/model';
 import type { Draft } from '../lib/parse';
 import { Badge, cvar, Icon, useLong } from './ui';
 import { fail, toast, useToast } from './toast';
@@ -69,7 +69,7 @@ export function Shell() {
   // Antippen: Details; lange drücken: gleich bearbeiten (wenn man darf)
   const open = (id: string, how?: 'edit') => {
     const ev = snapRef.current.events.find(x => x.id === id);
-    if (how === 'edit' && ev && me.role !== 'guest' && (ev.owner === snap.me || ev.vis === 'family')) setSheet({ kind: 'edit', draft: eventDraft(ev), fresh: false });
+    if (how === 'edit' && ev && !ev.area && me.role !== 'guest' && (ev.owner === snap.me || ev.vis === 'family')) setSheet({ kind: 'edit', draft: eventDraft(ev), fresh: false });
     else setSheet({ kind: 'detail', id });
   };
   // Leerer Termin an einem Tag (aus dem Widget oder „Weiterer Termin“ im Termin)
@@ -135,6 +135,12 @@ export function Shell() {
         <button type="button" className="ph-title" onClick={() => setTab('today')} aria-label="Zurück zu heute">
           <strong ref={titleRef} className={tab === 'today' || tab === 'board' || tab === 'chat' ? 'date' : undefined}>{tab === 'today' || tab === 'board' || tab === 'chat' ? (shortT ? shortDate(today()) : longDate(today())) : tab === 'week' ? (shortT ? `KW ${isoWeek(addDays(mondayOf(today()), wk * 7))}` : kwTitle(wk)) : titles[tab]}</strong></button>
         <span className="head-r">
+          {/* Nur wer in mehreren Familien ist: Kurzname der angezeigten Familie, antippen zum Wechseln */}
+          {(snap.families?.length ?? 0) > 1 && <label className="fam-sw" title="Familie wechseln">
+            <span>{famShort(snap.family!.name)}</span>
+            <select aria-label="Familie wechseln" value={snap.family!.id} onChange={e => { const f = snap.families!.find(x => x.id === e.target.value); store.switchFamily(e.target.value).then(() => toast(`Du siehst jetzt ${f?.name ?? 'die andere Familie'}.`), fail); }}>
+              {snap.families!.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+            </select></label>}
           <button type="button" className={`head-i${tab === 'settings' ? ' on' : ''}`} aria-label="Einstellungen" aria-pressed={tab === 'settings'} onClick={() => setTab(tab === 'settings' ? 'today' : 'settings')}><Icon name="gear" /></button>
           <button type="button" className={`home-t${filter === 'home' ? ' on' : ''}`} aria-pressed={filter === 'home'} aria-label="Home-Modus: berufliche Termine ausblenden"
             onClick={() => { const k: Filter = filter === 'home' ? 'all' : 'home'; setFilter(k); try { localStorage.setItem('fk-filter', k); } catch { /* egal */ } }}><Icon name="home" /></button>
@@ -200,7 +206,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
   const [armed, setArmed] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   const longed = useRef(false);
-  const mayDelete = e.owner === snap.me || e.vis === 'family';
+  const mayDelete = !e.area && (e.owner === snap.me || e.vis === 'family');
   // Lange drücken: gleich das Bearbeiten-Fenster (Löschen gibt es dort)
   const press = () => { longed.current = false; window.clearTimeout(timer.current); if (mayDelete) timer.current = window.setTimeout(() => { longed.current = true; navigator.vibrate?.(20); open(e.id, 'edit'); }, 550); };
   const release = () => window.clearTimeout(timer.current);
@@ -212,7 +218,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
     } catch (x) { fail(x); setArmed(false); }
   };
   return (
-    <div className={`ev${e.files?.length ? ' has-clip' : ''}${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))}
+    <div className={`ev${e.files?.length ? ' has-clip' : ''}${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}`} style={cvar(evColor(snap.members, e))}
       data-ev role="button" tabIndex={0}
       onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (mayDelete) x.preventDefault(); }}
       onClick={() => { if (longed.current) { longed.current = false; return; } if (armed) { setArmed(false); return; } open(e.id); }}
@@ -220,8 +226,9 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
       {armed && <button type="button" className="ev-del" onClick={del} aria-label={`${e.title} löschen`}><Icon name="trash" /></button>}
       <Time e={e} d={d} />
       <div style={{ minWidth: 0 }}>
-        <div className="t">{e.vis !== 'family' && <span className="lock-i"><Icon name="lock" /></span>}<span>{e.title}</span></div>
+        <div className="t">{(e.vis !== 'family' || e.tier === 'parents') && <span className="lock-i"><Icon name="lock" /></span>}<span>{e.title}</span></div>
         <div className="meta">
+          {e.area && <span>{e.area.name}{e.tier === 'care' ? ' · Betreuung' : ''}</span>}
           {e.persons.length > 0 && <span>{e.persons.map(p => nameOf(snap.members, p)).join(', ')}</span>}
           {e.driver && !(eta === null && driveDone(e)) && <span><Icon name="car" /> {nameOf(snap.members, e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt' : 'fährt'}</span>}
           {e.trip === 'beides' && e.driver2 && <span><Icon name="car" /> {nameOf(snap.members, e.driver2)} holt ab</span>}
@@ -329,7 +336,7 @@ function CalendarTab({ snap, filter, now, open, add, flash, wk }: { snap: Snapsh
       {Array.from({ length: len }, (_, i) => {
         const d = iso0 + String(i + 1).padStart(2, '0');
         const { ev, busy } = visibleOnDay(snap.events, snap.busy, d, snap.me, filter);
-        const dots = [...ev.map(e => colorOf(snap.members, e.persons[0] ?? e.owner)), ...busy.map(() => 'var(--line)')].slice(0, 3);
+        const dots = [...ev.map(e => evColor(snap.members, e)), ...busy.map(() => 'var(--line)')].slice(0, 3);
         return <Cell key={d} d={d} add={add} pick={setSel} className={`cell${d === t ? ' today' : ''}${d === sel ? ' sel' : ''}${d < t ? ' past' : ''}`} label={`${longDate(d)}, ${ev.length} Termine, lange drücken für neuen Termin`}>
           {i + 1}<span className="dots">{dots.map((c, j) => <i key={j} style={cvar(c)} />)}{bdOn(snap.birthdays, d).length > 0 && <i className="bdot" />}</span>
         </Cell>;
@@ -339,3 +346,6 @@ function CalendarTab({ snap, filter, now, open, add, flash, wk }: { snap: Snapsh
     <DayList snap={snap} d={sel} filter={filter} now={now} open={open} flash={flash} empty="small" add={add} />
   </>;
 }
+
+// „Familie Schmidt“ → „Schmidt“, lange Namen gekürzt (Platz in der Kopfzeile)
+function famShort(n: string) { const t = n.replace(/^(familie|fam\.)\s+/i, '').trim() || n; return t.length > 12 ? t.slice(0, 11) + '…' : t; }

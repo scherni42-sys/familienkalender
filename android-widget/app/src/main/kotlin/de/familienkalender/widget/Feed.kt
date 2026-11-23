@@ -37,7 +37,13 @@ data class Row(
     // Termin mit Fahrer: zweite Zeile, z. B. „🚗 Matthias fährt · ETA 13:58“
     val drive: String = "",
     // Board-Überschrift: offene Artikel auf dem Einkaufszettel (0 = kein Zettel-Symbol)
-    val shop: Int = 0
+    val shop: Int = 0,
+    // Board-Knöpfe: 👍 nur mit Schnellantworten, „Antworten“ nicht bei privaten Nachrichten
+    val quick: Boolean = true,
+    val priv: Boolean = false,
+    // SOS am Board: rot hervorgehoben; „erledigt“ darf nur der Absender
+    val alert: Boolean = false,
+    val canDone: Boolean = true
 )
 
 object Feed {
@@ -320,8 +326,12 @@ object Feed {
         "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".")} ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
 
     // Kopfzeile immer kurz wie in der App: „Do, 12. Nov.“ (gleich bei kleiner und großer Schrift)
-    fun headLabel(@Suppress("UNUSED_PARAMETER") ctx: Context, d: LocalDate): String =
-        "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".").take(2)}, ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN).take(3)}."
+    // Kopfzeile: Datum und dahinter die Familie, an der das Widget hängt (wichtig, wenn man in mehreren Familien ist)
+    fun headLabel(ctx: Context, d: LocalDate): String {
+        val date = "${d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.GERMAN).removeSuffix(".").take(2)}, ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN).take(3)}."
+        val fam = try { cache(ctx).getString("feed", null)?.let { JSONObject(it).optJSONObject("family")?.optString("name") } } catch (e: Exception) { null }
+        return if (fam.isNullOrBlank()) date else "$date · $fam"
+    }
 
     fun headLabel(d: LocalDate): String =
         "${d.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.GERMAN)}, ${d.dayOfMonth}. ${d.month.getDisplayName(TextStyle.FULL, Locale.GERMAN)}"
@@ -421,8 +431,9 @@ object Feed {
                         }
                     }.let { dl -> flights[e.optString("id")]?.let { fl -> "✈ $fl" + (dl?.let { " · $it" } ?: "") } ?: dl }
                         // Ohne Fahrer: Ort darunter, wie auf der Startseite der App
-                        ?: e.optString("place").takeIf { it.isNotEmpty() && it != "null" } ?: "",
-                    color = first?.let { color[it] } ?: Color.GRAY,
+                        // Aus einem Kinder-Bereich: dessen Name vor dem Ort, Farbe des Bereichs
+                        ?: listOf(e.optString("area"), e.optString("place")).filter { it.isNotEmpty() && it != "null" }.joinToString(" · "),
+                    color = e.optString("color").takeIf { it.startsWith("#") }?.let { parseColor(it) } ?: first?.let { color[it] } ?: Color.GRAY,
                     faded = past,
                     open = "event:" + e.optString("id") + ":" + d
                 )

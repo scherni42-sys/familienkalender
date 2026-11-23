@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from 'react';
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { hm, today } from '../lib/dates';
-import { bdOn, colorOf, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, travel, visibleOnDay, whenM } from '../lib/model';
+import { bdOn, colorOf, evColor, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, TIER, travel, visibleOnDay, whenM } from '../lib/model';
 import { flightShort, useFlight } from '../lib/flight';
 import { Badge, cvar, Icon, useLong } from './ui';
 import { chatPreview, chatThreads } from './Chat';
 import { openShop } from '../lib/shop';
+import { isSosMsg } from '../lib/sos';
 
 // Startseite der App im Aussehen des Handy-Widgets: nur Heute, dazu das Board auf dunklem Grund
 type Filter = 'all' | 'family' | 'home';
@@ -40,15 +41,17 @@ function Row({ e, d, snap, now, go }: { e: CalEvent; d: string; snap: Snapshot; 
   const where = [e.place, isOnline(e) ? '' : e.addr].filter(Boolean).join(' · ');
   const left = !e.all_day && !past && e.start_min > now ? e.start_min - now : null;
   const l = useLong(() => go.edit(e.id));
-  const short = drive ? <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {drive}</div> : e.place ? <div className="wv-sub">{e.place}</div> : null;
+  const short = e.area ? <div className="wv-sub">{e.area.name}{e.tier === 'care' ? ' · Betreuung' : ''}{e.place ? ` · ${e.place}` : ''}</div>
+    : drive ? <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {drive}</div> : e.place ? <div className="wv-sub">{e.place}</div> : null;
   return (
-    <div className={`wv-row${open ? ' big' : ''}${past ? ' past' : ''}`} style={cvar(colorOf(snap.members, e.persons[0] ?? e.owner))} role="button" tabIndex={0} aria-expanded={open}
+    <div className={`wv-row${open ? ' big' : ''}${past ? ' past' : ''}`} style={cvar(evColor(snap.members, e))} role="button" tabIndex={0} aria-expanded={open}
       {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } setOpen(o => !o); }} onKeyDown={k => { if (k.key === 'Enter') setOpen(o => !o); }}>
       <i className="wv-bar" />
       <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}{open && !e.all_day && <small>{hm(e.end_min)}</small>}</time>
       <div className="wv-txt">
-        <div className={`wv-t${open ? ' wrap' : ''}`}>{e.vis !== 'family' && <Icon name="lock" />}<span>{e.title}</span>{!open && e.files?.length ? <Icon name="clip" /> : null}</div>
+        <div className={`wv-t${open ? ' wrap' : ''}`}>{(e.vis !== 'family' || e.tier === 'parents') && <Icon name="lock" />}<span>{e.title}</span>{!open && e.files?.length ? <Icon name="clip" /> : null}</div>
         {!open ? <><Flight e={e} />{short}</> : <>
+          {e.area && <div className="wv-sub">{e.area.name}{e.tier ? ` · ${TIER[e.tier][0]}` : ''}</div>}
           {e.persons.length > 0 && <div className="wv-sub">{e.persons.map(p => nm(p)).join(', ')}</div>}
           {where && <div className="wv-sub wrap"><Icon name="pin" /> {where}</div>}
           {isOnline(e) && <div className="wv-sub">Online-Besprechung</div>}
@@ -94,6 +97,9 @@ export function WidgetView({ snap, filter, now, go, big, bigEl, toggle, chat, sh
   // Einkaufszettel: grünes Zettel-Symbol rechts neben „Board“, nur solange etwas zu kaufen ist
   const shopN = openShop(snap.shopping).length;
   const pill = (w: 'board' | 'chat', label: string, n = 0) => <div className={`wv-sec${big ? ' top' : ''}${w === 'chat' && big === 'chat' ? ' slotted' : ''}${w === 'board' && shopN > 0 && shop ? ' shopped' : ''}`}><button type="button" className={`kw-p bd-p${big === w ? ' on' : ''}`} aria-pressed={big === w} onClick={() => toggle(w)}>{label}{n > 0 && <i className="bd-n">{n}</i>}</button>{w === 'chat' && big === 'chat' && <span id="wv-chat-slot" className="wv-slot" />}{w === 'board' && shopN > 0 && shop && <button type="button" className="shop-p" onClick={shop} aria-label={`Einkaufszettel, ${shopN} offen`} title="Einkaufszettel"><Icon name="note" /><i className="bd-n">{shopN}</i></button>}</div>;
+  // Kinder-Bereich: nur Termine, kein Board und kein Chat (bleiben in den Familien)
+  if (snap.family?.kind === 'kids') return <div className="wv"><Day d={t} snap={snap} filter={filter} now={now} go={go} />
+    <div className="wv-note">Kinder-Bereich {snap.family.name}: Termine, Betreuung und Absprachen. Alle Tage unter „KW“.</div></div>;
   return (
     <div className="wv">
       {!big && <Day d={t} snap={snap} filter={filter} now={now} go={go} />}
