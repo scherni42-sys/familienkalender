@@ -10,6 +10,8 @@ import android.os.Bundle
 import android.util.Base64
 import android.view.View
 import android.widget.Button
+import android.widget.CheckBox
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import org.json.JSONArray
@@ -22,10 +24,14 @@ import kotlin.concurrent.thread
 
 // „Teilen“ → Familie sprechen: Screenshot, Foto oder Text wird von Claude gelesen und als Termin vorgeschlagen.
 // Ein Tipp auf Privat oder Familie speichert, das Fenster schließt sich.
+// Stehen mehrere Termine auf dem Bild (z. B. Abfuhrkalender), erscheint eine Liste zum Abhaken;
+// Termine, die schon im Kalender stehen, sind markiert und abgewählt.
 class ShareActivity : Activity() {
     private var event: JSONObject? = null
     private var members = JSONArray()
     private var me = ""
+    private var known = JSONArray()
+    private val picks = mutableListOf<Pair<JSONObject, CheckBox>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,6 +80,7 @@ class ShareActivity : Activity() {
         val feed = Feed.load(this, 300_000).first ?: return "Keine Verbindung."
         me = Feed.me(feed) ?: return "Dafür brauchst du deinen persönlichen Code (Einstellungen → „Mein Handy-Widget“)."
         members = feed.optJSONArray("members") ?: JSONArray()
+        known = feed.optJSONArray("events") ?: JSONArray()
         val body = JSONObject().put("text", text).put("today", LocalDate.now().toString()).put("me", me)
             .put("members", members).put("widget_token", c.token)
         if (uri != null) body.put("image", imageJson(uri) ?: return "Das Bild ließ sich nicht öffnen.")
@@ -82,7 +89,78 @@ class ShareActivity : Activity() {
         return if (event == null) "Claude hat darin keinen Termin gefunden ($code)." else null
     }
 
+    // Titel vergleichbar machen: klein, ohne Klammerzusätze und Satzzeichen
+    private fun norm(t: String) = t.lowercase().replace(Regex("\\([^)]*\\)"), " ").replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+
+    // Steht der Termin schon im Kalender? Gleicher Tag, ähnlicher Titel (bei Uhrzeit auch gleicher Beginn)
+    private fun twin(e: JSONObject): JSONObject? {
+        val t = norm(e.optString("title"))
+        if (t.isEmpty()) return null
+        val d = e.optString("date")
+        for (i in 0 until known.length()) {
+            val k = known.optJSONObject(i) ?: continue
+            val kd = k.optString("date")
+            if (kd > d || k.optString("end_date", kd).ifEmpty { kd } < d) continue
+            if (!e.optBoolean("all_day") && !k.optBoolean("all_day") && e.optInt("start_min") != k.optInt("start_min")) continue
+            val o = norm(k.optString("title"))
+            if (o.isNotEmpty() && (o == t || o.contains(t) || t.contains(o))) return k
+        }
+        return null
+    }
+
+    // Alle Termine vom Bild: der erste plus „more“ (gleiche Personen und Art wie der erste)
+    private fun all(): List<JSONObject> {
+        val ev = event ?: return emptyList()
+        val out = mutableListOf(ev)
+        val more = ev.optJSONArray("more") ?: return out
+        for (i in 0 until minOf(more.length(), 60)) {
+            val m = more.optJSONObject(i) ?: continue
+            if (!Regex("\\d{4}-\\d{2}-\\d{2}").matches(m.optString("date")) || m.optString("title").isBlank()) continue
+            val x = JSONObject(ev.toString()).put("more", JSONArray())
+            for (k in listOf("title", "date", "end_date", "all_day", "start_min", "end_min", "place")) if (m.has(k)) x.put(k, m.get(k))
+            x.put("addr", "").put("bring", JSONArray())
+            out += x
+        }
+        return out
+    }
+
+    private fun whenText(e: JSONObject): String {
+        val d = try { LocalDate.parse(e.optString("date")) } catch (x: Exception) { LocalDate.now() }
+        return Feed.dateLabel(d) + if (e.optBoolean("all_day")) "" else ", %d:%02d Uhr".format(e.optInt("start_min") / 60, e.optInt("start_min") % 60)
+    }
+
+    // Liste zum Abhaken statt eines einzelnen Termins
+    private fun showList(list: List<JSONObject>) {
+        findViewById<TextView>(R.id.s_title).visibility = View.GONE
+        findViewById<TextView>(R.id.s_when).visibility = View.GONE
+        val box = findViewById<LinearLayout>(R.id.s_list)
+        box.removeAllViews()
+        picks.clear()
+        var twins = 0
+        for (e in list) {
+            val tw = twin(e)
+            if (tw != null) twins++
+            val cb = CheckBox(this)
+            cb.text = "${e.optString("title")}\n${whenText(e)}" + (if (tw != null) "\nSteht schon drin: ${tw.optString("title")}" else "")
+            cb.textSize = 16f
+            cb.isChecked = tw == null
+            cb.setPadding(0, 10, 0, 10)
+            cb.setOnCheckedChangeListener { _, _ -> count() }
+            box.addView(cb)
+            picks += e to cb
+        }
+        // Lange Listen scrollen statt das Fenster zu sprengen
+        if (list.size > 5) findViewById<View>(R.id.s_scroll).layoutParams.height = (resources.displayMetrics.heightPixels * 0.5).toInt()
+        findViewById<View>(R.id.s_scroll).visibility = View.VISIBLE
+        status("${list.size} Termine gefunden" + when (twins) { 0 -> ""; 1 -> ", einer steht schon drin"; else -> ", $twins stehen schon drin" } + ". Abhaken, dann Privat oder Familie.")
+        count()
+    }
+
+    private fun count() { buttons(picks.any { it.second.isChecked }) }
+
     private fun show() {
+        val list = all()
+        if (list.size > 1 || (list.isNotEmpty() && twin(list[0]) != null)) { showList(list); return }
         val ev = event ?: return
         val allDay = ev.optBoolean("all_day")
         val d = try { LocalDate.parse(ev.optString("date")) } catch (e: Exception) { LocalDate.now() }
@@ -98,10 +176,35 @@ class ShareActivity : Activity() {
 
     private fun save(m: String) {
         val ev = event ?: return
+        val todo = if (picks.isEmpty()) listOf(ev) else picks.filter { it.second.isChecked }.map { it.first }
+        if (todo.isEmpty()) return
         buttons(false)
         status("Speichere …")
         thread {
-            val err = try {
+            var done = 0
+            var err: String? = null
+            for (one in todo) {
+                err = saveOne(one, m)
+                if (err != null) break
+                done++
+            }
+            runOnUiThread {
+                if (err != null) {
+                    // Schon Gespeichertes nicht doppelt anlegen: aus der Liste nehmen
+                    if (done > 0 && picks.isNotEmpty()) todo.take(done).forEach { s -> picks.firstOrNull { it.first === s }?.second?.let { cb -> cb.isChecked = false; cb.isEnabled = false } }
+                    status(if (done > 0) "$done gespeichert, dann: $err" else err!!); buttons(true); return@runOnUiThread
+                }
+                val what = if (m == "family") "Familientermin" else "Privater Termin"
+                Toast.makeText(this, if (todo.size == 1) "$what gespeichert: ${todo[0].optString("title")}" else "${todo.size} ${if (m == "family") "Familientermine" else "private Termine"} gespeichert", Toast.LENGTH_LONG).show()
+                sendBroadcast(Intent(this, TodayWidget::class.java).setAction(TodayWidget.REFRESH))
+                finish()
+            }
+        }
+    }
+
+    // Einen Termin speichern; liefert eine Fehlermeldung oder null
+    private fun saveOne(ev: JSONObject, m: String): String? =
+            try {
                 val allDay = ev.optBoolean("all_day")
                 val date = ev.optString("date").ifEmpty { LocalDate.now().toString() }
                 val ids = (0 until members.length()).map { members.getJSONObject(it).optString("id") }.toSet()
@@ -125,14 +228,6 @@ class ShareActivity : Activity() {
                 val (code, res) = http("${c.url}/rest/v1/rpc/widget_save_event", c.key, JSONObject().put("p_token", c.token).put("p", p))
                 if (code in 200..299) null else (try { JSONObject(res).optString("message") } catch (e: Exception) { "" }).ifEmpty { "Server meldet $code" }
             } catch (e: Exception) { e.message ?: "Keine Verbindung" }
-            runOnUiThread {
-                if (err != null) { status(err); buttons(true); return@runOnUiThread }
-                Toast.makeText(this, "${if (m == "family") "Familientermin" else "Privater Termin"} gespeichert: ${ev.optString("title")}", Toast.LENGTH_LONG).show()
-                sendBroadcast(Intent(this, TodayWidget::class.java).setAction(TodayWidget.REFRESH))
-                finish()
-            }
-        }
-    }
 
     private fun http(url: String, key: String, body: JSONObject): Pair<Int, String> {
         val conn = URL(url).openConnection() as HttpURLConnection

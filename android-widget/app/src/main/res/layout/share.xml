@@ -27,6 +27,21 @@
         android:layout_marginTop="4dp"
         android:textSize="16sp" />
 
+    <!-- Mehrere Termine vom Bild: Liste zum Abhaken (sonst unsichtbar) -->
+    <ScrollView
+        android:id="@+id/s_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:id="@+id/s_list"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
