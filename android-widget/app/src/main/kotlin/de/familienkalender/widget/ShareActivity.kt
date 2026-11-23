@@ -77,7 +77,8 @@ class ShareActivity : Activity() {
     // Liefert eine Fehlermeldung oder null
     private fun parse(text: String, uri: Uri?): String? {
         val c = Feed.config(this) ?: return "Bitte zuerst „Widget einrichten“ und den Code eintragen."
-        val feed = Feed.load(this, 300_000).first ?: return "Keine Verbindung."
+        // Frisch laden, damit die Doppelt-Prüfung auch gerade erst eingetragene Termine kennt
+        val feed = Feed.load(this).first ?: return "Keine Verbindung."
         me = Feed.me(feed) ?: return "Dafür brauchst du deinen persönlichen Code (Einstellungen → „Mein Handy-Widget“)."
         members = feed.optJSONArray("members") ?: JSONArray()
         known = feed.optJSONArray("events") ?: JSONArray()
@@ -86,6 +87,7 @@ class ShareActivity : Activity() {
         if (uri != null) body.put("image", imageJson(uri) ?: return "Das Bild ließ sich nicht öffnen.")
         val (code, res) = http("${c.url}/functions/v1/parse-event", c.key, body)
         event = try { JSONObject(res).optJSONObject("event") } catch (e: Exception) { null }
+        if (event == null && code == 402) return "Termine aus geteilten Texten und Bildern erkennt Claude in FamTO Pro."
         return if (event == null) "Claude hat darin keinen Termin gefunden ($code)." else null
     }
 
