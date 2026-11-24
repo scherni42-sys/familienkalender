@@ -14,17 +14,20 @@ const cors = {
 const schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['answer', 'events', 'birthdays', 'receipts', 'action', 'target', 'new_text', 'dish', 'servings'],
+  required: ['answer', 'events', 'birthdays', 'receipts', 'action', 'target', 'new_text', 'dish', 'servings', 'dest', 'board_text', 'board_private'],
   properties: {
     answer: { type: 'string', description: 'Kurze, freundliche Antwort auf Deutsch (1 bis 3 Sätze), duzen. Bei Listen nur zusammenfassen, die Termine zeigt die App darunter.' },
     events: { type: 'array', items: { type: 'integer' }, description: 'Nummern (#) der passenden Termine, chronologisch, höchstens 30' },
     birthdays: { type: 'array', items: { type: 'integer' }, description: 'Nummern (G#) passender Geburtstage' },
     receipts: { type: 'array', items: { type: 'integer' }, description: 'Nummern (B#) passender Belege aus dem Kassenbuch, neueste zuerst, höchstens 30' },
-    action: { type: 'string', enum: ['none', 'open', 'edit', 'new', 'bdays', 'shop'], description: 'open: einen Termin anzeigen · edit: einen Termin bearbeiten · new: neuen Termin anlegen · bdays: Geburtstage öffnen · shop: Zutaten für ein Gericht auf den Einkaufszettel · none: nur antworten' },
+    action: { type: 'string', enum: ['none', 'open', 'edit', 'new', 'bdays', 'shop', 'nav', 'board'], description: 'open: einen Termin anzeigen · edit: einen Termin bearbeiten · new: neuen Termin anlegen · bdays: Geburtstage öffnen · shop: Zutaten für ein Gericht auf den Einkaufszettel · nav: Navigation mit Google Maps starten · board: Nachricht ans Familien-Board heften · none: nur antworten' },
     target: { type: ['integer', 'null'], description: 'Nummer des Termins für open/edit' },
     new_text: { type: ['string', 'null'], description: 'Bei new: der Terminwunsch als Satz, z. B. „Freitag 15 Uhr Zahnarzt Mia“' },
     dish: { type: ['string', 'null'], description: 'Bei shop: das Gericht, so wie genannt, z. B. „Wiener Schnitzel mit Kartoffelstampf“' },
-    servings: { type: ['integer', 'null'], description: 'Bei shop: für wie viele Personen, wenn genannt, sonst null' }
+    servings: { type: ['integer', 'null'], description: 'Bei shop: für wie viele Personen, wenn genannt, sonst null' },
+    dest: { type: ['string', 'null'], description: 'Bei nav: das Ziel als Suchbegriff für Google Maps, z. B. „Supermarkt“, „Sparkasse Winsen (Luhe)“, „Hamburg Hauptbahnhof“; „nächste“ weglassen. Bei einem Termin als Ziel dessen Adresse bzw. Ort.' },
+    board_text: { type: ['string', 'null'], description: 'Bei board: der Text der Nachricht, als vollständiger Satz in der Form, wie er am Board stehen soll, ohne „schreib ans Board“' },
+    board_private: { type: ['boolean', 'null'], description: 'Bei board: true, wenn die Nachricht nur für die fragende Person sein soll (privat, Erinnerung für mich), sonst false' }
   }
 };
 
@@ -81,6 +84,8 @@ Regeln:
 - Wer für ein Gericht einkaufen, es kochen oder die Zutaten auf den Einkaufszettel haben will („Einkaufen für Wiener Schnitzel mit Kartoffelstampf“, „Lasagne für 6 Personen“), bekommt action „shop“ mit dish und servings; answer dann kurz, z. B. „Ich schreibe dir die Zutaten auf den Einkaufszettel.“ Fragen nach vergangenen Einkäufen gehören dagegen zum Kassenbuch.
 - Fragen zu Ausgaben, Einkäufen, Rechnungen oder Belegen beantwortest du aus dem Kassenbuch: rechne Summen genau aus und nenne sie in Euro (z. B. „123,45 €“), die passenden Belege kommen in receipts. Fremde Belege zählen nur mit ihrem Familienanteil.
 - Fragen nach Rechnungen an eine Firma oder Person beantwortest du über „an …“ (Rechnungsempfänger) und „Firma …“ (zugeordnete Firma); Schreibweisen dürfen leicht abweichen.
+- Wer irgendwohin geführt, navigiert, geschickt oder gebracht werden will oder den Weg wissen möchte („Führe mich zum nächsten Supermarkt“, „Kannst du mich zur Sparkasse in Winsen schicken“, „Wie komme ich zu Omas Geburtstag“), bekommt action „nav“ mit dest; answer kurz, z. B. „Ich starte die Route zur Sparkasse in Winsen.“ Sag nie, dass du nicht navigieren kannst: die App öffnet Google Maps.
+- Wer etwas ans Board, an die Pinnwand oder als Nachricht an die Familie schreiben will oder eine private Erinnerung/Notiz für sich möchte, bekommt action „board“ mit board_text und board_private.
 - Erfinde nichts. Findest du nichts Passendes, sag das freundlich und schlage eine andere Formulierung vor.
 - Datumsangaben in der Antwort deutsch, z. B. „Freitag, 6. November, 17 Uhr“.`,
         cache_control: { type: 'ephemeral' }
