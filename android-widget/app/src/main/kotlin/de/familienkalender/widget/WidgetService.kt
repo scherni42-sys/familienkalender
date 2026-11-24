@@ -104,6 +104,9 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 setTextViewText(R.id.drive, r.drive)
                 setViewVisibility(R.id.drive, if (r.drive.isNotEmpty()) View.VISIBLE else View.GONE)
                 setInt(R.id.bar, "setBackgroundColor", r.color)
+                // Offene Einladung: goldenes @, antippen öffnet in der App das Zusagen-Fenster
+                setViewVisibility(R.id.at, if (r.ask) View.VISIBLE else View.GONE)
+                if (r.ask) setOnClickFillInIntent(R.id.at, Intent().putExtra(OpenActivity.EXTRA_OPEN, "answer:" + r.open.split(":").getOrElse(1) { "" }))
                 if (r.kind == Kind.EVENT) {
                     setTextViewText(R.id.time, r.time)
                     setViewVisibility(R.id.time, View.VISIBLE)

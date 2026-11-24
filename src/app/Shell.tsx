@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { askInvite, AtMark, inviteCls, inviteState, InviteAsk } from './invite';
 import { demoLink, isPro, store, useSnapshot } from '../lib/store';
 import { ask } from './ask';
 import { micStart } from '../lib/micstart';
@@ -91,6 +92,7 @@ export function Shell() {
       widgetOpen.current = false; setSheet(null); setNonce(n => n + 1);
       const [k, id] = o.split(':');
       if (k === 'event' && snapRef.current.events.some(e => e.id === id)) openW({ kind: 'detail', id, day: o.split(':')[2] });
+      if (k === 'answer' && id) askInvite(id);
       if (k === 'bdays') openW({ kind: 'bdays' });
       if (k === 'bday' && id) openW({ kind: 'bdays', open: id });
       if (k === 'bdadd') openW({ kind: 'bdays', adding: true });
@@ -179,6 +181,7 @@ export function Shell() {
       {sheet?.kind === 'shop' && <ShopSheet close={() => setSheet(null)} />}
       {sheet?.kind === 'bdays' && <BdaySheet key={sheet.open ?? ''} adding={sheet.adding} open={sheet.open} close={() => setSheet(null)} />}
       <PushBanner now={now} />
+      <InviteAsk />
       <SosBanner />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
     </div>
@@ -208,6 +211,7 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
   const [armed, setArmed] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   const longed = useRef(false);
+  const inv = inviteState(e, snap.me, past);
   const mayDelete = !e.area && (e.owner === snap.me || e.vis === 'family');
   // Lange drücken: gleich das Bearbeiten-Fenster (Löschen gibt es dort)
   const press = () => { longed.current = false; window.clearTimeout(timer.current); if (mayDelete) timer.current = window.setTimeout(() => { longed.current = true; navigator.vibrate?.(20); open(e.id, 'edit'); }, 550); };
@@ -220,11 +224,12 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
     } catch (x) { fail(x); setArmed(false); }
   };
   return (
-    <div className={`ev${e.files?.length ? ' has-clip' : ''}${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}`} style={cvar(evColor(snap.members, e))}
+    <div className={`ev${e.files?.length ? ' has-clip' : ''}${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}${inviteCls(inv)}`} style={cvar(evColor(snap.members, e))}
       data-ev role="button" tabIndex={0}
       onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (mayDelete) x.preventDefault(); }}
       onClick={() => { if (longed.current) { longed.current = false; return; } if (armed) { setArmed(false); return; } open(e.id); }}
       onKeyDown={k => { if (k.key === 'Enter') open(e.id); if (k.key === 'Delete' && mayDelete) setArmed(true); }} aria-label={`${e.title}, Details öffnen, lange drücken zum Bearbeiten`}>
+      {inv === 'ask' && <AtMark id={e.id} />}
       {armed && <button type="button" className="ev-del" onClick={del} aria-label={`${e.title} löschen`}><Icon name="trash" /></button>}
       <Time e={e} d={d} />
       <div style={{ minWidth: 0 }}>

@@ -43,7 +43,9 @@ data class Row(
     val priv: Boolean = false,
     // SOS am Board: rot hervorgehoben; „erledigt“ darf nur der Absender
     val alert: Boolean = false,
-    val canDone: Boolean = true
+    val canDone: Boolean = true,
+    // Offene Einladung (noch nicht zu- oder abgesagt): goldenes @ rechts vom Farbbalken
+    val ask: Boolean = false
 )
 
 object Feed {
@@ -411,6 +413,22 @@ object Feed {
                 if (isToday && past && hidePast) continue
                 val persons = e.optJSONArray("persons")
                 val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
+                // Familientermin eines anderen (nur mit persönlichem Widget-Code): blass, bis ich zugesagt habe;
+                // nicht eingeladen oder abgesagt: bleibt blass. "ask" = noch keine Antwort, dann mit goldenem @
+                val invite: String? = run {
+                    val myId = me(feed) ?: return@run null
+                    if (e.optString("vis", "family") != "family" || e.optString("color").startsWith("#") || e.optString("area").let { it.isNotEmpty() && it != "null" }) return@run null
+                    val inList = persons != null && (0 until persons.length()).any { persons.optString(it) == myId }
+                    val by = id(e, "persons_by")
+                    val answers = e.optJSONObject("persons_ok") ?: JSONObject()
+                    when {
+                        by != null && by != myId && inList && !answers.has(myId) -> if (past) "pale" else "ask"
+                        id(e, "owner") == myId -> null
+                        !inList -> "pale"
+                        by != null && answers.has(myId) && !answers.optBoolean(myId) -> "pale"
+                        else -> null
+                    }
+                }
                 val driver = id(e, "driver")
                 val trip = e.optString("trip", "hin")
                 val eta = etaOf(e)
@@ -438,7 +456,8 @@ object Feed {
                         // Aus einem Kinder-Bereich: dessen Name vor dem Ort, Farbe des Bereichs
                         ?: listOf(e.optString("area"), e.optString("place")).filter { it.isNotEmpty() && it != "null" }.joinToString(" · "),
                     color = e.optString("color").takeIf { it.startsWith("#") }?.let { parseColor(it) } ?: first?.let { color[it] } ?: Color.GRAY,
-                    faded = past,
+                    faded = past || invite != null,
+                    ask = invite == "ask",
                     open = "event:" + e.optString("id") + ":" + d
                 )
                 shown++

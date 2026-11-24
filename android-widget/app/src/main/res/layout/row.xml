@@ -15,6 +15,21 @@
         android:minHeight="22dp"
         android:layout_marginEnd="8dp" />
 
+    <!-- Offene Einladung: goldenes @ gleich rechts vom Farbbalken -->
+    <TextView
+        android:id="@+id/at"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_marginEnd="6dp"
+        android:background="@drawable/at_bg"
+        android:gravity="center"
+        android:includeFontPadding="false"
+        android:text="\@"
+        android:textColor="#FF4A3500"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <!-- Board-Nachricht: Avatar des Absenders -->
     <ImageView
         android:id="@+id/av"

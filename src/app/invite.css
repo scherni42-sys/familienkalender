@@ -1,0 +1,20 @@
+/* Familientermine anderer: blass, solange ich nicht zugesagt habe oder nicht eingeladen bin */
+.ev.pale { background: color-mix(in srgb, var(--c, var(--line)) 4%, var(--surface)); border-left-color: color-mix(in srgb, var(--c, var(--line)) 45%, transparent); }
+.ev.pale > :not(.inv-at):not(.ev-del) { opacity: .5; }
+.ev.pale.past > :not(.inv-at):not(.ev-del) { opacity: .7; }
+.wv-row.pale > :not(.inv-at) { opacity: .45; }
+
+/* Offene Einladung: goldenes @ gleich rechts vom Farbbalken */
+.inv-at { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: #f5c542; color: #4a3500; font: 800 14px/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 0 0 2px color-mix(in srgb, #f5c542 35%, transparent); }
+.ev.asking { padding-left: 40px; }
+.ev.asking > .inv-at { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); z-index: 1; }
+.wv-row.asking > .inv-at { width: 20px; height: 20px; font-size: 13px; margin-left: -2px; }
+
+/* Zusagen-Fenster */
+.inv-ov { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.4); display: grid; place-items: center; padding: 16px; }
+.inv-card { width: min(360px, 100%); background: var(--surface); color: var(--ink); border-radius: 18px; padding: 18px 16px 10px; display: grid; gap: 6px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+.inv-card b { font-size: 17px; }
+.inv-card .inv-at.big { justify-self: center; width: 40px; height: 40px; font-size: 24px; cursor: default; margin-bottom: 4px; }
+.inv-by { color: var(--muted); font-size: 13px; }
+.inv-btns { display: flex; gap: 8px; margin-top: 8px; }
+.inv-later { border: 0; background: none; color: var(--muted); padding: 8px; font: inherit; font-size: 13px; }
