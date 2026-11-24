@@ -48,6 +48,12 @@ export const leg2 = (e: CalEvent, s: Settings) => (e.trip === 'beides' && e.driv
 // Wer gerade fährt (Ankunftszeit gesetzt)
 export const etaDriver = (e: CalEvent) => e.eta_by ?? e.driver;
 export const isDriver = (e: CalEvent, me: string | null) => !!me && (e.driver === me || e.driver2 === me);
+// Antwort eines Teilnehmers: true zugesagt, false abgesagt, null offen; undefined = keine Anfrage (ältere Termine)
+export const personAnswer = (e: CalEvent, id: string): boolean | null | undefined =>
+  !e.persons_by || !e.persons.includes(id) ? undefined : e.persons_ok?.[id] ?? null;
+// Mich hat jemand anderes eingetragen und ich habe noch nicht geantwortet
+export const askPerson = (e: CalEvent, me: string | null) =>
+  !!me && !!e.persons_by && e.persons_by !== me && e.persons.includes(me) && e.persons_ok?.[me] === undefined;
 export const tripWord = (e: CalEvent) => (e.trip === 'ab' ? 'holt ab' : 'bringt');
 
 export function visibleOnDay(events: CalEvent[], busy: BusySlot[], d: string, me: string | null, filter: 'all' | 'family' | 'home') {

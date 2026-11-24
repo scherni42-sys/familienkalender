@@ -49,17 +49,18 @@ class TodayWidget : AppWidgetProvider() {
                 Toast.makeText(ctx, "Übernommen: ${intent.getIntExtra("min", 0)} Min. Fahrt", Toast.LENGTH_SHORT).show()
                 background(ctx)
             }
-            // Fahrer-Anfrage beantwortet: „Okay“ oder „Kann nicht“
+            // Fahrer- oder Teilnehmer-Anfrage beantwortet: zusagen oder absagen
             Reminders.ANSWER -> {
                 val event = intent.getStringExtra("event") ?: return
                 val ok = intent.getBooleanExtra("ok", true)
+                val person = intent.getBooleanExtra("person", false)
                 (ctx.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager).cancel(intent.getIntExtra("nid", 0))
                 val done = goAsync()
                 thread {
                     try {
-                        val err = Feed.answer(ctx, event, ok)
+                        val err = if (person) Feed.personAnswer(ctx, event, ok) else Feed.answer(ctx, event, ok)
                         Handler(Looper.getMainLooper()).post {
-                            Toast.makeText(ctx, err ?: if (ok) "Danke, die Familie weiß Bescheid." else "Abgesagt. Wer dich eingetragen hat, bekommt Bescheid.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(ctx, err ?: if (ok) (if (person) "Zugesagt. Wer dich eingetragen hat, bekommt Bescheid." else "Danke, die Familie weiß Bescheid.") else "Abgesagt. Wer dich eingetragen hat, bekommt Bescheid.", Toast.LENGTH_LONG).show()
                         }
                         Feed.load(ctx).first?.let { Reminders.process(ctx, it); NextWidget.updateAll(ctx, it) }
                         refreshData(ctx)

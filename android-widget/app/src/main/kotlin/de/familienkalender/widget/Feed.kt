@@ -294,6 +294,10 @@ object Feed {
     fun answer(ctx: Context, event: String, ok: Boolean): String? =
         rpc(ctx, "widget_driver_answer", JSONObject().put("p_event", event).put("p_ok", ok))
 
+    // Eingetragener Teilnehmer sagt zu (ok) oder ab
+    fun personAnswer(ctx: Context, event: String, ok: Boolean): String? =
+        rpc(ctx, "widget_person_answer", JSONObject().put("p_event", event).put("p_ok", ok))
+
     // Google Maps beendet: Fahrt beenden, am Ziel als angekommen
     fun etaStop(ctx: Context, event: String, arrived: Boolean): String? =
         rpc(ctx, "widget_eta_stop", JSONObject().put("p_event", event).put("p_arrived", arrived))

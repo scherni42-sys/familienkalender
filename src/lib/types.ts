@@ -40,6 +40,8 @@ export interface CalEvent {
   driver_ok?: boolean | null; // Fahrer hat zugesagt
   driver2_ok?: boolean | null;
   declined_by?: string | null; // wer abgesagt hat („Kann nicht“)
+  persons_by?: string | null; // wer die Teilnehmer eingetragen hat (bekommt Zu- und Absagen)
+  persons_ok?: Record<string, boolean>; // Antworten der Teilnehmer: true = zugesagt, false = abgesagt, fehlt = offen
   notes: string;
   bring: string[];
   discreet: boolean;

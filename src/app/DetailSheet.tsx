@@ -6,7 +6,7 @@ import type { CalEvent } from '../lib/types';
 import { fail, toast } from './toast';
 import { hm, nowMin, today } from '../lib/dates';
 import { travelTime } from '../lib/ai';
-import { isOnline, meetingUrl, bdLabel, depart, etaDriver, etaMin, isDriver, leg2, nameOf, target, travel, upcoming, visLabel, whenText } from '../lib/model';
+import { isOnline, meetingUrl, bdLabel, depart, etaDriver, etaMin, isDriver, askPerson, personAnswer, leg2, nameOf, target, travel, upcoming, visLabel, whenText } from '../lib/model';
 import { inDays } from '../lib/dates';
 import { Badges, cvar, Icon, Sheet } from './ui';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -70,6 +70,7 @@ export function DetailSheet({ id, close, edit }: { id: string; day?: string; add
   const l2 = leg2(e, s);
   const nm = (id?: string | null) => nameOf(snap.members, id ?? null);
   const askMe = (e.driver === snap.me && e.driver_ok == null && !!e.driver_by && e.driver_by !== snap.me) || (e.driver2 === snap.me && e.driver2_ok == null && !!e.driver_by && e.driver_by !== snap.me);
+  const ansMark = (a: boolean | null | undefined) => a === true ? ' ✓' : a === false ? ' ✗' : a === null ? ' ?' : '';
   const okMark = (ok?: boolean | null) => ok ? ' ✓' : ok === null && e.driver_by ? ' (wartet auf Zusage)' : '';
   const eta = etaMin(e);
   // Navigation starten: Google Maps öffnen; fährt man selbst, sieht die Familie „unterwegs“ mit Ankunftszeit
@@ -97,7 +98,14 @@ export function DetailSheet({ id, close, edit }: { id: string; day?: string; add
       <h2>{e.title}</h2>
       <div className="dl">
         <Row k="Wann">{whenText(e)}</Row>
-        <Row k="Wer">{e.persons.length ? <><Badges ids={e.persons} members={snap.members} /> {e.persons.map(p => nameOf(snap.members, p)).join(', ')}</> : 'Niemand bestimmtes'}</Row>
+        <Row k="Wer">{e.persons.length ? <><Badges ids={e.persons} members={snap.members} /> {e.persons.map(p => nameOf(snap.members, p) + ansMark(personAnswer(e, p))).join(', ')}</> : 'Niemand bestimmtes'}
+          {e.persons_by && e.persons.some(p => personAnswer(e, p) === null) && <div className="note">✓ zugesagt · ✗ abgesagt · ? noch keine Antwort</div>}
+          {askPerson(e, snap.me) ? <div className="nav-row one" style={{ marginTop: 6 }}>
+            <button type="button" className="btn sm" onClick={() => store.personAnswer(e.id, true).then(() => toast(`Zugesagt. ${nm(e.persons_by)} bekommt Bescheid.`), fail)}>Zusagen</button>
+            <button type="button" className="btn ghost sm" onClick={() => store.personAnswer(e.id, false).then(() => toast(`Abgesagt. ${nm(e.persons_by)} bekommt Bescheid.`), fail)}>Absagen</button>
+          </div> : e.persons_by && e.persons_by !== snap.me && personAnswer(e, snap.me!) != null && <div className="note">
+            {personAnswer(e, snap.me!) ? 'Du hast zugesagt' : 'Du hast abgesagt'} · <button type="button" className="small-btn" onClick={() => store.personAnswer(e.id, !personAnswer(e, snap.me!)).then(() => toast('Geändert. ' + nm(e.persons_by) + ' bekommt Bescheid.'), fail)}>{personAnswer(e, snap.me!) ? 'Doch absagen' : 'Doch zusagen'}</button>
+          </div>}</Row>
         {(e.driver || e.declined_by) && <Row k="Fahrdienst">
           {e.driver ? <>{nm(e.driver)} {e.trip === 'ab' ? 'holt ab' : e.trip === 'beides' ? 'bringt hin' : 'fährt'}{okMark(e.driver_ok)}</> : null}
           {e.trip === 'beides' && e.driver2 ? <><br />{nm(e.driver2)} holt ab{okMark(e.driver2_ok)}</> : null}

@@ -25,6 +25,7 @@ export interface Store {
   saveEvent(e: NewEvent, editId?: string): Promise<string>;
   setEta(id: string, eta: string | null, driver?: string | null): Promise<void>;
   driverAnswer(id: string, ok: boolean): Promise<void>;
+  personAnswer(id: string, ok: boolean): Promise<void>;
   deleteEvent(id: string): Promise<void>;
   deleteMessage(id: string): Promise<void>;
   // Dokumente: an einen Termin (event) oder als neue Board-Nachricht (ohne event)
@@ -138,6 +139,9 @@ class LocalStore extends Base implements Store {
     this.patch(s => ({ events: s.events.map(x => x.id !== id ? x : x.driver === s.me
       ? (ok ? { ...x, driver_ok: true } : { ...x, driver: null, driver_ok: null, declined_by: s.me, eta: null })
       : (ok ? { ...x, driver2_ok: true } : { ...x, driver2: null, driver2_ok: null, declined_by: s.me })) }));
+  }
+  async personAnswer(id: string, ok: boolean) {
+    this.patch(s => ({ events: s.events.map(x => x.id !== id ? x : { ...x, persons_ok: { ...(x.persons_ok ?? {}), [s.me!]: ok } }) }));
   }
   async deleteMessage(id: string) { this.patch(s => ({ messages: s.messages.filter(x => x.id !== id) })); }
   async sendChat(to: string, c: ChatOut) {
@@ -471,6 +475,7 @@ class SupabaseStore extends Base implements Store {
     await this.refresh();
   }
   async driverAnswer(id: string, ok: boolean) { this.ok(await this.sb.rpc('driver_answer', { p_event: id, p_ok: ok })); await this.refresh(); }
+  async personAnswer(id: string, ok: boolean) { this.ok(await this.sb.rpc('person_answer', { p_event: id, p_ok: ok })); await this.refresh(); }
   private async files(body: object) {
     const { data, error } = await this.sb.functions.invoke('files', { body });
     if (error || data?.error) {

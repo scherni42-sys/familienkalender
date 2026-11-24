@@ -203,6 +203,36 @@ object Reminders {
                         if (k !in sent) { notify(ctx, k.hashCode(), "✗ ${nm(who)} kann nicht fahren: $title", "$whenTxt · Bitte jemand anderen eintragen.", "event:$id"); sent += k }
                     }
                 }
+                // Teilnehmer: mich hat jemand zu einem Termin hinzugefügt → zusagen oder absagen
+                if (e.has("persons_ok")) {
+                    val pby = Feed.id(e, "persons_by")
+                    val answers = e.optJSONObject("persons_ok") ?: JSONObject()
+                    val ps = e.optJSONArray("persons") ?: JSONArray()
+                    val inList = (0 until ps.length()).any { ps.optString(it) == me }
+                    val stamp = "${e.optString("date")}:${e.optInt("start_min")}"
+                    if (pby != null && pby != me && inList && !answers.has(me)) {
+                        val k = "inv:$id:$me:$stamp"
+                        if (k !in sent) {
+                            notifyAsk(ctx, k.hashCode(), "📅 Neuer Termin: $title", "${nm(pby)} hat dich eingetragen: $whenTxt" +
+                                (e.optString("place").takeIf { it.isNotBlank() && it != "null" }?.let { " · $it" } ?: ""), "event:$id", id, true)
+                            sent += k
+                        }
+                    }
+                    // Ich habe Leute eingetragen: Zusagen und Absagen melden
+                    if (pby == me) {
+                        val ks = answers.keys()
+                        while (ks.hasNext()) {
+                            val who = ks.next()
+                            if (who == me) continue
+                            val ok = answers.optBoolean(who)
+                            val k = "pans:$id:$who:$ok:$stamp"
+                            if (k in sent) continue
+                            if (ok) notify(ctx, k.hashCode(), "✓ ${nm(who)} ist dabei: $title", "Zusage für $whenTxt", "event:$id")
+                            else notify(ctx, k.hashCode(), "✗ ${nm(who)} kann nicht: $title", "Absage für $whenTxt", "event:$id")
+                            sent += k
+                        }
+                    }
+                }
                 // Familie: jemand fährt los oder ist angekommen
                 val etaBy = Feed.id(e, "eta_by")
                 val eta = local(if (e.isNull("eta")) null else e.optString("eta"))
@@ -311,23 +341,23 @@ object Reminders {
             .setContentTitle(title).setContentText(text).setContentIntent(tap).setAutoCancel(true).build())
     }
 
-    // Als Fahrer eingetragen: „Okay“ oder „Kann nicht“ direkt in der Benachrichtigung
-    private fun notifyAsk(ctx: Context, id: Int, title: String, text: String, open: String, event: String) {
+    // Als Fahrer oder Teilnehmer eingetragen: Zusage oder Absage direkt in der Benachrichtigung
+    private fun notifyAsk(ctx: Context, id: Int, title: String, text: String, open: String, event: String, person: Boolean = false) {
         if (Build.VERSION.SDK_INT >= 33 && ctx.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "Erinnerungen", NotificationManager.IMPORTANCE_HIGH))
         val tap = PendingIntent.getActivity(ctx, id, Intent(ctx, OpenActivity::class.java).putExtra(OpenActivity.EXTRA_OPEN, open)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         fun answer(ok: Boolean, req: Int) = PendingIntent.getBroadcast(ctx, req, Intent(ctx, TodayWidget::class.java).setAction(ANSWER)
-            .putExtra("event", event).putExtra("ok", ok).putExtra("nid", id), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            .putExtra("event", event).putExtra("ok", ok).putExtra("nid", id).putExtra("person", person), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val n = android.app.Notification.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_notify)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(android.app.Notification.BigTextStyle().bigText(text))
             .setContentIntent(tap)
-            .addAction(android.app.Notification.Action.Builder(null, "Okay, mach ich", answer(true, id + 1)).build())
-            .addAction(android.app.Notification.Action.Builder(null, "Kann nicht", answer(false, id + 2)).build())
+            .addAction(android.app.Notification.Action.Builder(null, if (person) "Zusagen" else "Okay, mach ich", answer(true, id + 1)).build())
+            .addAction(android.app.Notification.Action.Builder(null, if (person) "Absagen" else "Kann nicht", answer(false, id + 2)).build())
             .build()
         nm.notify(id, n)
     }
