@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { AtMark, inviteCls, inviteState } from './invite';
+import { askColor, askInvite, inviteCls, inviteState } from './invite';
 import type { Birthday, CalEvent, Snapshot } from '../lib/types';
 import { hm, today } from '../lib/dates';
 import { bdOn, colorOf, evColor, depart, driveDone, isOnline, etaDriver, etaMin, liveMsgs, nameOf, target, TIER, travel, visibleOnDay, whenM } from '../lib/model';
@@ -46,10 +46,9 @@ function Row({ e, d, snap, now, go }: { e: CalEvent; d: string; snap: Snapshot; 
   const short = e.area ? <div className="wv-sub">{e.area.name}{e.tier === 'care' ? ' · Betreuung' : ''}{e.place ? ` · ${e.place}` : ''}</div>
     : drive ? <div className={`wv-sub${soon ? ' soon' : ''}`}><Icon name="car" /> {drive}</div> : e.place ? <div className="wv-sub">{e.place}</div> : null;
   return (
-    <div className={`wv-row${open ? ' big' : ''}${past ? ' past' : ''}${inviteCls(inv)}`} style={cvar(evColor(snap.members, e))} role="button" tabIndex={0} aria-expanded={open}
-      {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } setOpen(o => !o); }} onKeyDown={k => { if (k.key === 'Enter') setOpen(o => !o); }}>
+    <div className={`wv-row${open ? ' big' : ''}${past ? ' past' : ''}${inviteCls(inv)}`} style={cvar(inv === 'ask' ? askColor(snap.members, e) : evColor(snap.members, e))} role="button" tabIndex={0} aria-expanded={open}
+      {...l.on} onClick={() => { if (l.longed.current) { l.longed.current = false; return; } if (inv === 'ask') askInvite(e.id); else setOpen(o => !o); }} onKeyDown={k => { if (k.key === 'Enter') { if (inv === 'ask') askInvite(e.id); else setOpen(o => !o); } }}>
       <i className="wv-bar" />
-      {inv === 'ask' && <AtMark id={e.id} />}
       <time>{e.all_day ? 'ganzt.' : hm(e.start_min)}{open && !e.all_day && <small>{hm(e.end_min)}</small>}</time>
       <div className="wv-txt">
         <div className={`wv-t${open ? ' wrap' : ''}`}>{(e.vis !== 'family' || e.tier === 'parents') && <Icon name="lock" />}<span>{e.title}</span>{!open && e.files?.length ? <Icon name="clip" /> : null}</div>

@@ -44,7 +44,7 @@ data class Row(
     // SOS am Board: rot hervorgehoben; „erledigt“ darf nur der Absender
     val alert: Boolean = false,
     val canDone: Boolean = true,
-    // Offene Einladung (noch nicht zu- oder abgesagt): goldenes @ rechts vom Farbbalken
+    // Offene Einladung (noch nicht zu- oder abgesagt): Uhrzeit golden, Balken kräftig in Farbe des Erstellers
     val ask: Boolean = false
 )
 
@@ -414,7 +414,7 @@ object Feed {
                 val persons = e.optJSONArray("persons")
                 val first = if (persons != null && persons.length() > 0) persons.getString(0) else null
                 // Familientermin eines anderen (nur mit persönlichem Widget-Code): blass, bis ich zugesagt habe;
-                // nicht eingeladen oder abgesagt: bleibt blass. "ask" = noch keine Antwort, dann mit goldenem @
+                // nicht eingeladen oder abgesagt: bleibt blass. "ask" = noch keine Antwort: Balken in Farbe des Erstellers, Uhrzeit golden
                 val invite: String? = run {
                     val myId = me(feed) ?: return@run null
                     if (e.optString("vis", "family") != "family" || e.optString("color").startsWith("#") || e.optString("area").let { it.isNotEmpty() && it != "null" }) return@run null
@@ -455,10 +455,13 @@ object Feed {
                         // Ohne Fahrer: Ort darunter, wie auf der Startseite der App
                         // Aus einem Kinder-Bereich: dessen Name vor dem Ort, Farbe des Bereichs
                         ?: listOf(e.optString("area"), e.optString("place")).filter { it.isNotEmpty() && it != "null" }.joinToString(" · "),
-                    color = e.optString("color").takeIf { it.startsWith("#") }?.let { parseColor(it) } ?: first?.let { color[it] } ?: Color.GRAY,
+                    color = e.optString("color").takeIf { it.startsWith("#") }?.let { parseColor(it) }
+                        ?: (if (invite == "ask") (id(e, "persons_by") ?: id(e, "owner"))?.let { color[it] } else null)
+                        ?: first?.let { color[it] } ?: Color.GRAY,
                     faded = past || invite != null,
                     ask = invite == "ask",
-                    open = "event:" + e.optString("id") + ":" + d
+                    // Offene Einladung: Antippen öffnet in der App gleich das Zusagen-Fenster
+                    open = (if (invite == "ask") "answer:" else "event:") + e.optString("id") + ":" + d
                 )
                 shown++
             }

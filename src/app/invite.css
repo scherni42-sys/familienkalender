@@ -1,20 +1,26 @@
 /* Familientermine anderer: blass, solange ich nicht zugesagt habe oder nicht eingeladen bin */
 .ev.pale { background: color-mix(in srgb, var(--c, var(--line)) 4%, var(--surface)); border-left-color: color-mix(in srgb, var(--c, var(--line)) 45%, transparent); }
-.ev.pale > :not(.inv-at):not(.ev-del) { opacity: .5; }
-.ev.pale.past > :not(.inv-at):not(.ev-del) { opacity: .7; }
-.wv-row.pale > :not(.inv-at) { opacity: .45; }
+.ev.pale > :not(.ev-del) { opacity: .5; }
+.ev.pale.past > :not(.ev-del) { opacity: .7; }
+.wv-row.pale > * { opacity: .45; }
 
-/* Offene Einladung: goldenes @ gleich rechts vom Farbbalken */
-.inv-at { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: #f5c542; color: #4a3500; font: 800 14px/1 system-ui, sans-serif; cursor: pointer; box-shadow: 0 0 0 2px color-mix(in srgb, #f5c542 35%, transparent); }
-.ev.asking { padding-left: 40px; }
-.ev.asking > .inv-at { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); z-index: 1; }
-.wv-row.asking > .inv-at { width: 20px; height: 20px; font-size: 13px; margin-left: -2px; }
+/* Offene Einladung (Zusage oder Absage fehlt): Balken in der Farbe des Erstellers pulsiert sanft, Uhrzeit golden wie die Zaubertaste.
+   Antippen öffnet das Zusagen-Fenster. */
+@keyframes inv-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+@keyframes inv-pulse-bar { 0%, 100% { border-left-color: var(--c); } 50% { border-left-color: color-mix(in srgb, var(--c) 20%, transparent); } }
+.ev.pale.asking { border-left-color: var(--c); animation: inv-pulse-bar 1.8s ease-in-out infinite; }
+/* In der hellen Liste: Uhrzeit auf goldenem Grund, damit sie lesbar bleibt */
+.ev.pale.asking > time { opacity: 1; justify-self: start; align-self: start; padding: 2px 6px; margin: -2px 0 0 -6px; border-radius: 8px; background: #FFC83D; color: #2b2100; }
+.ev.pale.asking > time span { color: #5a4300; }
+.wv-row.asking > .wv-bar { opacity: 1; animation: inv-pulse 1.8s ease-in-out infinite; }
+.wv-row.asking > time, .wv-row.asking > time small { opacity: 1; color: #FFC83D; }
+@media (prefers-reduced-motion: reduce) { .ev.pale.asking, .wv-row.asking > .wv-bar { animation: none; } }
 
 /* Zusagen-Fenster */
 .inv-ov { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.4); display: grid; place-items: center; padding: 16px; }
 .inv-card { width: min(360px, 100%); background: var(--surface); color: var(--ink); border-radius: 18px; padding: 18px 16px 10px; display: grid; gap: 6px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+.inv-head { justify-self: center; font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #b8860b; }
 .inv-card b { font-size: 17px; }
-.inv-card .inv-at.big { justify-self: center; width: 40px; height: 40px; font-size: 24px; cursor: default; margin-bottom: 4px; }
 .inv-by { color: var(--muted); font-size: 13px; }
 .inv-btns { display: flex; gap: 8px; margin-top: 8px; }
 .inv-later { border: 0; background: none; color: var(--muted); padding: 8px; font: inherit; font-size: 13px; }

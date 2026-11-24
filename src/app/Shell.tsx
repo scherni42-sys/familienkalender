@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { askInvite, AtMark, inviteCls, inviteState, InviteAsk } from './invite';
+import { askColor, askInvite, inviteCls, inviteState, InviteAsk } from './invite';
 import { demoLink, isPro, store, useSnapshot } from '../lib/store';
 import { ask } from './ask';
 import { micStart } from '../lib/micstart';
@@ -224,12 +224,11 @@ export function EvCard({ e, d, snap, now, open, flash }: { e: CalEvent; d: strin
     } catch (x) { fail(x); setArmed(false); }
   };
   return (
-    <div className={`ev${e.files?.length ? ' has-clip' : ''}${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}${inviteCls(inv)}`} style={cvar(evColor(snap.members, e))}
+    <div className={`ev${e.files?.length ? ' has-clip' : ''}${e.vis === 'family' ? '' : ' private'}${past ? ' past' : ''}${flash === e.id ? ' isnew' : ''}${armed ? ' armed' : ''}${inviteCls(inv)}`} style={cvar(inv === 'ask' ? askColor(snap.members, e) : evColor(snap.members, e))}
       data-ev role="button" tabIndex={0}
       onPointerDown={press} onPointerUp={release} onPointerLeave={release} onPointerCancel={release} onContextMenu={x => { if (mayDelete) x.preventDefault(); }}
-      onClick={() => { if (longed.current) { longed.current = false; return; } if (armed) { setArmed(false); return; } open(e.id); }}
-      onKeyDown={k => { if (k.key === 'Enter') open(e.id); if (k.key === 'Delete' && mayDelete) setArmed(true); }} aria-label={`${e.title}, Details öffnen, lange drücken zum Bearbeiten`}>
-      {inv === 'ask' && <AtMark id={e.id} />}
+      onClick={() => { if (longed.current) { longed.current = false; return; } if (armed) { setArmed(false); return; } if (inv === 'ask') askInvite(e.id); else open(e.id); }}
+      onKeyDown={k => { if (k.key === 'Enter') { if (inv === 'ask') askInvite(e.id); else open(e.id); } if (k.key === 'Delete' && mayDelete) setArmed(true); }} aria-label={`${e.title}, Details öffnen, lange drücken zum Bearbeiten`}>
       {armed && <button type="button" className="ev-del" onClick={del} aria-label={`${e.title} löschen`}><Icon name="trash" /></button>}
       <Time e={e} d={d} />
       <div style={{ minWidth: 0 }}>
