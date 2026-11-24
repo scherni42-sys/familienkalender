@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { demoLink, isPro, store, useSnapshot } from '../lib/store';
+import { ask } from './ask';
 import { micStart } from '../lib/micstart';
 import { native } from '../lib/native';
 import { SUPA } from '../lib/supabase';
@@ -87,13 +88,13 @@ export function Shell() {
   useEffect(() => {
     // Aus dem Widget (oder einer Benachrichtigung): erst alles Offene schließen, dann das Gewünschte zeigen
     const go = (o: string) => {
-      setSheet(null); setNonce(n => n + 1);
+      widgetOpen.current = false; setSheet(null); setNonce(n => n + 1);
       const [k, id] = o.split(':');
-      if (k === 'event' && snapRef.current.events.some(e => e.id === id)) setSheet({ kind: 'detail', id, day: o.split(':')[2] });
-      if (k === 'bdays') setSheet({ kind: 'bdays' });
-      if (k === 'bday' && id) setSheet({ kind: 'bdays', open: id });
-      if (k === 'bdadd') setSheet({ kind: 'bdays', adding: true });
-      if (k === 'cash') setSheet({ kind: 'cash', share: id === 'share', postfach: id === 'postfach' });
+      if (k === 'event' && snapRef.current.events.some(e => e.id === id)) openW({ kind: 'detail', id, day: o.split(':')[2] });
+      if (k === 'bdays') openW({ kind: 'bdays' });
+      if (k === 'bday' && id) openW({ kind: 'bdays', open: id });
+      if (k === 'bdadd') openW({ kind: 'bdays', adding: true });
+      if (k === 'cash') openW({ kind: 'cash', share: id === 'share', postfach: id === 'postfach' });
       if (k === 'cash' && id === 'postfach') { const r = o.split(':')[2]; if (r === 'ok') toast('Outlook ist verbunden. FamTO sieht jetzt alle 15 Minuten nach Rechnungen.'); else if (r) toast(r === 'abgebrochen' ? 'Die Microsoft-Anmeldung wurde abgebrochen.' : r === 'abgelaufen' ? 'Die Anmeldung hat zu lange gedauert. Bitte noch einmal.' : 'Outlook ließ sich nicht verbinden. Bitte noch einmal versuchen.'); }
       // Tag im Widget angetippt: leerer Termin an diesem Datum
       if (k === 'new' && /^\d{4}-\d{2}-\d{2}$/.test(id)) newOn(id);
@@ -178,6 +179,7 @@ export function Shell() {
       {sheet?.kind === 'shop' && <ShopSheet close={() => setSheet(null)} />}
       {sheet?.kind === 'bdays' && <BdaySheet key={sheet.open ?? ''} adding={sheet.adding} open={sheet.open} close={() => setSheet(null)} />}
       <PushBanner now={now} />
+      <SosBanner />
       {toastMsg && <div className="toast" role="status">{toastMsg}</div>}
     </div>
   );
