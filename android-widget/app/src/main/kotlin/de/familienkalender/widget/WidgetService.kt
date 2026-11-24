@@ -11,6 +11,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+// SOS am Board: Balken und Text in Rot
+private const val SOS_RED = 0xFFD32F2F.toInt()
+
 class WidgetService : RemoteViewsService() {
     override fun onGetViewFactory(intent: Intent): RemoteViewsFactory = Factory(applicationContext)
 }
@@ -114,6 +117,8 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                 setViewVisibility(R.id.av, if (av != null) View.VISIBLE else View.GONE)
                 // Chat mit Bild: kein farbiger Balken davor
                 setViewVisibility(R.id.bar, if (av != null && r.open.startsWith("chat:")) View.GONE else View.VISIBLE)
+                // SOS am Board: roter Balken
+                if (r.alert) setInt(R.id.bar, "setBackgroundColor", SOS_RED)
                 if (r.faded) {
                     // Vergangene Termine blass: Textfarbe mit Transparenz statt setAlpha (nicht in RemoteViews erlaubt)
                     val faded = (ctx.getColor(R.color.fg) and 0x00FFFFFF) or 0x73000000
@@ -123,7 +128,7 @@ private class Factory(private val ctx: Context) : RemoteViewsService.RemoteViews
                     setInt(R.id.bar, "setBackgroundColor", (r.color and 0x00FFFFFF) or 0x73000000)
                 } else {
                     // Zeilen werden wiederverwendet: normale Farben ausdrücklich zurücksetzen, sonst bleibt eine Zeile blass
-                    setTextColor(R.id.text, ctx.getColor(R.color.fg))
+                    setTextColor(R.id.text, if (r.alert) SOS_RED else ctx.getColor(R.color.fg))
                     setTextColor(R.id.time, ctx.getColor(R.color.fg))
                     setTextColor(R.id.drive, ctx.getColor(R.color.muted))
                 }
