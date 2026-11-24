@@ -14,20 +14,21 @@ const cors = {
 const schema = {
   type: 'object',
   additionalProperties: false,
-  required: ['answer', 'events', 'birthdays', 'receipts', 'action', 'target', 'new_text', 'dish', 'servings', 'dest', 'board_text', 'board_private'],
+  required: ['answer', 'events', 'birthdays', 'receipts', 'action', 'target', 'new_text', 'dish', 'servings', 'dest', 'board_text', 'board_private', 'web_query'],
   properties: {
     answer: { type: 'string', description: 'Kurze, freundliche Antwort auf Deutsch (1 bis 3 Sätze), duzen. Bei Listen nur zusammenfassen, die Termine zeigt die App darunter.' },
     events: { type: 'array', items: { type: 'integer' }, description: 'Nummern (#) der passenden Termine, chronologisch, höchstens 30' },
     birthdays: { type: 'array', items: { type: 'integer' }, description: 'Nummern (G#) passender Geburtstage' },
     receipts: { type: 'array', items: { type: 'integer' }, description: 'Nummern (B#) passender Belege aus dem Kassenbuch, neueste zuerst, höchstens 30' },
-    action: { type: 'string', enum: ['none', 'open', 'edit', 'new', 'bdays', 'shop', 'nav', 'board'], description: 'open: einen Termin anzeigen · edit: einen Termin bearbeiten · new: neuen Termin anlegen · bdays: Geburtstage öffnen · shop: Zutaten für ein Gericht auf den Einkaufszettel · nav: Navigation mit Google Maps starten · board: Nachricht ans Familien-Board heften · none: nur antworten' },
+    action: { type: 'string', enum: ['none', 'open', 'edit', 'new', 'bdays', 'shop', 'nav', 'board', 'web'], description: 'open: einen Termin anzeigen · edit: einen Termin bearbeiten · new: neuen Termin anlegen · bdays: Geburtstage öffnen · shop: Zutaten für ein Gericht auf den Einkaufszettel · nav: Navigation mit Google Maps starten · board: Nachricht ans Familien-Board heften · web: im Internet bzw. auf der Flugtafel nachsehen · none: nur antworten' },
     target: { type: ['integer', 'null'], description: 'Nummer des Termins für open/edit' },
     new_text: { type: ['string', 'null'], description: 'Bei new: der Terminwunsch als Satz, z. B. „Freitag 15 Uhr Zahnarzt Mia“' },
     dish: { type: ['string', 'null'], description: 'Bei shop: das Gericht, so wie genannt, z. B. „Wiener Schnitzel mit Kartoffelstampf“' },
     servings: { type: ['integer', 'null'], description: 'Bei shop: für wie viele Personen, wenn genannt, sonst null' },
     dest: { type: ['string', 'null'], description: 'Bei nav: das Ziel als Suchbegriff für Google Maps, z. B. „Supermarkt“, „Sparkasse Winsen (Luhe)“, „Hamburg Hauptbahnhof“; „nächste“ weglassen. Bei einem Termin als Ziel dessen Adresse bzw. Ort.' },
     board_text: { type: ['string', 'null'], description: 'Bei board: der Text der Nachricht, als vollständiger Satz in der Form, wie er am Board stehen soll, ohne „schreib ans Board“' },
-    board_private: { type: ['boolean', 'null'], description: 'Bei board: true, wenn die Nachricht nur für die fragende Person sein soll (privat, Erinnerung für mich), sonst false' }
+    board_private: { type: ['boolean', 'null'], description: 'Bei board: true, wenn die Nachricht nur für die fragende Person sein soll (privat, Erinnerung für mich), sonst false' },
+    web_query: { type: ['string', 'null'], description: 'Bei web: die Frage für die Internetsuche, vollständig und mit echtem Datum, z. B. „Ankunft der Flüge aus Stuttgart in Berlin BER am Mittwoch, 25.11.2026, zwischen 6 und 12 Uhr“' }
   }
 };
 
@@ -86,6 +87,7 @@ Regeln:
 - Fragen nach Rechnungen an eine Firma oder Person beantwortest du über „an …“ (Rechnungsempfänger) und „Firma …“ (zugeordnete Firma); Schreibweisen dürfen leicht abweichen.
 - Wer irgendwohin geführt, navigiert, geschickt oder gebracht werden will oder den Weg wissen möchte („Führe mich zum nächsten Supermarkt“, „Kannst du mich zur Sparkasse in Winsen schicken“, „Wie komme ich zu Omas Geburtstag“), bekommt action „nav“ mit dest; answer kurz, z. B. „Ich starte die Route zur Sparkasse in Winsen.“ Sag nie, dass du nicht navigieren kannst: die App öffnet Google Maps.
 - Wer etwas ans Board, an die Pinnwand oder als Nachricht an die Familie schreiben will oder eine private Erinnerung/Notiz für sich möchte, bekommt action „board“ mit board_text und board_private.
+- Wissensfragen, die nicht aus Terminen, Geburtstagen oder Kassenbuch zu beantworten sind (Flüge, Züge, Öffnungszeiten, Wetter, Veranstaltungen, Ergebnisse, Fakten), bekommen action „web“ mit web_query; answer leer lassen. Steht der passende Flug schon im Kalender, nimm die Flugnummer daraus in web_query auf.
 - Erfinde nichts. Findest du nichts Passendes, sag das freundlich und schlage eine andere Formulierung vor.
 - Datumsangaben in der Antwort deutsch, z. B. „Freitag, 6. November, 17 Uhr“.`,
         cache_control: { type: 'ephemeral' }
@@ -96,7 +98,25 @@ Regeln:
     if (response.stop_reason === 'refusal') throw new Error('abgelehnt');
     const block = response.content.find(b => b.type === 'text');
     if (!block || block.type !== 'text') throw new Error('Keine Antwort');
-    return json({ result: JSON.parse(block.text) });
+    const result = JSON.parse(block.text);
+    // Wissensfrage: die Funktion „websuche“ sieht im Internet bzw. auf der Flugtafel nach (sparsam, Claude Haiku 5.5).
+    // Die App zeigt die Antwort wie jede andere; action wird „none“, damit auch ältere App-Versionen sie anzeigen.
+    if (result.action === 'web' && result.web_query) {
+      const r = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/websuche`, {
+        method: 'POST',
+        headers: { Authorization: auth, apikey: Deno.env.get('SUPABASE_ANON_KEY')!, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: result.web_query, today, now })
+      });
+      const w = await r.json().catch(() => null) as { result?: { text: string; quellen: { titel: string; url: string }[]; termin: string | null }; error?: string } | null;
+      const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+      if (w?.result) {
+        const src = w.result.quellen.map(q => host(q.url)).filter(Boolean);
+        result.answer = w.result.text + (src.length ? ` (Quelle: ${[...new Set(src)].join(', ')})` : '');
+        result.web = w.result;
+      } else result.answer = w?.error ?? 'Die Internetsuche hat gerade nicht geklappt. Bitte gleich noch einmal.';
+      result.action = 'none';
+    }
+    return json({ result });
   } catch (e) {
     return json({ error: String(e instanceof Error ? e.message : e) }, 400);
   }
